@@ -26,6 +26,19 @@
         </header>
 
         <section class="control-section">
+          <h3>Bubble Layout (Size)</h3>
+          <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+            <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
+              W: <input type="number" id="canvas-width-input" value="32" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+            </label>
+            <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
+              H: <input type="number" id="canvas-height-input" value="32" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+            </label>
+          </div>
+          <p style="font-size: 10px; color: #666; margin: 0;">Simulates Native Bubble Width/Height</p>
+        </section>
+
+        <section class="control-section">
           <h3>Input Emulator</h3>
           <div id="input-emulator">
             <!-- Champs générés à partir du config.json -->
@@ -47,6 +60,13 @@
             <!-- Liste des événements déclenchés via triggerEvent -->
           </ul>
         </section>
+
+        <section class="control-section" id="plugin-actions-section" style="display: none;">
+          <h3>Plugin Actions</h3>
+          <div id="plugin-actions">
+            <!-- Boutons d'actions générés dynamiquement -->
+          </div>
+        </section>
       </aside>
 
       <!-- Zone Centrale : Rendu (Canvas) -->
@@ -54,12 +74,14 @@
         <div class="canvas-header">
           <h2>Canvas Preview</h2>
           <div class="canvas-modes">
-            <label><input type="radio" name="preview-mode" value="preview" checked> Editor Mode (Preview)</label>
-            <label><input type="radio" name="preview-mode" value="run"> Run Mode (Init/Update)</label>
+            <label><input type="radio" name="preview-mode" value="preview"> Editor Mode (Preview)</label>
+            <label><input type="radio" name="preview-mode" value="run" checked> Run Mode (Init/Update)</label>
           </div>
         </div>
-        <div id="canvas-container">
-          <!-- Le plugin sera injecté ici -->
+        <div id="canvas-wrapper" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #f3f4f6;">
+          <div id="canvas-container" style="background-color: white; border: 1px dashed #ccc; box-sizing: border-box; position: relative;">
+            <!-- Le plugin sera injecté ici -->
+          </div>
         </div>
       </main>
 

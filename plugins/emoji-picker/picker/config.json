@@ -10,10 +10,6 @@
       "type": "dropdown",
       "options": ["emoji", "hexcode", "shortcode"],
       "default": "emoji"
-    },
-    "size": {
-      "type": "integer",
-      "default": 32
     }
   }
 }

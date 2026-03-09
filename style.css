@@ -136,16 +136,13 @@ body {
 }
 
 #canvas-container {
-  flex: 1;
-  margin: 32px;
+  /* Ne force plus la taille : utilisé comme vraie "cellule Bubble" */
   background-color: white;
   border: 1px dashed #ccc;
   border-radius: 4px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  /* Dimensions par défaut qui ressemblent à un élément Bubble */
-  min-height: 200px;
   position: relative;
-  overflow: auto;
+  overflow: visible;
 }
 
 /* Sidebar Droite (Code) */

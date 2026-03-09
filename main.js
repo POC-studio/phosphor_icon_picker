@@ -8,6 +8,58 @@ let currentContext = null;
 async function initSandbox() {
   const pluginSelector = document.getElementById('plugin-selector');
   const elementSelector = document.getElementById('element-selector');
+  const widthInput = document.getElementById('canvas-width-input');
+  const heightInput = document.getElementById('canvas-height-input');
+  const canvasContainer = document.getElementById('canvas-container');
+  
+  // Initialiser la taille du canvas
+  function updateCanvasSize() {
+    if (canvasContainer && widthInput && heightInput) {
+      canvasContainer.style.width = `${widthInput.value}px`;
+      canvasContainer.style.height = `${heightInput.value}px`;
+    }
+  }
+  
+  widthInput.addEventListener('input', () => {
+    updateCanvasSize();
+    // Relancer update pour prendre en compte la nouvelle taille
+    if (currentInstance) {
+      const mode = document.querySelector('input[name="preview-mode"]:checked').value;
+      if (mode === 'run') {
+        const configModule = import(`./plugins/${pluginSelector.value}/${elementSelector.value}/config.json`)
+          .then(m => {
+            const properties = getMockProperties(m.default);
+            import(`./plugins/${pluginSelector.value}/${elementSelector.value}/update.js`)
+              .then(updateModule => {
+                if (updateModule.default) updateModule.default(currentInstance, properties, currentContext);
+              });
+          });
+      } else {
+        loadPlugin(pluginSelector.value, elementSelector.value); // Recharger en preview
+      }
+    }
+  });
+  
+  heightInput.addEventListener('input', () => {
+    updateCanvasSize();
+    if (currentInstance) {
+      const mode = document.querySelector('input[name="preview-mode"]:checked').value;
+      if (mode === 'run') {
+        const configModule = import(`./plugins/${pluginSelector.value}/${elementSelector.value}/config.json`)
+          .then(m => {
+            const properties = getMockProperties(m.default);
+            import(`./plugins/${pluginSelector.value}/${elementSelector.value}/update.js`)
+              .then(updateModule => {
+                if (updateModule.default) updateModule.default(currentInstance, properties, currentContext);
+              });
+          });
+      } else {
+        loadPlugin(pluginSelector.value, elementSelector.value); // Recharger en preview
+      }
+    }
+  });
+  
+  updateCanvasSize(); // Set initial size
   
   function updateElementOptions() {
     elementSelector.innerHTML = '';
@@ -63,12 +115,24 @@ async function loadPlugin(pluginName, elementName) {
   const mode = document.querySelector('input[name="preview-mode"]:checked').value;
   
   try {
-    // 1. Charger la config
+    // 1. Charger la config de l'élément
     const configModule = await import(`./plugins/${pluginName}/${elementName}/config.json`);
     const config = configModule.default;
     
-    // Configurer l'UI en fonction de la config
+    // 1b. Charger la config globale du plugin
+    let pluginConfig = {};
+    try {
+      const pluginConfigModule = await import(`./plugins/${pluginName}/config.json`);
+      pluginConfig = pluginConfigModule.default;
+    } catch (e) {
+      // Ignorer si le fichier n'existe pas
+    }
+    
+    // Configurer l'UI en fonction de la config de l'élément
     setupInputEmulator(config, pluginName, elementName);
+    
+    // Configurer les actions spécifiques au plugin global
+    setupActions(pluginConfig, pluginName);
     
     // 2. Charger le code source (pour affichage dans la sidebar droite)
     // Vite permet d'importer le contenu brut d'un fichier avec ?raw
@@ -87,7 +151,8 @@ async function loadPlugin(pluginName, elementName) {
       // En mode Editeur (Preview)
       const previewModule = await import(`./plugins/${pluginName}/${elementName}/preview.js`);
       if (previewModule.default) {
-        previewModule.default(currentInstance, currentContext);
+        const properties = getMockProperties(config);
+        previewModule.default(currentInstance, properties);
       }
     } else {
       // En mode Run (Initialize + Update)
@@ -204,9 +269,105 @@ function setupInputEmulator(config, pluginName, elementName) {
   }
 }
 
+// Configurer les actions spécifiques au plugin
+function setupActions(config, pluginName) {
+  const section = document.getElementById('plugin-actions-section');
+  const container = document.getElementById('plugin-actions');
+  
+  container.innerHTML = '';
+  
+  if (!config.actions || config.actions.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  config.actions.forEach(action => {
+    const btn = document.createElement('button');
+    btn.textContent = action.label;
+    btn.className = 'action-btn';
+    btn.style.width = '100%';
+    btn.style.padding = '10px';
+    btn.style.marginBottom = '8px';
+    btn.style.backgroundColor = '#2563eb'; // Primary blue
+    btn.style.color = 'white';
+    btn.style.border = 'none';
+    btn.style.borderRadius = '6px';
+    btn.style.cursor = 'pointer';
+    btn.style.textAlign = 'center';
+    btn.style.fontWeight = '600';
+    btn.style.transition = 'background-color 0.2s';
+    
+    btn.addEventListener('mouseover', () => {
+      if (!btn.disabled) btn.style.backgroundColor = '#1d4ed8'; // Darker blue
+    });
+    
+    btn.addEventListener('mouseout', () => {
+      if (!btn.disabled) btn.style.backgroundColor = '#2563eb';
+    });
+    
+    btn.addEventListener('click', async () => {
+      try {
+        const originalText = btn.textContent;
+        btn.textContent = 'Running...';
+        btn.disabled = true;
+        btn.style.backgroundColor = '#93c5fd'; // Light blue when disabled
+        
+        // Importer et exécuter le script
+        const actionModule = await import(`./plugins/${pluginName}/${action.file}`);
+        if (actionModule.default) {
+          const result = await actionModule.default();
+          
+          if (result && result.code) {
+            // Afficher le résultat dans la zone d'export
+            displayCode(`Result: ${action.id}`, result.code);
+            
+            // Faire clignoter le bouton en vert
+            btn.textContent = 'Success!';
+            btn.style.backgroundColor = '#10b981'; // Green
+          }
+        }
+        
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.disabled = false;
+          btn.style.backgroundColor = '#2563eb';
+        }, 2000);
+        
+      } catch (err) {
+        console.error(`Error running action ${action.id}:`, err);
+        btn.textContent = 'Error!';
+        btn.style.backgroundColor = '#ef4444'; // Red
+        
+        setTimeout(() => {
+          btn.textContent = action.label;
+          btn.disabled = false;
+          btn.style.backgroundColor = '#2563eb';
+        }, 3000);
+      }
+    });
+    
+    container.appendChild(btn);
+  });
+}
+
 // Simuler les properties de Bubble pour la fonction Update
 function getMockProperties(config) {
-  const properties = {};
+  const properties = {
+    // On simule l'objet bubble avec des fonctions pour tester le cas réel Bubble
+    bubble: {
+      width: () => {
+        const container = document.getElementById('canvas-container');
+        return container ? container.offsetWidth : 32;
+      },
+      height: () => {
+        const container = document.getElementById('canvas-container');
+        return container ? container.offsetHeight : 32;
+      }
+    }
+  };
+  
   if (config.properties) {
     for (const [key, propConfig] of Object.entries(config.properties)) {
       // Chercher si un input existe pour cette propriété

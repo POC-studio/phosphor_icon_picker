@@ -242,7 +242,10 @@ export default function(instance, context) {
   });
 
   // Fermer le dropdown au scroll pour éviter qu'il flotte n'importe où
-  window.addEventListener('scroll', () => {
+  window.addEventListener('scroll', (e) => {
+    // Si on scroll à l'intérieur du dropdown lui-même (ex: liste d'icônes), on ne ferme pas !
+    if (dropdown.contains(e.target)) return;
+    
     if (dropdown.style.display !== 'none') {
       dropdown.style.display = 'none';
       instance.publishState('is_open', false);

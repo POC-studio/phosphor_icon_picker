@@ -14,10 +14,6 @@
     "color": {
       "type": "text",
       "default": "#333333"
-    },
-    "size": {
-      "type": "integer",
-      "default": 32
     }
   }
 }
