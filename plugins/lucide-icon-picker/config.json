@@ -1,0 +1,12 @@
+{
+  "name": "Lucide Icon Picker",
+  "description": "Elevate your Bubble applications with the ultimate Lucide Icons plugin, meticulously designed to bring thousands of premium, pixel-perfect icons straight to your design environment. Whether you're building a sleek dashboard, a vibrant landing page, or a complex web app, this plugin offers an unparalleled library of crisp, scalable vector icons that adapt seamlessly to your brand's unique identity. Say goodbye to the hassle of importing custom SVG files manually or settling for generic default libraries.\n\nWith our Lucide Icon Picker and Viewer elements, you gain access to over 1,000 top-tier icons with customizable stroke weight (Thin, Light, Regular, Bold). This extensive variety ensures that your user interface remains consistent, modern, and highly professional across every single page and state. The integrated blazing-fast search feature allows you and your users to effortlessly find the exact icon needed in milliseconds, enhancing the UX of your own application's builders or profile customization screens.\n\nBuilt with performance and flexibility in mind, this plugin is completely lightweight and optimized for Bubble. Every icon can be deeply customized directly within the Bubble editor—adjust colors, dynamically bind sizes to your database, and switch stroke weights on the fly to match hover states or active tab indicators. Give your users the premium experience they deserve and make your application stand out with beautiful, responsive, and easy-to-implement iconography using the industry-standard Lucide Icons collection!",
+  "actions": [
+    {
+      "id": "update-icons",
+      "label": "Get Latest Lucide Icons List",
+      "type": "frontend_script",
+      "file": "actions/update-icons.js"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+const e="Phosphor Icon Viewer",t=["is_clicked"],o={initial_icon:{type:"text",default:"smiley"},style:{type:"dropdown",options:["regular","thin","light","bold","fill","duotone"],default:"regular"},color:{type:"text",default:"#333333"}},n={name:e,events:t,properties:o};export{n as default,t as events,e as name,o as properties};

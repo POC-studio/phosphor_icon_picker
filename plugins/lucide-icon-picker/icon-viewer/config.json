@@ -1,0 +1,18 @@
+{
+  "name": "Lucide Icon Viewer",
+  "events": ["is_clicked"],
+  "properties": {
+    "initial_icon": {
+      "type": "text",
+      "default": "smile"
+    },
+    "stroke_width": {
+      "type": "text",
+      "default": "2"
+    },
+    "color": {
+      "type": "text",
+      "default": "#333333"
+    }
+  }
+}

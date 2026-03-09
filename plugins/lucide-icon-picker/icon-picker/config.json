@@ -1,0 +1,26 @@
+{
+  "name": "Lucide Icon Picker",
+  "events": ["icon_selected"],
+  "properties": {
+    "initial_icon": {
+      "type": "text",
+      "default": "smile"
+    },
+    "stroke_width": {
+      "type": "text",
+      "default": "2"
+    },
+    "color": {
+      "type": "text",
+      "default": "#fbbf24"
+    },
+    "search_placeholder": {
+      "type": "text",
+      "default": "Search..."
+    },
+    "allowed_icons": {
+      "type": "long_text",
+      "default": ""
+    }
+  }
+}

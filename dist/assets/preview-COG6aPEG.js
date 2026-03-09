@@ -1,4 +1,4 @@
-// preview.js
+const n=`// preview.js
 export default function(instance, properties) {
   // Charger la librairie Phosphor Icons pour le rendu dans l'éditeur Bubble
   if (!document.getElementById('phosphor-script')) {
@@ -29,8 +29,8 @@ export default function(instance, properties) {
   }
   const size = Math.min(width || 32, height || 32);
   
-  mainIcon.style.fontSize = `${size}px`;
-  mainIcon.style.color = '#fbbf24';
+  mainIcon.style.fontSize = \`\${size}px\`;
+  mainIcon.style.color = '#333';
   mainIcon.style.lineHeight = '1';
   mainIcon.style.display = 'flex';
   mainIcon.style.alignItems = 'center';
@@ -41,3 +41,4 @@ export default function(instance, properties) {
   container.appendChild(mainIcon);
   instance.canvas.append(container);
 }
+`;export{n as default};

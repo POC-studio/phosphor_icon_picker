@@ -1,0 +1,1 @@
+const e="Lucide Icon Picker",t=["icon_selected"],o={initial_icon:{type:"text",default:"smile"},stroke_width:{type:"text",default:"2"},color:{type:"text",default:"#fbbf24"},search_placeholder:{type:"text",default:"Search..."},allowed_icons:{type:"long_text",default:""}},c={name:e,events:t,properties:o};export{c as default,t as events,e as name,o as properties};
