@@ -1,0 +1,19 @@
+{
+  "name": "Emoji Picker",
+  "events": ["emoji_selected"],
+  "properties": {
+    "initial_emoji": {
+      "type": "text",
+      "default": ""
+    },
+    "return_format": {
+      "type": "dropdown",
+      "options": ["emoji", "hexcode", "shortcode"],
+      "default": "emoji"
+    },
+    "size": {
+      "type": "integer",
+      "default": 32
+    }
+  }
+}

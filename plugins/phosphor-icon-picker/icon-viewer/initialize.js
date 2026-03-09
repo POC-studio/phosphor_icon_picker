@@ -9,14 +9,18 @@ export default function(instance, context) {
 
   // 2. Créer le conteneur principal
   const container = document.createElement('div');
-  container.style.display = 'inline-flex';
+  container.style.width = '100%';
+  container.style.height = '100%';
+  container.style.display = 'flex';
   container.style.alignItems = 'center';
   container.style.justifyContent = 'center';
   
   // Helper pour obtenir la classe complète (avec le style/poids)
   instance.data.getIconClass = function(iconName, style) {
-    const weightClass = style === 'regular' ? 'ph' : `ph-${style}`;
-    return `${weightClass} ph-${iconName}`;
+    const cleanStyle = (style || 'regular').trim().toLowerCase();
+    const cleanIcon = (iconName || '').trim().toLowerCase();
+    const weightClass = cleanStyle === 'regular' ? 'ph' : `ph-${cleanStyle}`;
+    return `${weightClass} ph-${cleanIcon}`;
   };
   
   instance.data.currentStyle = 'regular';
@@ -29,6 +33,12 @@ export default function(instance, context) {
   mainIcon.style.fontSize = `${instance.data.currentSize}px`;
   mainIcon.style.color = instance.data.currentColor;
   mainIcon.style.cursor = 'pointer'; // Pour indiquer que c'est cliquable
+  mainIcon.style.lineHeight = '1';
+  mainIcon.style.display = 'flex';
+  mainIcon.style.alignItems = 'center';
+  mainIcon.style.justifyContent = 'center';
+  mainIcon.style.width = '100%';
+  mainIcon.style.height = '100%';
   
   // Événement de clic : déclencher l'événement Bubble
   mainIcon.addEventListener('click', () => {

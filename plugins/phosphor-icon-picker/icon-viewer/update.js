@@ -9,7 +9,11 @@ export default function(instance, properties, context) {
     const color = properties.color || '#333333';
     instance.data.currentColor = color;
     
-    const size = properties.size || 32;
+    // On utilise la taille native de l'élément Bubble s'il est disponible (responsive)
+    // Sinon on retombe sur properties.size au cas où il y ait encore le paramètre
+    const size = (properties.bubble && properties.bubble.width) 
+                 ? Math.min(properties.bubble.width, properties.bubble.height) 
+                 : (properties.size || 32);
     instance.data.currentSize = size;
     
     if (properties.initial_icon) {

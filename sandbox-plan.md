@@ -1,7 +1,7 @@
 # Bubble Plugin Local Sandbox
 
 ## Objectif
-Cet environnement de développement local sous Vite (Vanilla JS) permet de simuler l'API Bubble et de développer des plugins (comme le "Phosphor Icon Picker") de manière isolée, rapide et avec Hot Module Replacement (HMR).
+Cet environnement de développement local sous Vite (Vanilla JS) permet de simuler l'API Bubble et de développer des plugins (comme le "Phosphor Icon Picker" ou le "Emoji Picker") de manière isolée, rapide et avec Hot Module Replacement (HMR).
 
 ## Lancer le projet en local
 
@@ -20,29 +20,28 @@ Cet environnement de développement local sous Vite (Vanilla JS) permet de simul
 
 ## 1. Structure du Projet
 
-L'architecture est pensée pour accueillir plusieurs plugins et plusieurs éléments par plugin. Actuellement, le projet contient le plugin `phosphor-icon-picker` qui possède deux éléments (`icon-picker` et `icon-viewer`).
+L'architecture est pensée pour accueillir plusieurs plugins et plusieurs éléments par plugin. Actuellement, le projet contient le plugin `phosphor-icon-picker` (avec deux éléments) et le plugin `emoji-picker` (avec un élément).
 
 ```text
 /bubble-sandbox
-├── package.json               # Dépendances (Vite, @phosphor-icons/core)
+├── package.json               # Dépendances (Vite, @phosphor-icons/core, etc.)
 ├── index.html                 # Interface principale (Sidebar L + Canvas + Sidebar R)
 ├── style.css                  # Layout Flexbox principal et styles UI
 ├── main.js                    # Moteur de l'émulateur (charge le plugin actif)
 ├── /lib
 │   └── bubble-mock.js         # Définition des objets Bubble simulés (instance, context)
 └── /plugins
-    └── /phosphor-icon-picker  # Dossier du plugin "Phosphor Icon Picker"
-        ├── shared.js          # Code partagé / fonctions utilitaires du plugin
-        ├── /icon-picker       # Élément 1 : Le sélecteur d'icônes avec dropdown
-        │   ├── config.json    # Propriétés de l'élément (couleur, taille, filtre...)
-        │   ├── initialize.js  # Script Bubble 'Initialize' (DOM, events)
-        │   ├── update.js      # Script Bubble 'Update' (Réactivité aux propriétés)
-        │   └── preview.js     # Script Bubble 'Preview' (Rendu statique éditeur)
-        └── /icon-viewer       # Élément 2 : Le simple afficheur d'icône
-            ├── config.json    
-            ├── initialize.js  
-            ├── update.js      
-            └── preview.js     
+    ├── /phosphor-icon-picker  # Dossier du plugin "Phosphor Icon Picker"
+    │   ├── shared.js          
+    │   ├── /icon-picker       # Élément 1 : Le sélecteur d'icônes avec dropdown
+    │   └── /icon-viewer       # Élément 2 : Le simple afficheur d'icône
+    └── /emoji-picker          # Dossier du plugin "Emoji Picker"
+        ├── shared.js          
+        └── /picker            # Élément 1 : Le sélecteur d'emojis
+            ├── config.json    # Propriétés de l'élément (initial_emoji, return_format...)
+            ├── initialize.js  # Script Bubble 'Initialize' (DOM, events emoji-picker)
+            ├── update.js      # Script Bubble 'Update' (Réactivité aux propriétés)
+            └── preview.js     # Script Bubble 'Preview' (Rendu statique éditeur)
 ```
 
 ---
@@ -83,9 +82,20 @@ L'interface de la sandbox est divisée en 3 zones distinctes :
 
 ---
 
-## 4. Fonctionnalités actuelles du Phosphor Icon Picker
+## 4. Fonctionnalités actuelles des Plugins
+
+### Phosphor Icon Picker
 * **Intégration native** : Ajoute automatiquement la librairie d'icônes au DOM.
 * **Dropdown dynamique** : Le Picker affiche un menu défilant contenant les +1500 icônes Phosphor récupérées via npm.
 * **Barre de recherche** : Intégrée au dropdown, permet de filtrer instantanément les icônes.
 * **Propriétés dynamiques** : Taille (px), Couleur, Style (regular, fill, duotone, etc.).
 * **Restriction d'icônes** : Le champ `allowed_icons` permet au développeur Bubble d'entrer une liste d'icônes (ex: `house, user, star`) pour restreindre drastiquement le choix proposé à l'utilisateur final.
+
+### Emoji Picker
+* **Web Component** : Utilise la librairie robuste `emoji-picker-element` pour offrir une interface native de sélection d'émojis complète (catégories, recherche, skin tones).
+* **Styles Cohérents** : L'affichage (bordures, ombres, arrondis) a été aligné avec le style de la bibliothèque pour maintenir une identité visuelle harmonieuse ("funky").
+* **État vide** : Affiche un smiley grisé "🙂" lorsqu'aucun emoji initial n'est fourni.
+* **Formats de Retour** : Permet à l'utilisateur de choisir le format de la donnée publiée dans Bubble via `return_format` :
+  * `emoji` (ex: 🚀)
+  * `hexcode` (ex: 1F680)
+  * `shortcode` (ex: rocket)

@@ -9,8 +9,23 @@ async function initSandbox() {
   const pluginSelector = document.getElementById('plugin-selector');
   const elementSelector = document.getElementById('element-selector');
   
+  function updateElementOptions() {
+    elementSelector.innerHTML = '';
+    if (pluginSelector.value === 'phosphor-icon-picker') {
+      elementSelector.innerHTML = `
+        <option value="icon-picker">Icon Picker</option>
+        <option value="icon-viewer">Icon Viewer</option>
+      `;
+    } else if (pluginSelector.value === 'emoji-picker') {
+      elementSelector.innerHTML = `
+        <option value="picker">Emoji Picker</option>
+      `;
+    }
+  }
+
   // Ecouteurs pour les changements
   pluginSelector.addEventListener('change', () => {
+    updateElementOptions();
     loadPlugin(pluginSelector.value, elementSelector.value);
   });
   
@@ -26,6 +41,9 @@ async function initSandbox() {
     });
   });
 
+  // Initialiser les options du deuxième dropdown
+  updateElementOptions();
+  
   // Charger le plugin par défaut
   loadPlugin(pluginSelector.value, elementSelector.value);
 }

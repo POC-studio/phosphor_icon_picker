@@ -9,7 +9,11 @@ export default function(instance, properties, context) {
     const color = properties.color || '#333333';
     instance.data.currentColor = color;
     
-    const size = properties.size || 32;
+    // On utilise la taille native de l'élément Bubble s'il est disponible (responsive)
+    // Sinon on retombe sur properties.size au cas où il y ait encore le paramètre
+    const size = (properties.bubble && properties.bubble.width) 
+                 ? Math.min(properties.bubble.width, properties.bubble.height) 
+                 : (properties.size || 32);
     instance.data.currentSize = size;
     
     // Initialisation de l'état "is_open" s'il n'existe pas encore
@@ -34,7 +38,7 @@ export default function(instance, properties, context) {
     
     // Gérer la liste des icônes autorisées
     if (properties.allowed_icons !== undefined) {
-      const rawAllowed = properties.allowed_icons.trim();
+      const rawAllowed = (properties.allowed_icons || '').trim();
       if (rawAllowed === '') {
         // Si vide, on autorise tout
         instance.data.allowedIcons = null;
@@ -64,6 +68,8 @@ export default function(instance, properties, context) {
           // 1. Elle matche la barre de recherche
           // 2. ET (aucune restriction OU elle est dans la liste des autorisées)
           const matchesSearch = name.includes(searchTerm);
+          // FIX: allowedIcons is a Set, so we should check its size to see if it's empty, 
+          // or just check if it's null as we set it earlier
           const isAllowed = instance.data.allowedIcons === null || instance.data.allowedIcons.has(name);
           
           if (matchesSearch && isAllowed) {

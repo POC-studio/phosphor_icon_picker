@@ -19,7 +19,9 @@ export default function(instance, properties) {
   
   const mainIcon = document.createElement('i');
   mainIcon.className = 'ph ph-smiley';
-  mainIcon.style.fontSize = '32px';
+  // On récupère dynamiquement la taille dans l'éditeur
+  const size = (properties.bubble && properties.bubble.width) ? Math.min(properties.bubble.width, properties.bubble.height) : 32;
+  mainIcon.style.fontSize = `${size}px`;
   mainIcon.style.color = '#333';
   
   container.appendChild(mainIcon);
