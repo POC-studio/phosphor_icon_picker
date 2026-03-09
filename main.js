@@ -337,12 +337,27 @@ function setupActions(config, pluginName) {
           const result = await actionModule.default();
           
           if (result && result.code) {
-            // Afficher le résultat dans la zone d'export
             displayCode(`Result: ${action.id}`, result.code);
-            
-            // Faire clignoter le bouton en vert
             btn.textContent = 'Success!';
-            btn.style.backgroundColor = '#10b981'; // Green
+            btn.style.backgroundColor = '#10b981';
+
+            // Pour lucide-icon-picker / update-icons : mettre à jour initialize.js et copier dans le presse-papiers
+            if (pluginName === 'lucide-icon-picker' && action.id === 'update-icons' && result.icons && result.icons.length > 0) {
+              try {
+                const initRaw = await import(`./plugins/${pluginName}/icon-picker/initialize.js?raw`);
+                let initContent = initRaw.default;
+                const newIconsBlock = '  const ICONS = [\n    ' + result.icons.map((icon) => `"${icon}"`).join(',\n    ') + '\n  ];';
+                initContent = initContent.replace(/  const ICONS = \[[\s\S]*?\n  \];/, newIconsBlock);
+                await navigator.clipboard.writeText(initContent);
+                const notice = document.createElement('div');
+                notice.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:9999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-width:90%;text-align:center;';
+                notice.textContent = 'initialize.js mis à jour copié dans le presse-papiers. Collez (Ctrl+V) dans le fichier pour remplacer.';
+                document.body.appendChild(notice);
+                setTimeout(() => notice.remove(), 6000);
+              } catch (e) {
+                console.warn('Could not update initialize.js / clipboard:', e);
+              }
+            }
           }
         }
         

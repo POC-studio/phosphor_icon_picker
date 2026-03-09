@@ -44,6 +44,7 @@ const LUCIDE_ICONS = [
       success: true,
       code: formattedCode,
       count: icons.length,
+      icons,
     };
   } catch (error) {
     console.error("Error fetching Lucide icons:", error);
