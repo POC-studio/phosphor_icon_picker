@@ -107,6 +107,18 @@ async function loadPlugin(pluginName, elementName) {
   const canvasContainer = document.getElementById('canvas-container');
   canvasContainer.innerHTML = '';
   
+  // Réinitialiser le State Monitor pour ce nouvel élément
+  const stateMonitor = document.getElementById('state-monitor');
+  if (stateMonitor) {
+    stateMonitor.innerHTML = '<p class="empty-state">No states published yet.</p>';
+  }
+  
+  // Réinitialiser le Event Log pour ce nouvel élément
+  const eventLog = document.getElementById('event-log');
+  if (eventLog) {
+    eventLog.innerHTML = '';
+  }
+  
   // Réinitialiser les objets Bubble
   currentInstance = new BubbleInstance(canvasContainer);
   currentContext = new BubbleContext();
