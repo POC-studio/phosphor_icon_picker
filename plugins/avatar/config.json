@@ -1,0 +1,4 @@
+{
+  "name": "Avatar",
+  "description": "A circular avatar that displays either a user image (cover) or the first letter of the username, with configurable style and colors."
+}

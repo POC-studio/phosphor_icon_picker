@@ -77,6 +77,10 @@ async function initSandbox() {
       elementSelector.innerHTML = `
         <option value="picker">Emoji Picker</option>
       `;
+    } else if (pluginSelector.value === 'avatar') {
+      elementSelector.innerHTML = `
+        <option value="view">Avatar</option>
+      `;
     }
   }
 
