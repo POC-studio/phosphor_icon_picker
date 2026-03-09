@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bubble Plugin Sandbox</title>
+    <!-- Import de jQuery (requis par l'API Bubble) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Import de Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Sidebar Gauche : Contrôles -->
+      <aside class="sidebar left-sidebar">
+        <header style="display: flex; flex-direction: column; gap: 8px;">
+          <select id="plugin-selector">
+            <option value="phosphor-icon-picker">Phosphor Icon Picker</option>
+          </select>
+          <select id="element-selector">
+            <option value="icon-picker">Icon Picker</option>
+            <option value="icon-viewer">Icon Viewer</option>
+          </select>
+        </header>
+
+        <section class="control-section">
+          <h3>Input Emulator</h3>
+          <div id="input-emulator">
+            <!-- Champs générés à partir du config.json -->
+            <p class="empty-state">No properties defined yet.</p>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h3>State Monitor</h3>
+          <div id="state-monitor">
+            <!-- Liste des états publiés via publishState -->
+            <p class="empty-state">No states published yet.</p>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h3>Event Log</h3>
+          <ul id="event-log">
+            <!-- Liste des événements déclenchés via triggerEvent -->
+          </ul>
+        </section>
+      </aside>
+
+      <!-- Zone Centrale : Rendu (Canvas) -->
+      <main class="canvas-area">
+        <div class="canvas-header">
+          <h2>Canvas Preview</h2>
+          <div class="canvas-modes">
+            <label><input type="radio" name="preview-mode" value="preview" checked> Editor Mode (Preview)</label>
+            <label><input type="radio" name="preview-mode" value="run"> Run Mode (Init/Update)</label>
+          </div>
+        </div>
+        <div id="canvas-container">
+          <!-- Le plugin sera injecté ici -->
+        </div>
+      </main>
+
+      <!-- Sidebar Droite : Code source et export -->
+      <aside class="sidebar right-sidebar">
+        <header>
+          <h2>Export Code</h2>
+        </header>
+        <div id="code-exports">
+          <!-- Contenu généré dynamiquement -->
+        </div>
+      </aside>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

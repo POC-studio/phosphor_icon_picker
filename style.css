@@ -1,0 +1,229 @@
+:root {
+  --bg-color: #f3f4f6;
+  --sidebar-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+  --accent-color: #3b82f6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Sidebars communes */
+.sidebar {
+  width: 300px;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.right-sidebar {
+  width: 350px;
+  border-right: none;
+  border-left: 1px solid var(--border-color);
+}
+
+.sidebar header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar header h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+}
+
+.sidebar select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+/* Sections des contrôles (Gauche) */
+.control-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.control-section h3 {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+}
+
+.empty-state {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+#event-log {
+  list-style: none;
+  font-family: monospace;
+  font-size: 0.85rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#event-log li {
+  padding: 4px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+#state-monitor {
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+.state-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.state-item .name {
+  font-weight: bold;
+}
+
+/* Zone Centrale (Canvas) */
+.canvas-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #f9fafb;
+}
+
+.canvas-header {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--sidebar-bg);
+}
+
+.canvas-header h2 {
+  font-size: 1.1rem;
+}
+
+.canvas-modes {
+  display: flex;
+  gap: 16px;
+  font-size: 0.9rem;
+}
+
+#canvas-container {
+  flex: 1;
+  margin: 32px;
+  background-color: white;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  /* Dimensions par défaut qui ressemblent à un élément Bubble */
+  min-height: 200px;
+  position: relative;
+  overflow: auto;
+}
+
+/* Sidebar Droite (Code) */
+.code-block-wrapper {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.code-block-header h3 {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.copy-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-btn:hover {
+  background-color: #f3f4f6;
+  color: var(--text-main);
+}
+
+.copy-btn.copied {
+  color: #10b981;
+}
+
+pre {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  max-height: 150px;
+  overflow-y: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: max-height 0.3s ease;
+}
+
+pre::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(transparent, #1e1e1e);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+pre.expanded {
+  max-height: 2000px; /* Grande valeur pour permettre l'expansion */
+  overflow-y: auto;
+  cursor: default;
+}
+
+pre.expanded::after {
+  opacity: 0;
+}

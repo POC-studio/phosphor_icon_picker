@@ -1,0 +1,31 @@
+{
+  "name": "Phosphor Icon Picker",
+  "events": ["icon_selected"],
+  "properties": {
+    "initial_icon": {
+      "type": "text",
+      "default": "smiley"
+    },
+    "style": {
+      "type": "dropdown",
+      "options": ["regular", "thin", "light", "bold", "fill", "duotone"],
+      "default": "regular"
+    },
+    "color": {
+      "type": "text",
+      "default": "#333333"
+    },
+    "size": {
+      "type": "integer",
+      "default": 32
+    },
+    "search_placeholder": {
+      "type": "text",
+      "default": "Search..."
+    },
+    "allowed_icons": {
+      "type": "long_text",
+      "default": ""
+    }
+  }
+}
