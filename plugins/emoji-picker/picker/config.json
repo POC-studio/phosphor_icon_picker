@@ -6,6 +6,10 @@
       "type": "text",
       "default": ""
     },
+    "search_placeholder": {
+      "type": "text",
+      "default": "Search..."
+    },
     "return_format": {
       "type": "dropdown",
       "options": ["emoji", "hexcode", "shortcode"],

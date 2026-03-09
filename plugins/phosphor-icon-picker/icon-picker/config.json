@@ -13,7 +13,7 @@
     },
     "color": {
       "type": "text",
-      "default": "#333333"
+      "default": "#fbbf24"
     },
     "search_placeholder": {
       "type": "text",

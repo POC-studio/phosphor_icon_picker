@@ -23,6 +23,8 @@ export default function(instance, properties) {
   
   mainEmoji.style.fontSize = `${size}px`;
   mainEmoji.style.lineHeight = '1';
+  // Même correction visuelle qu'en run mode, offset encore plus fin
+  mainEmoji.style.transform = 'translateY(0.09em)';
   mainEmoji.style.display = 'flex';
   mainEmoji.style.alignItems = 'center';
   mainEmoji.style.justifyContent = 'center';

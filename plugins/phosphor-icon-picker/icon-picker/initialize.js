@@ -36,7 +36,7 @@ export default function(instance, context) {
   };
   
   instance.data.currentStyle = 'regular';
-  instance.data.currentColor = '#333333';
+  instance.data.currentColor = '#fbbf24';
   instance.data.currentSize = 32;
   instance.data.dropdownIcons = [];
   instance.data.allIcons = ICONS;

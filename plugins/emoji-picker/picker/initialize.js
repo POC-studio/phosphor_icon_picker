@@ -21,6 +21,7 @@ export default function(instance, context) {
   // Variables d'état
   instance.data.currentSize = 32;
   instance.data.returnFormat = 'emoji';
+  instance.data.searchPlaceholder = 'Search...';
 
   // 3. Créer le bouton d'affichage principal
   const mainEmoji = document.createElement('span');
@@ -32,7 +33,10 @@ export default function(instance, context) {
   mainEmoji.style.justifyContent = 'center';
   mainEmoji.style.width = '100%';
   mainEmoji.style.height = '100%';
+  // Line-height normal + translation relative à la taille de la police
   mainEmoji.style.lineHeight = '1';
+  // Ajustement ultra léger pour être quasi parfaitement centré
+  mainEmoji.style.transform = 'translateY(0.09em)';
   mainEmoji.style.borderRadius = '8px';
   mainEmoji.style.transition = 'background-color 0.2s';
   mainEmoji.style.opacity = '0.5'; // Grisé par défaut (vide)
@@ -47,7 +51,8 @@ export default function(instance, context) {
   popup.style.position = 'absolute';
   popup.style.top = '100%';
   popup.style.left = '0';
-  popup.style.marginTop = '8px';
+  // Pas de marge verticale par défaut : on collera le popup à l'emoji via getBoundingClientRect
+  popup.style.marginTop = '0px';
   popup.style.display = 'none'; // Caché par défaut
   popup.style.zIndex = '1000';
   // Ajout de l'ombre et des arrondis directement sur le conteneur pour simuler notre style
@@ -139,6 +144,12 @@ export default function(instance, context) {
           margin: 0 !important;
         }
 
+        /* Aligner parfaitement le soulignement bleu (tab selected)
+           avec les emojis au-dessus : même padding gauche/droite */
+        .indicator {
+          margin: 0 8px !important;
+        }
+
         /* Masquer la div de padding qui crée un espace blanc gênant en haut */
         .pad-top {
           display: none !important;
@@ -148,8 +159,22 @@ export default function(instance, context) {
         #skintone-button, .skintone-button-wrapper {
           display: none !important;
         }
+
+        /* Masquer la ligne tout en bas (favorites / recently used) */
+        .favorites {
+          display: none !important;
+        }
       `;
       pickerElement.shadowRoot.appendChild(style);
+    }
+
+    // Forcer la couleur de peau par défaut sur "default" (emoji jaune)
+    if (typeof pickerElement.setPreferredSkinTone === 'function') {
+      try {
+        pickerElement.setPreferredSkinTone(0);
+      } catch (e) {
+        // Ignorer les erreurs éventuelles, le picker fonctionnera quand même
+      }
     }
   });
   
@@ -165,16 +190,29 @@ export default function(instance, context) {
       // Calculer la position de l'emoji
       const rect = mainEmoji.getBoundingClientRect();
       
-      // Placer le popup juste en dessous
-      popup.style.top = `${rect.bottom + window.scrollY + 8}px`;
+      // Placer le popup juste en dessous, collé au bas du bouton
+      popup.style.top = `${rect.bottom + window.scrollY}px`;
       popup.style.left = `${rect.left + window.scrollX}px`;
       
       popup.style.display = 'block';
+
+      // Forcer la couleur de peau "par défaut" (jaune) à chaque ouverture :
+      // le Picker peut exposer setPreferredSkinTone ou la Database via .database
+      const setSkinTone0 = (target) => {
+        if (target && typeof target.setPreferredSkinTone === 'function') {
+          target.setPreferredSkinTone(0).catch(() => {});
+        }
+      };
+      setSkinTone0(pickerElement);
+      setSkinTone0(pickerElement.database);
       
-      // Mettre le focus sur l'input de recherche
+      // Mettre le focus et le placeholder sur l'input de recherche
       setTimeout(() => {
         const searchInput = pickerElement.shadowRoot?.querySelector('input.search');
         if (searchInput) {
+          if (instance.data.searchPlaceholder) {
+            searchInput.placeholder = instance.data.searchPlaceholder;
+          }
           searchInput.focus();
         }
       }, 50);
@@ -204,25 +242,37 @@ export default function(instance, context) {
     }
   }, true);
 
+  // Helpers pour forcer la version "par défaut" (jaune) des emojis mains/personnages.
+  const stripSkinToneUnicode = (value) => {
+    if (!value) return value;
+    return value.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+  };
+  // Hexcode : retirer les modificateurs -1F3FB … -1F3FF (ex. "1F44B-1F3FB" -> "1F44B")
+  const stripSkinToneHexcode = (value) => {
+    if (!value) return value;
+    return value.replace(/-1F3F[B-F]$/i, '');
+  };
+
   // 6. Écouter l'événement de sélection d'emoji
   pickerElement.addEventListener('emoji-click', event => {
     // L'événement fournit un objet detail: { unicode, hexcode, emoji, shortcodes... }
     const detail = event.detail;
+    const baseUnicode = stripSkinToneUnicode(detail.unicode);
     
     // Mettre à jour l'affichage
-    mainEmoji.textContent = detail.unicode;
+    mainEmoji.textContent = baseUnicode;
     mainEmoji.style.opacity = '1'; // Enlever l'effet grisé
     
-    // Formater la valeur de retour selon la configuration
-    let returnValue = detail.unicode;
+    // Formater la valeur de retour selon la configuration (toujours version jaune)
+    let returnValue = baseUnicode;
     if (instance.data.returnFormat === 'hexcode') {
-      returnValue = detail.hexcode;
+      returnValue = stripSkinToneHexcode(detail.hexcode || '');
     } else if (instance.data.returnFormat === 'shortcode') {
       // Les shortcodes sont souvent fournis sous forme de tableau, on prend le premier
       if (detail.shortcodes && detail.shortcodes.length > 0) {
         returnValue = detail.shortcodes[0];
       } else {
-        returnValue = detail.unicode; // Fallback
+        returnValue = baseUnicode; // Fallback
       }
     }
     
@@ -238,6 +288,7 @@ export default function(instance, context) {
   // 7. Attacher le tout au canvas Bubble
   instance.canvas.append(container);
   
-  // Sauvegarder la référence pour update.js plus tard
+  // Sauvegarder les références pour update.js
   instance.data.mainEmoji = mainEmoji;
+  instance.data.pickerElement = pickerElement;
 }

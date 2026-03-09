@@ -23,6 +23,14 @@ export default function(instance, properties, context) {
       instance.publishState('is_open', false);
     }
     
+    // Mettre à jour le placeholder de la barre de recherche (vide => "Search...")
+    const searchPlaceholder = (properties.search_placeholder || '').trim() || 'Search...';
+    instance.data.searchPlaceholder = searchPlaceholder;
+    const searchInput = instance.data.pickerElement?.shadowRoot?.querySelector('input.search');
+    if (searchInput) {
+      searchInput.placeholder = searchPlaceholder;
+    }
+    
     // Mettre à jour l'emoji principal
     if (instance.data.mainEmoji) {
       instance.data.mainEmoji.style.fontSize = `${size}px`;

@@ -6,7 +6,7 @@ export default function(instance, properties, context) {
     const style = properties.style || 'regular';
     instance.data.currentStyle = style;
     
-    const color = properties.color || '#333333';
+    const color = properties.color || '#fbbf24';
     instance.data.currentColor = color;
     
     // Récupérer la taille de l'élément (width/height natifs de Bubble)
