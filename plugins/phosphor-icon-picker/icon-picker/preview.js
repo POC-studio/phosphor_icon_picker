@@ -19,10 +19,24 @@ export default function(instance, properties) {
   
   const mainIcon = document.createElement('i');
   mainIcon.className = 'ph ph-smiley';
-  // On récupère dynamiquement la taille dans l'éditeur
-  const size = (properties.bubble && properties.bubble.width) ? Math.min(properties.bubble.width, properties.bubble.height) : 32;
+  
+  // On utilise la taille du composant dans l'éditeur
+  let width = 32;
+  let height = 32;
+  if (properties.bubble) {
+    width = typeof properties.bubble.width === 'function' ? properties.bubble.width() : properties.bubble.width;
+    height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
+  }
+  const size = Math.min(width || 32, height || 32);
+  
   mainIcon.style.fontSize = `${size}px`;
   mainIcon.style.color = '#333';
+  mainIcon.style.lineHeight = '1';
+  mainIcon.style.display = 'flex';
+  mainIcon.style.alignItems = 'center';
+  mainIcon.style.justifyContent = 'center';
+  mainIcon.style.width = '100%';
+  mainIcon.style.height = '100%';
   
   container.appendChild(mainIcon);
   instance.canvas.append(container);

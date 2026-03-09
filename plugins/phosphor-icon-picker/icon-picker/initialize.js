@@ -59,6 +59,28 @@ export default function(instance, context) {
   mainIcon.style.borderRadius = '8px';
   mainIcon.style.transition = 'background-color 0.2s';
   
+  // Rendre l'icône parfaitement responsive à la taille de la boîte (Bubble responsive engine)
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+        const size = Math.min(width, height);
+        // On s'assure d'avoir une taille valide
+        if (size > 0 && mainIcon) {
+          mainIcon.style.fontSize = `${size}px`;
+          instance.data.currentSize = size;
+        }
+      }
+    });
+    // On observe l'élément parent fourni par Bubble (plus fiable que le conteneur)
+    if (instance.canvas && instance.canvas[0]) {
+      observer.observe(instance.canvas[0]);
+    } else {
+      observer.observe(container);
+    }
+  }
+
   mainIcon.onmouseover = () => mainIcon.style.backgroundColor = '#f3f4f6';
   mainIcon.onmouseout = () => mainIcon.style.backgroundColor = 'transparent';
 

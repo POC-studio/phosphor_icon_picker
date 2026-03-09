@@ -39,6 +39,28 @@ export default function(instance, context) {
   mainIcon.style.justifyContent = 'center';
   mainIcon.style.width = '100%';
   mainIcon.style.height = '100%';
+
+  // Rendre l'icône parfaitement responsive à la taille de la boîte (Bubble responsive engine)
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+        const size = Math.min(width, height);
+        // On s'assure d'avoir une taille valide
+        if (size > 0 && mainIcon) {
+          mainIcon.style.fontSize = `${size}px`;
+          instance.data.currentSize = size;
+        }
+      }
+    });
+    // On observe l'élément parent fourni par Bubble (plus fiable que le conteneur)
+    if (instance.canvas && instance.canvas[0]) {
+      observer.observe(instance.canvas[0]);
+    } else {
+      observer.observe(container);
+    }
+  }
   
   // Événement de clic : déclencher l'événement Bubble
   mainIcon.addEventListener('click', () => {

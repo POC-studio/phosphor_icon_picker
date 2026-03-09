@@ -9,11 +9,14 @@ export default function(instance, properties, context) {
     const color = properties.color || '#333333';
     instance.data.currentColor = color;
     
-    // On utilise la taille native de l'élément Bubble s'il est disponible (responsive)
-    // Sinon on retombe sur properties.size au cas où il y ait encore le paramètre
-    const size = (properties.bubble && properties.bubble.width) 
-                 ? Math.min(properties.bubble.width, properties.bubble.height) 
-                 : (properties.size || 32);
+    // Récupérer la taille de l'élément (width/height natifs de Bubble)
+    let width = 32;
+    let height = 32;
+    if (properties.bubble) {
+      width = typeof properties.bubble.width === 'function' ? properties.bubble.width() : properties.bubble.width;
+      height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
+    }
+    const size = Math.min(width || 32, height || 32);
     instance.data.currentSize = size;
     
     if (properties.initial_icon) {

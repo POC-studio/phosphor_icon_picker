@@ -7,8 +7,14 @@ export default function(instance, properties, context) {
     const returnFormat = properties.return_format || 'emoji';
     instance.data.returnFormat = returnFormat;
     
-    // Mettre à jour la taille
-    const size = properties.size || 32;
+    // Récupérer la taille de l'élément (width/height natifs de Bubble)
+    let width = 32;
+    let height = 32;
+    if (properties.bubble) {
+      width = typeof properties.bubble.width === 'function' ? properties.bubble.width() : properties.bubble.width;
+      height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
+    }
+    const size = Math.min(width || 32, height || 32);
     instance.data.currentSize = size;
     
     // Initialisation de l'état "is_open" s'il n'existe pas encore

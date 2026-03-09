@@ -99,3 +99,36 @@ L'interface de la sandbox est divisée en 3 zones distinctes :
   * `emoji` (ex: 🚀)
   * `hexcode` (ex: 1F680)
   * `shortcode` (ex: rocket)
+
+---
+
+## 5. Apprentissages et Astuces (Leçons apprises sur Bubble)
+
+Lors du développement de ces plugins, nous avons documenté plusieurs comportements spécifiques à l'environnement Bubble (qui diffère d'un environnement Vanilla JS classique) :
+
+### A. Dimensions natives (Layout) et propriétés responsives
+* Dans le nouveau moteur responsive de Bubble, l'utilisateur définit la largeur et la hauteur dans l'onglet **Layout**.
+* Pour récupérer ces valeurs de manière fiable dans `update.js` ou `preview.js`, il faut utiliser l'objet `properties.bubble`.
+* **Attention piège :** `properties.bubble.width` et `properties.bubble.height` sont des **fonctions** (méthodes) et non de simples nombres ! Les utiliser directement dans un calcul (ex: `Math.min(properties.bubble.width, ...)`) renvoie `NaN` et fait crasher le rendu.
+* La méthode sécurisée pour récupérer la taille :
+  ```javascript
+  let width = 32;
+  let height = 32;
+  if (properties.bubble) {
+    width = typeof properties.bubble.width === 'function' ? properties.bubble.width() : properties.bubble.width;
+    height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
+  }
+  const size = Math.min(width || 32, height || 32);
+  ```
+
+### B. Gestion des Dropdowns (Menus déroulants)
+* Bubble encapsule les éléments de plugin dans des conteneurs qui ont souvent des règles CSS strictes comme `overflow: hidden` ou `overflow: clip`.
+* Si un menu déroulant (`dropdown`) est ajouté comme enfant du conteneur Bubble (`instance.canvas`), il sera systématiquement **coupé (rogné)** s'il dépasse de la taille allouée à l'élément.
+* **La solution :** Attacher le dropdown directement à la racine du document (`document.body.appendChild(dropdown);`) et calculer sa position absolue au moment du clic en utilisant `getBoundingClientRect()` sur l'élément déclencheur.
+* **Astuce pro :** Ajouter un événement de scroll sur la fenêtre (`window.addEventListener('scroll', ... , true)`) pour fermer automatiquement le menu si l'utilisateur fait défiler la page, évitant ainsi que le menu ne "flotte" au milieu de l'écran.
+
+### C. Rendu CSS des Icônes
+* Les icônes basées sur des polices de caractères (comme Phosphor) possèdent un `line-height` naturel qui ajoute de l'espacement invisible au-dessus et en-dessous.
+* Dans une boîte Bubble restreinte, ce `line-height` provoque un **rognage vertical** de l'icône, même si la taille de police est égale à la taille de la boîte.
+* **La solution :** Toujours forcer un `line-height: '1'` et utiliser Flexbox (`display: flex; align-items: center; justify-content: center;`) sur l'icône pour s'assurer qu'elle rentre parfaitement dans son conteneur sans déborder.
+* Les éléments interactifs (inputs de recherche) dans un espace contraint doivent utiliser `box-sizing: border-box` pour éviter que le padding et les bordures ne fassent déborder l'élément de son parent à 100% de largeur.

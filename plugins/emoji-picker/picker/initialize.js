@@ -11,7 +11,11 @@ export default function(instance, context) {
   // 2. Créer le conteneur principal
   const container = document.createElement('div');
   container.style.position = 'relative';
-  container.style.display = 'inline-block';
+  container.style.width = '100%';
+  container.style.height = '100%';
+  container.style.display = 'flex';
+  container.style.alignItems = 'center';
+  container.style.justifyContent = 'center';
   container.style.fontFamily = 'sans-serif';
   
   // Variables d'état
@@ -23,8 +27,12 @@ export default function(instance, context) {
   mainEmoji.textContent = '🙂'; // Smiley par défaut
   mainEmoji.style.fontSize = `${instance.data.currentSize}px`;
   mainEmoji.style.cursor = 'pointer';
-  mainEmoji.style.display = 'inline-block';
-  mainEmoji.style.padding = '4px';
+  mainEmoji.style.display = 'flex';
+  mainEmoji.style.alignItems = 'center';
+  mainEmoji.style.justifyContent = 'center';
+  mainEmoji.style.width = '100%';
+  mainEmoji.style.height = '100%';
+  mainEmoji.style.lineHeight = '1';
   mainEmoji.style.borderRadius = '8px';
   mainEmoji.style.transition = 'background-color 0.2s';
   mainEmoji.style.opacity = '0.5'; // Grisé par défaut (vide)
@@ -146,23 +154,32 @@ export default function(instance, context) {
   });
   
   popup.appendChild(pickerElement);
-  container.appendChild(popup);
+  document.body.appendChild(popup); // On l'attache au body pour éviter qu'il soit coupé par un overflow hidden de Bubble
 
   // 5. Gérer l'ouverture / fermeture du popup
   mainEmoji.addEventListener('click', (e) => {
     e.stopPropagation();
     const isCurrentlyClosed = popup.style.display === 'none';
-    popup.style.display = isCurrentlyClosed ? 'block' : 'none';
     
     if (isCurrentlyClosed) {
-      // Mettre le focus sur l'input de recherche (situé dans le shadow DOM)
-      // Un très léger délai permet de s'assurer que le composant est bien affiché avant de focus
+      // Calculer la position de l'emoji
+      const rect = mainEmoji.getBoundingClientRect();
+      
+      // Placer le popup juste en dessous
+      popup.style.top = `${rect.bottom + window.scrollY + 8}px`;
+      popup.style.left = `${rect.left + window.scrollX}px`;
+      
+      popup.style.display = 'block';
+      
+      // Mettre le focus sur l'input de recherche
       setTimeout(() => {
         const searchInput = pickerElement.shadowRoot?.querySelector('input.search');
         if (searchInput) {
           searchInput.focus();
         }
       }, 50);
+    } else {
+      popup.style.display = 'none';
     }
     
     // Publier l'état d'ouverture
@@ -171,7 +188,6 @@ export default function(instance, context) {
 
   // Fermer le popup si on clique en dehors
   document.addEventListener('click', (e) => {
-    // Si on clique sur le popup ou ses enfants, on ne ferme pas
     if (popup.contains(e.target)) return;
     
     if (popup.style.display !== 'none') {
@@ -179,6 +195,14 @@ export default function(instance, context) {
       instance.publishState('is_open', false);
     }
   });
+
+  // Fermer le popup au scroll pour éviter qu'il flotte n'importe où
+  window.addEventListener('scroll', () => {
+    if (popup.style.display !== 'none') {
+      popup.style.display = 'none';
+      instance.publishState('is_open', false);
+    }
+  }, true);
 
   // 6. Écouter l'événement de sélection d'emoji
   pickerElement.addEventListener('emoji-click', event => {
