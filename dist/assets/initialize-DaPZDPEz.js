@@ -278,6 +278,13 @@ const e=`export default function(instance, context) {
     
     // Bubble : Publier l'état et déclencher l'événement
     instance.publishState('selected_emoji', returnValue);
+
+    // Auto-binding : si la propriété initial_emoji est auto-bindée dans Bubble,
+    // Bubble utilisera cette valeur pour mettre à jour le champ relié.
+    if (typeof instance.publishAutobindingValue === 'function') {
+      instance.publishAutobindingValue(returnValue);
+    }
+
     instance.triggerEvent('emoji_selected');
     
     // Fermer le popup et mettre à jour l'état

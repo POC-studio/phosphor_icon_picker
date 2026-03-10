@@ -196,6 +196,13 @@ export default function (instance, context) {
       e.stopPropagation();
       instance.data.currentIcon = iconName;
       instance.publishState("selected_icon", iconName);
+
+      // Auto-binding : si la propriété initial_icon est auto-bindée dans Bubble,
+      // Bubble utilisera cette valeur pour mettre à jour le champ relié.
+      if (typeof instance.publishAutobindingValue === "function") {
+        instance.publishAutobindingValue(iconName);
+      }
+
       instance.triggerEvent("icon_selected");
       dropdown.style.display = "none";
       instance.publishState("is_open", false);
