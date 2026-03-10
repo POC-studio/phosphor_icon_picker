@@ -140,7 +140,7 @@ async function loadPlugin(pluginName, elementName) {
     const configModule = await import(`./plugins/${pluginName}/${elementName}/config.json`);
     const config = configModule.default;
 
-    // Enregistrer le callback d'autobinding pour la sandbox : mettre à jour le champ lié et relancer update
+    // Callback d'autobinding : publishAutobindingValue(value) → on met à jour le champ configuré (ex. value) et on relance update
     const autobindingProp = config.autobinding_property;
     if (autobindingProp) {
       currentInstance._onAutobindingValue = async (value) => {

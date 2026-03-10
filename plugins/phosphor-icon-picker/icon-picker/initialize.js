@@ -196,10 +196,10 @@ export default function(instance, context) {
       // Bubble : Publier l'état (SANS 'ph-') et déclencher l'événement
       instance.publishState('selected_icon', iconName);
 
-      // Auto-binding : si la propriété initial_icon est auto-bindée dans Bubble,
-      // Bubble utilisera cette valeur pour mettre à jour le champ relié.
-      if (typeof instance.publishAutobindingValue === 'function') {
-        instance.publishAutobindingValue(iconName);
+      // Auto-binding : Bubble met à jour la propriété dont l’id est passé en 1er argument
+      // (dans l’éditeur plugin, cocher « Accepts autobinding » pour la propriété "value").
+      if (typeof instance.publishAutobinding === 'function') {
+        instance.publishAutobinding(iconName);
       }
 
       instance.triggerEvent('icon_selected');

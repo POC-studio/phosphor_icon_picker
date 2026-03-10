@@ -89,16 +89,18 @@ export default function(instance, properties, context) {
       }
     }
 
+    // Icône affichée : priorité à properties.autobinding (valeur du champ lié) puis à initial_icon
+    const autobindingTrimmed = properties.autobinding != null ? String(properties.autobinding).trim() : '';
     const initialIconTrimmed = properties.initial_icon != null ? String(properties.initial_icon).trim() : '';
-    if (initialIconTrimmed) {
-      const initialIconName = initialIconTrimmed;
-      if (!instance.data.currentIcon || instance.data.lastInitialIcon !== initialIconName) {
-        instance.data.currentIcon = initialIconName;
-        instance.data.lastInitialIcon = initialIconName;
-        instance.publishState('selected_icon', initialIconName);
+    const iconFromProps = autobindingTrimmed || initialIconTrimmed;
+    if (iconFromProps) {
+      if (!instance.data.currentIcon || instance.data.lastInitialIcon !== iconFromProps) {
+        instance.data.currentIcon = iconFromProps;
+        instance.data.lastInitialIcon = iconFromProps;
+        instance.publishState('selected_icon', iconFromProps);
       }
     }
-    // Quand initial_icon est vide on ne touche pas à currentIcon : une icône déjà choisie
+    // Quand les deux sont vides on ne touche pas à currentIcon : une icône déjà choisie
     // dans le dropdown reste affichée avec la couleur du user.
 
     // Icône principale : si vide → smiley grisé ; sinon → icône choisie avec la couleur du user.

@@ -70,12 +70,15 @@ export default function (instance, properties, context) {
     }
   }
 
-  if (properties.initial_icon) {
-    const initialIconName = properties.initial_icon.trim();
-    if (!instance.data.currentIcon || instance.data.lastInitialIcon !== initialIconName) {
-      instance.data.currentIcon = initialIconName;
-      instance.data.lastInitialIcon = initialIconName;
-      instance.publishState("selected_icon", initialIconName);
+  // Icône affichée : priorité à "value" (champ autobinding) puis à "initial_icon"
+  const valueTrimmed = properties.value != null ? String(properties.value).trim() : "";
+  const initialIconTrimmed = properties.initial_icon != null ? String(properties.initial_icon).trim() : "";
+  const iconFromProps = valueTrimmed || initialIconTrimmed;
+  if (iconFromProps) {
+    if (!instance.data.currentIcon || instance.data.lastInitialIcon !== iconFromProps) {
+      instance.data.currentIcon = iconFromProps;
+      instance.data.lastInitialIcon = iconFromProps;
+      instance.publishState("selected_icon", iconFromProps);
     }
   }
 

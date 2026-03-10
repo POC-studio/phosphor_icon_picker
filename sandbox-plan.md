@@ -148,3 +148,9 @@ Lors du développement de ces plugins, nous avons documenté plusieurs comportem
 * **Dropdown :** Au survol des icônes dans le menu, **ne pas** forcer une couleur (ex. noir `#111827`) : garder la couleur choisie par l'utilisateur. Seul le fond (background) peut changer pour le feedback visuel.
 * **Preview :** En mode éditeur, `preview.js` doit utiliser `properties.color` de la même façon (si présent et non vide, sinon `#000000`) pour que l’aperçu dans l’éditeur reflète bien la couleur du champ. Utiliser aussi `initial_icon` et `style` en preview pour rester cohérent avec l’élément.
 * **Valeur par défaut :** Préférer `#000000` (noir) comme défaut dans le `config.json` et à l’initialisation, pour éviter l’effet "jaune par défaut" si Bubble n’envoie pas la couleur au premier rendu.
+
+### E. Autobinding (champ qui reçoit la valeur)
+* Le champ qui reçoit l’autobinding dans Bubble est **une propriété dédiée**, distincte de l’affichage (ex. `initial_icon`). En général on utilise une propriété **`value`** (type text) pour cela.
+* Dans l’éditeur de plugin Bubble, il faut **cocher « Accepts autobinding »** pour cette propriété (ex. `value`), pas pour les autres.
+* L’API est **`instance.publishAutobindingValue(propertyId, value)`** avec **deux arguments** : l’id de la propriété qui accepte l’autobinding (ex. `'value'`), puis la valeur à écrire. Bubble met alors à jour le champ en base relié par l’utilisateur à cette propriété.
+* En `update.js`, prendre en compte à la fois `properties.value` (rempli par Bubble après autobinding) et `properties.initial_icon` pour l’icône affichée (ex. priorité à `value` puis `initial_icon`).

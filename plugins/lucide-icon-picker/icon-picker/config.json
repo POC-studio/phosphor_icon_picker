@@ -1,12 +1,15 @@
 {
   "name": "Lucide Icon Picker",
   "events": ["icon_selected"],
-  "autobinding_property": "initial_icon",
+  "autobinding_property": "value",
   "properties": {
     "initial_icon": {
       "type": "text",
-      "default": "smile",
-      "auto_binding": true
+      "default": "smile"
+    },
+    "value": {
+      "type": "text",
+      "default": ""
     },
     "stroke_width": {
       "type": "text",

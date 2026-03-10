@@ -193,8 +193,7 @@ export default function (instance, context) {
       instance.data.currentIcon = iconName;
       instance.publishState("selected_icon", iconName);
 
-      // Auto-binding : si la propriété initial_icon est auto-bindée dans Bubble,
-      // Bubble utilisera cette valeur pour mettre à jour le champ relié.
+      // Auto-binding : une seule valeur ; Bubble met à jour la propriété qui a « Accepts autobinding » (ex. value).
       if (typeof instance.publishAutobindingValue === "function") {
         instance.publishAutobindingValue(iconName);
       }
