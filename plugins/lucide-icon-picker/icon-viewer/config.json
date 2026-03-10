@@ -12,7 +12,7 @@
     },
     "color": {
       "type": "text",
-      "default": "#333333"
+      "default": "#000000"
     }
   }
 }

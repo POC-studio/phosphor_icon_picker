@@ -6,7 +6,14 @@ export default function(instance, properties, context) {
     const style = properties.style || 'regular';
     instance.data.currentStyle = style;
     
-    const color = properties.color || '#333333';
+    // Même logique que pour l'Icon Picker : on ne remet pas la couleur à zéro
+    let color = properties.color;
+    if (typeof color === 'string') {
+      color = color.trim();
+    }
+    if (!color) {
+      color = instance.data.currentColor || '#333333';
+    }
     instance.data.currentColor = color;
     
     // Récupérer la taille de l'élément (width/height natifs de Bubble)

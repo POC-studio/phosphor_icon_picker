@@ -9,7 +9,10 @@ export default function (instance, properties, context) {
 
   const strokeWidth = parseStrokeWidth(properties.stroke_width);
   instance.data.currentStrokeWidth = strokeWidth;
-  const color = properties.color || "#fbbf24";
+  let color = properties.color != null ? String(properties.color).trim() : "";
+  if (!color) {
+    color = instance.data.currentColor || "#000000";
+  }
   instance.data.currentColor = color;
 
   let width = 32;
@@ -76,7 +79,7 @@ export default function (instance, properties, context) {
     }
   }
 
-  if (instance.data.mainIconWrapper && instance.data.currentIcon && instance.data.applyMainIcon) {
+  if (instance.data.mainIconWrapper && instance.data.applyMainIcon) {
     instance.data.applyMainIcon();
   }
 }

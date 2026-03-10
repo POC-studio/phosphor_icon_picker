@@ -131,15 +131,35 @@ async function loadPlugin(pluginName, elementName) {
   // Réinitialiser les objets Bubble
   currentInstance = new BubbleInstance(canvasContainer);
   currentContext = new BubbleContext();
-  
+
   // Déterminer le mode (preview ou run)
   const mode = document.querySelector('input[name="preview-mode"]:checked').value;
-  
+
   try {
     // 1. Charger la config de l'élément
     const configModule = await import(`./plugins/${pluginName}/${elementName}/config.json`);
     const config = configModule.default;
-    
+
+    // Enregistrer le callback d'autobinding pour la sandbox : mettre à jour le champ lié et relancer update
+    const autobindingProp = config.autobinding_property;
+    if (autobindingProp) {
+      currentInstance._onAutobindingValue = async (value) => {
+        const input = document.getElementById(`input-${autobindingProp}`);
+        if (input) {
+          input.value = value;
+          const properties = getMockProperties(config);
+          try {
+            const updateModule = await import(`./plugins/${pluginName}/${elementName}/update.js`);
+            if (updateModule.default) {
+              updateModule.default(currentInstance, properties, currentContext);
+            }
+          } catch (err) {
+            console.error('Error calling update after autobinding:', err);
+          }
+        }
+      };
+    }
+
     // 1b. Charger la config globale du plugin
     let pluginConfig = {};
     try {

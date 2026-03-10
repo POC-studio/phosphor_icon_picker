@@ -1,10 +1,12 @@
 {
   "name": "Phosphor Icon Picker",
   "events": ["icon_selected"],
+  "autobinding_property": "initial_icon",
   "properties": {
     "initial_icon": {
       "type": "text",
-      "default": "smiley"
+      "default": "smiley",
+      "auto_binding": true
     },
     "style": {
       "type": "dropdown",
@@ -13,7 +15,7 @@
     },
     "color": {
       "type": "text",
-      "default": "#fbbf24"
+      "default": "#000000"
     },
     "search_placeholder": {
       "type": "text",

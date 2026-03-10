@@ -36,7 +36,7 @@ export default function(instance, context) {
   };
   
   instance.data.currentStyle = 'regular';
-  instance.data.currentColor = '#fbbf24';
+  instance.data.currentColor = '#000000';
   instance.data.currentSize = 32;
   instance.data.dropdownIcons = [];
   instance.data.allIcons = ICONS;
@@ -173,11 +173,9 @@ export default function(instance, context) {
     iconBtn.style.alignItems = 'center';
     iconBtn.style.justifyContent = 'center';
     
-    // Effets de survol
+    // Effets de survol : on ne touche PLUS à la couleur, seulement au fond
     iconBtn.onmouseover = () => {
       iconBtn.style.backgroundColor = '#f3f4f6';
-      // Au survol, on peut forcer une couleur ou juste la garder
-      iconBtn.style.color = '#111827'; 
     };
     iconBtn.onmouseout = () => {
       iconBtn.style.backgroundColor = 'transparent';
@@ -191,8 +189,9 @@ export default function(instance, context) {
       // Mettre à jour la variable d'état interne
       instance.data.currentIcon = iconName;
       
-      // Mettre à jour l'icône principale avec le style actuel
+      // Mettre à jour l'icône principale : classe + couleur du user (plus de gris)
       mainIcon.className = instance.data.getIconClass(iconName, instance.data.currentStyle);
+      mainIcon.style.color = instance.data.currentColor;
       
       // Bubble : Publier l'état (SANS 'ph-') et déclencher l'événement
       instance.publishState('selected_icon', iconName);

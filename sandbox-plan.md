@@ -132,3 +132,19 @@ Lors du développement de ces plugins, nous avons documenté plusieurs comportem
 * Dans une boîte Bubble restreinte, ce `line-height` provoque un **rognage vertical** de l'icône, même si la taille de police est égale à la taille de la boîte.
 * **La solution :** Toujours forcer un `line-height: '1'` et utiliser Flexbox (`display: flex; align-items: center; justify-content: center;`) sur l'icône pour s'assurer qu'elle rentre parfaitement dans son conteneur sans déborder.
 * Les éléments interactifs (inputs de recherche) dans un espace contraint doivent utiliser `box-sizing: border-box` pour éviter que le padding et les bordures ne fassent déborder l'élément de son parent à 100% de largeur.
+
+### D. Gestion de la couleur (champ `color`)
+* **Source de vérité :** La couleur affichée (icône principale, grille du dropdown, preview) doit **toujours** être celle demandée par l'utilisateur dans le champ "color" (`properties.color`). Dès que Bubble envoie une valeur (hex, rgb, nom), on l'utilise.
+* **Ne pas remettre à zéro :** Quand Bubble renvoie une valeur vide pour `color` après une action (ex. sélection d'icône), il ne faut **pas** repasser à une couleur par défaut. On garde la dernière couleur connue (`instance.data.currentColor`). Sinon l'icône "saute" vers la couleur par défaut (ex. jaune) alors que l'utilisateur avait choisi du noir.
+* **Lecture en `update.js` :**
+  ```javascript
+  let color = properties.color != null ? String(properties.color).trim() : '';
+  if (!color) {
+    color = instance.data.currentColor || '#000000';
+  }
+  instance.data.currentColor = color;
+  ```
+  Puis appliquer `color` à l'icône principale et à toutes les icônes du dropdown.
+* **Dropdown :** Au survol des icônes dans le menu, **ne pas** forcer une couleur (ex. noir `#111827`) : garder la couleur choisie par l'utilisateur. Seul le fond (background) peut changer pour le feedback visuel.
+* **Preview :** En mode éditeur, `preview.js` doit utiliser `properties.color` de la même façon (si présent et non vide, sinon `#000000`) pour que l’aperçu dans l’éditeur reflète bien la couleur du champ. Utiliser aussi `initial_icon` et `style` en preview pour rester cohérent avec l’élément.
+* **Valeur par défaut :** Préférer `#000000` (noir) comme défaut dans le `config.json` et à l’initialisation, pour éviter l’effet "jaune par défaut" si Bubble n’envoie pas la couleur au premier rendu.

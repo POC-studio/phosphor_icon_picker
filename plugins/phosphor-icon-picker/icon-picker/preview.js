@@ -7,7 +7,14 @@ export default function(instance, properties) {
     script.src = 'https://unpkg.com/@phosphor-icons/web';
     document.head.appendChild(script);
   }
-  
+
+  const getIconClass = (iconName, style) => {
+    const cleanStyle = (style || 'regular').trim().toLowerCase();
+    const cleanIcon = (iconName || '').trim().toLowerCase();
+    const weightClass = cleanStyle === 'regular' ? 'ph' : `ph-${cleanStyle}`;
+    return `${weightClass} ph-${cleanIcon}`;
+  };
+
   // Affichage statique pour l'éditeur
   const container = document.createElement('div');
   container.style.width = '100%';
@@ -16,11 +23,13 @@ export default function(instance, properties) {
   container.style.alignItems = 'center';
   container.style.justifyContent = 'center';
   container.style.backgroundColor = 'transparent';
-  
+
   const mainIcon = document.createElement('i');
-  mainIcon.className = 'ph ph-smiley';
-  
-  // On utilise la taille du composant dans l'éditeur
+  const iconName = (properties.initial_icon && String(properties.initial_icon).trim()) ? String(properties.initial_icon).trim().toLowerCase() : 'smiley';
+  const style = (properties.style && String(properties.style).trim()) ? String(properties.style).trim() : 'regular';
+  mainIcon.className = getIconClass(iconName, style);
+
+  // Taille : width/height natifs Bubble
   let width = 32;
   let height = 32;
   if (properties.bubble) {
@@ -28,16 +37,19 @@ export default function(instance, properties) {
     height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
   }
   const size = Math.min(width || 32, height || 32);
-  
+
+  // Couleur : exactement comme en run = celle demandée par l'utilisateur (champ color)
+  let color = (properties.color != null && properties.color !== '') ? String(properties.color).trim() : '';
+  if (!color) color = '#000000';
+  mainIcon.style.color = color;
   mainIcon.style.fontSize = `${size}px`;
-  mainIcon.style.color = '#fbbf24';
   mainIcon.style.lineHeight = '1';
   mainIcon.style.display = 'flex';
   mainIcon.style.alignItems = 'center';
   mainIcon.style.justifyContent = 'center';
   mainIcon.style.width = '100%';
   mainIcon.style.height = '100%';
-  
+
   container.appendChild(mainIcon);
   instance.canvas.append(container);
 }
