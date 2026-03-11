@@ -1,5 +1,6 @@
 {
   "name": "Lucide Icon Picker",
+  "use_bubble_size": true,
   "events": ["icon_selected"],
   "autobinding_property": "value",
   "properties": {

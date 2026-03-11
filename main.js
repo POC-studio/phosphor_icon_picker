@@ -3,6 +3,8 @@ import { BubbleInstance, BubbleContext } from './lib/bubble-mock.js';
 // Global variables for emulator
 let currentInstance = null;
 let currentContext = null;
+let currentElementUseBubbleSize = true;
+let applyBubbleSizeCallback = null;
 
 // Initialisation
 async function initSandbox() {
@@ -12,13 +14,20 @@ async function initSandbox() {
   const heightInput = document.getElementById('canvas-height-input');
   const canvasContainer = document.getElementById('canvas-container');
   
-  // Initialiser la taille du canvas
+  // Initialiser la taille du canvas (affichage des champs W/H selon config use_bubble_size de l'élément)
   function updateCanvasSize() {
-    if (canvasContainer && widthInput && heightInput) {
+    if (!canvasContainer) return;
+    const sizeSection = document.getElementById('bubble-size-section');
+    if (sizeSection) sizeSection.style.display = currentElementUseBubbleSize ? 'block' : 'none';
+    if (!currentElementUseBubbleSize) {
+      canvasContainer.style.width = '100%';
+      canvasContainer.style.height = '100%';
+    } else if (widthInput && heightInput) {
       canvasContainer.style.width = `${widthInput.value}px`;
       canvasContainer.style.height = `${heightInput.value}px`;
     }
   }
+  applyBubbleSizeCallback = updateCanvasSize;
   
   widthInput.addEventListener('input', () => {
     updateCanvasSize();
@@ -81,6 +90,10 @@ async function initSandbox() {
       elementSelector.innerHTML = `
         <option value="view">Avatar</option>
       `;
+    } else if (pluginSelector.value === 'word-cloud') {
+      elementSelector.innerHTML = `
+        <option value="word-cloud-view">Word Cloud</option>
+      `;
     }
   }
 
@@ -140,6 +153,9 @@ async function loadPlugin(pluginName, elementName) {
     const configModule = await import(`./plugins/${pluginName}/${elementName}/config.json`);
     const config = configModule.default;
 
+    currentElementUseBubbleSize = config.use_bubble_size !== false;
+    if (applyBubbleSizeCallback) applyBubbleSizeCallback();
+
     // Callback d'autobinding : publishAutobindingValue(value) → on met à jour le champ configuré (ex. value) et on relance update
     const autobindingProp = config.autobinding_property;
     if (autobindingProp) {
@@ -174,6 +190,9 @@ async function loadPlugin(pluginName, elementName) {
     
     // Configurer les actions spécifiques au plugin global
     setupActions(pluginConfig, pluginName);
+    
+    // Configurer les actions d'élément (ex. Export as PNG sur Word Cloud)
+    setupElementActions(config, pluginName, elementName);
     
     // 2. Charger le code source (pour affichage dans la sidebar droite)
     // Vite permet d'importer le contenu brut d'un fichier avec ?raw
@@ -404,6 +423,79 @@ function setupActions(config, pluginName) {
       }
     });
     
+    container.appendChild(btn);
+  });
+}
+
+// Configurer les actions d'élément (ex. Export as PNG)
+function setupElementActions(elementConfig, pluginName, elementName) {
+  const section = document.getElementById('element-actions-section');
+  const container = document.getElementById('element-actions');
+  if (!section || !container) return;
+
+  container.innerHTML = '';
+
+  if (!elementConfig.actions || elementConfig.actions.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+
+  elementConfig.actions.forEach((action) => {
+    const btn = document.createElement('button');
+    btn.textContent = action.label;
+    btn.className = 'action-btn';
+    btn.style.cssText = 'width:100%;padding:10px;margin-bottom:8px;background:#7c3aed;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;';
+    btn.addEventListener('click', async () => {
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Running...';
+        const actionModule = await import(`./plugins/${pluginName}/${elementName}/${action.file}`);
+        const run = actionModule.default;
+        const properties = getMockProperties(elementConfig);
+
+        let context = currentContext;
+        if (action.id === 'export_png') {
+          context = {
+            ...currentContext,
+            uploadContent(fileName, base64Content, callback) {
+              try {
+                const binary = atob(base64Content);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: 'image/png' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName || 'wordcloud.png';
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                console.warn('Download failed:', e);
+              }
+              if (callback) callback(null, 'https://mock-url.com/' + (fileName || 'wordcloud.png'));
+            },
+          };
+        }
+
+        const result = await run(currentInstance, properties, context);
+        if (currentInstance && result != null) {
+          currentInstance.publishState(`action_result_${action.id}`, result);
+        }
+        btn.textContent = 'Done';
+        btn.style.backgroundColor = '#10b981';
+      } catch (err) {
+        console.error('Element action error:', err);
+        btn.textContent = 'Error';
+        btn.style.backgroundColor = '#ef4444';
+      }
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = action.label;
+        btn.style.backgroundColor = '#7c3aed';
+      }, 2000);
+    });
     container.appendChild(btn);
   });
 }

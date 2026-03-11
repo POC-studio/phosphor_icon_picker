@@ -20,6 +20,7 @@
             <option value="lucide-icon-picker">Lucide Icon Picker</option>
             <option value="emoji-picker">Emoji Picker</option>
             <option value="avatar">Avatar</option>
+            <option value="word-cloud">Word Cloud</option>
           </select>
           <select id="element-selector">
             <option value="icon-picker">Icon Picker</option>
@@ -27,7 +28,7 @@
           </select>
         </header>
 
-        <section class="control-section">
+        <section class="control-section" id="bubble-size-section">
           <h3>Bubble Layout (Size)</h3>
           <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
             <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
@@ -67,6 +68,13 @@
           <h3>Plugin Actions</h3>
           <div id="plugin-actions">
             <!-- Boutons d'actions générés dynamiquement -->
+          </div>
+        </section>
+
+        <section class="control-section" id="element-actions-section" style="display: none;">
+          <h3>Element Actions</h3>
+          <div id="element-actions">
+            <!-- Boutons d'actions d'élément générés dynamiquement -->
           </div>
         </section>
       </aside>

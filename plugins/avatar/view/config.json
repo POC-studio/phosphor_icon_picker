@@ -1,5 +1,6 @@
 {
   "name": "Avatar",
+  "use_bubble_size": true,
   "events": ["is_clicked"],
   "properties": {
     "username": {

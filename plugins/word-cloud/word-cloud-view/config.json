@@ -1,0 +1,28 @@
+{
+  "name": "Word Cloud",
+  "use_bubble_size": false,
+  "events": [],
+  "actions": [
+    {
+      "id": "export_png",
+      "label": "Export as PNG",
+      "type": "run_script",
+      "file": "actions/export-png.js"
+    }
+  ],
+  "properties": {
+    "text_color": {
+      "type": "text",
+      "default": "#333333"
+    },
+    "font_family": {
+      "type": "dropdown",
+      "options": ["serif", "sans serif", "monospace"],
+      "default": "sans serif"
+    },
+    "words_list": {
+      "type": "long_text",
+      "default": "12 Growth\n10 Insights\n10 Collaboration\n8 Action\n8 Clarity\n7 Inspiration\n7 Progress\n6 Energy\n6 Future\n6 Innovation\n6 Connection\n5 Success\n5 Learning\n5 Purpose\n5 Synergy\n5 Creativity\n5 Engagement\n5 Empowerment\n4 Strategy\n4 Focus\n4 Dynamics\n4 Achievement\n4 Discovery\n4 Momentum\n3 Teamwork\n3 Solutions\n3 Value\n3 Impact\n3 Vision\n3 Together\n2 Results\n2 Change\n2 Trust\n2 Sharing\n2 Ideas"
+    }
+  }
+}

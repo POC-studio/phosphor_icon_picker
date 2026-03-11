@@ -1,5 +1,6 @@
 {
   "name": "Emoji Picker",
+  "use_bubble_size": true,
   "events": ["emoji_selected"],
   "properties": {
     "initial_emoji": {

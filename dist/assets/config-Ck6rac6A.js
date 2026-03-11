@@ -1,0 +1,1 @@
+const e="Word Cloud",t=[],o={text_color:{type:"text",default:"#333333"},font_family:{type:"dropdown",options:["serif","sans serif","monospace"],default:"sans serif"},words_list:{type:"long_text",default:""}},s={name:e,events:t,properties:o};export{s as default,t as events,e as name,o as properties};

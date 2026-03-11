@@ -100,12 +100,20 @@ body {
 
 .state-item {
   display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
+  flex-direction: column;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .state-item .name {
   font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.state-item .value {
+  word-break: break-all;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 /* Zone Centrale (Canvas) */

@@ -1,5 +1,6 @@
 {
   "name": "Phosphor Icon Viewer",
+  "use_bubble_size": true,
   "events": ["is_clicked"],
   "properties": {
     "initial_icon": {

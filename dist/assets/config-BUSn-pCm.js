@@ -1,0 +1,1 @@
+const e="Word Cloud",o="A responsive word cloud element for Bubble, powered by wordcloud2.js. Display weighted word lists with customizable text color and font (serif, sans serif, monospace). Adapts automatically to its container using Bubble's responsive engine.",s={name:e,description:o};export{s as default,o as description,e as name};
