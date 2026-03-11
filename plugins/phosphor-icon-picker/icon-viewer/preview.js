@@ -8,6 +8,13 @@ export default function(instance, properties) {
     document.head.appendChild(script);
   }
   
+  const getIconClass = (iconName, style) => {
+    const cleanStyle = (style || 'regular').trim().toLowerCase();
+    const cleanIcon = (iconName || '').trim().toLowerCase();
+    const weightClass = cleanStyle === 'regular' ? 'ph' : `ph-${cleanStyle}`;
+    return `${weightClass} ph-${cleanIcon}`;
+  };
+  
   // Affichage statique pour l'éditeur
   const container = document.createElement('div');
   container.style.width = '100%';
@@ -18,7 +25,13 @@ export default function(instance, properties) {
   container.style.backgroundColor = 'transparent';
   
   const mainIcon = document.createElement('i');
-  mainIcon.className = 'ph ph-smiley';
+  const iconName = (properties.initial_icon && String(properties.initial_icon).trim())
+    ? String(properties.initial_icon).trim().toLowerCase()
+    : 'smiley';
+  const style = (properties.style && String(properties.style).trim())
+    ? String(properties.style).trim()
+    : 'regular';
+  mainIcon.className = getIconClass(iconName, style);
   
   // On utilise la taille du composant dans l'éditeur
   let width = 32;
@@ -28,9 +41,12 @@ export default function(instance, properties) {
     height = typeof properties.bubble.height === 'function' ? properties.bubble.height() : properties.bubble.height;
   }
   const size = Math.min(width || 32, height || 32);
-  
+
+  // Couleur : exactement comme en run = celle demandée par l'utilisateur (champ color)
+  let color = (properties.color != null && properties.color !== '') ? String(properties.color).trim() : '';
+  if (!color) color = '#000000';
+  mainIcon.style.color = color;
   mainIcon.style.fontSize = `${size}px`;
-  mainIcon.style.color = '#333';
   mainIcon.style.lineHeight = '1';
   mainIcon.style.display = 'flex';
   mainIcon.style.alignItems = 'center';

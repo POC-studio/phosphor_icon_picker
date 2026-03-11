@@ -40,7 +40,7 @@ export default function (instance, context) {
   container.style.justifyContent = "center";
 
   instance.data.currentStrokeWidth = 2;
-  instance.data.currentColor = "#333333";
+  instance.data.currentColor = "#000000";
   instance.data.currentSize = 32;
 
   const mainIconWrapper = document.createElement("div");

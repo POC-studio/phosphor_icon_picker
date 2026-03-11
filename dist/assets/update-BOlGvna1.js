@@ -9,7 +9,10 @@ export default function (instance, properties, context) {
 
   const strokeWidth = parseStrokeWidth(properties.stroke_width);
   instance.data.currentStrokeWidth = strokeWidth;
-  const color = properties.color || "#fbbf24";
+  let color = properties.color != null ? String(properties.color).trim() : "";
+  if (!color) {
+    color = instance.data.currentColor || "#000000";
+  }
   instance.data.currentColor = color;
 
   let width = 32;
@@ -67,16 +70,19 @@ export default function (instance, properties, context) {
     }
   }
 
-  if (properties.initial_icon) {
-    const initialIconName = properties.initial_icon.trim();
-    if (!instance.data.currentIcon || instance.data.lastInitialIcon !== initialIconName) {
-      instance.data.currentIcon = initialIconName;
-      instance.data.lastInitialIcon = initialIconName;
-      instance.publishState("selected_icon", initialIconName);
+  // Icône affichée : priorité à "value" (champ autobinding) puis à "initial_icon"
+  const valueTrimmed = properties.value != null ? String(properties.value).trim() : "";
+  const initialIconTrimmed = properties.initial_icon != null ? String(properties.initial_icon).trim() : "";
+  const iconFromProps = valueTrimmed || initialIconTrimmed;
+  if (iconFromProps) {
+    if (!instance.data.currentIcon || instance.data.lastInitialIcon !== iconFromProps) {
+      instance.data.currentIcon = iconFromProps;
+      instance.data.lastInitialIcon = iconFromProps;
+      instance.publishState("selected_icon", iconFromProps);
     }
   }
 
-  if (instance.data.mainIconWrapper && instance.data.currentIcon && instance.data.applyMainIcon) {
+  if (instance.data.mainIconWrapper && instance.data.applyMainIcon) {
     instance.data.applyMainIcon();
   }
 }

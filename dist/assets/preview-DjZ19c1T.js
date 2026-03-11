@@ -18,6 +18,8 @@ export default function (instance, properties) {
   const iconName = (properties && properties.initial_icon) ? properties.initial_icon.trim() : "smile";
   const strokeWidthRaw = (properties && properties.stroke_width !== undefined) ? properties.stroke_width : 2;
   const strokeWidth = (() => { const n = Number(strokeWidthRaw); return Number.isFinite(n) && n > 0 ? n : 2; })();
+  const colorRaw = (properties && properties.color != null) ? String(properties.color).trim() : "";
+  const color = colorRaw || "#000000";
   const wrapper = document.createElement("div");
   wrapper.style.display = "flex";
   wrapper.style.alignItems = "center";
@@ -42,7 +44,7 @@ export default function (instance, properties) {
       window.lucide.createIcons({
         root: wrapper,
         attrs: {
-          stroke: "#333333",
+          stroke: color,
           "stroke-width": strokeWidth,
           width: size,
           height: size,

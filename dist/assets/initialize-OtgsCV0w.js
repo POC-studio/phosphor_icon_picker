@@ -62,7 +62,7 @@ export default function (instance, context) {
 
   instance.data.parseStrokeWidth = parseStrokeWidth;
   instance.data.currentStrokeWidth = 2;
-  instance.data.currentColor = "#fbbf24";
+  instance.data.currentColor = "#000000";
   instance.data.currentSize = 32;
   instance.data.dropdownIconWrappers = [];
   instance.data.allIcons = ICONS;
@@ -183,13 +183,9 @@ export default function (instance, context) {
 
     wrapper.onmouseover = () => {
       wrapper.style.backgroundColor = "#f3f4f6";
-      const svg = wrapper.querySelector("svg");
-      if (svg) svg.setAttribute("stroke", "#111827");
     };
     wrapper.onmouseout = () => {
       wrapper.style.backgroundColor = "transparent";
-      const svg = wrapper.querySelector("svg");
-      if (svg) svg.setAttribute("stroke", instance.data.currentColor);
     };
 
     wrapper.addEventListener("click", (e) => {
@@ -197,8 +193,7 @@ export default function (instance, context) {
       instance.data.currentIcon = iconName;
       instance.publishState("selected_icon", iconName);
 
-      // Auto-binding : si la propriété initial_icon est auto-bindée dans Bubble,
-      // Bubble utilisera cette valeur pour mettre à jour le champ relié.
+      // Auto-binding : une seule valeur ; Bubble met à jour la propriété qui a « Accepts autobinding » (ex. value).
       if (typeof instance.publishAutobindingValue === "function") {
         instance.publishAutobindingValue(iconName);
       }

@@ -1,4 +1,4 @@
-const e=`// update.js
+const n=`// update.js
 export default function(instance, properties, context) {
   // Appelé à chaque changement de propriété
   
@@ -6,7 +6,12 @@ export default function(instance, properties, context) {
     const style = properties.style || 'regular';
     instance.data.currentStyle = style;
     
-    const color = properties.color || '#fbbf24';
+    // La couleur affichée = celle demandée par l'utilisateur dans le champ "color" (properties.color).
+    // Si Bubble envoie une valeur (hex, rgb, nom), on l'utilise. Sinon on garde la dernière connue.
+    let color = properties.color != null ? String(properties.color).trim() : '';
+    if (!color) {
+      color = instance.data.currentColor || '#000000';
+    }
     instance.data.currentColor = color;
     
     // Récupérer la taille de l'élément (width/height natifs de Bubble)
@@ -84,27 +89,33 @@ export default function(instance, properties, context) {
       }
     }
 
-    if (properties.initial_icon) {
-      const initialIconName = properties.initial_icon;
-      
-      // On met à jour l'icône si c'est la première fois, OU si la propriété initiale a changé 
-      // (utile pour notre sandbox quand on tape dans l'input)
-      if (!instance.data.currentIcon || instance.data.lastInitialIcon !== initialIconName) {
-        
-        // On sauvegarde l'état
-        instance.data.currentIcon = initialIconName;
-        instance.data.lastInitialIcon = initialIconName;
-        
-        instance.publishState('selected_icon', initialIconName);
+    // Icône affichée : priorité à properties.autobinding (valeur du champ lié) puis à initial_icon
+    const autobindingTrimmed = properties.autobinding != null ? String(properties.autobinding).trim() : '';
+    const initialIconTrimmed = properties.initial_icon != null ? String(properties.initial_icon).trim() : '';
+    const iconFromProps = autobindingTrimmed || initialIconTrimmed;
+    if (iconFromProps) {
+      if (!instance.data.currentIcon || instance.data.lastInitialIcon !== iconFromProps) {
+        instance.data.currentIcon = iconFromProps;
+        instance.data.lastInitialIcon = iconFromProps;
+        instance.publishState('selected_icon', iconFromProps);
       }
     }
-    
-    // Toujours mettre à jour l'icône principale avec l'icône courante, le nouveau style, la couleur et la taille
-    if (instance.data.mainIcon && instance.data.currentIcon) {
-      instance.data.mainIcon.className = instance.data.getIconClass(instance.data.currentIcon, style);
-      instance.data.mainIcon.style.color = color;
+    // Quand les deux sont vides on ne touche pas à currentIcon : une icône déjà choisie
+    // dans le dropdown reste affichée avec la couleur du user.
+
+    // Icône principale : si vide → smiley grisé ; sinon → icône choisie avec la couleur du user.
+    // Les icônes du dropdown gardent toujours la couleur du user (déjà appliquée plus haut).
+    const PLACEHOLDER_GRAY = '#9ca3af';
+    if (instance.data.mainIcon) {
       instance.data.mainIcon.style.fontSize = \`\${size}px\`;
+      if (instance.data.currentIcon) {
+        instance.data.mainIcon.className = instance.data.getIconClass(instance.data.currentIcon, style);
+        instance.data.mainIcon.style.color = color;
+      } else {
+        instance.data.mainIcon.className = instance.data.getIconClass('smiley', style);
+        instance.data.mainIcon.style.color = PLACEHOLDER_GRAY;
+      }
     }
   }
 }
-`;export{e as default};
+`;export{n as default};
