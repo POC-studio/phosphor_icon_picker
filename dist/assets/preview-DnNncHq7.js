@@ -1,4 +1,4 @@
-const n=`import { parseWordsList, getFontFamily } from '../shared.js';
+const n=`import { parseWordsList, getFontFamily, getVariedColor, sortAndNormalizeWordList } from '../shared-code.js';
 
 const WORDCLOUD2_SCRIPT_ID = 'wordcloud2-script';
 const WORDCLOUD2_URL = 'https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.0.2/wordcloud2.min.js';
@@ -45,7 +45,8 @@ export default function (instance, properties) {
   w = Math.max(w || 300, 1);
   h = Math.max(h || 200, 1);
 
-  const list = parseWordsList(properties.words_list != null ? properties.words_list : '');
+  const rawList = parseWordsList(properties.words_list != null ? properties.words_list : '');
+  const list = sortAndNormalizeWordList(rawList);
   const color = (properties.text_color != null && properties.text_color !== '')
     ? String(properties.text_color).trim()
     : '#333333';
@@ -56,14 +57,16 @@ export default function (instance, properties) {
     canvas.height = h;
     if (list.length > 0 && typeof window.WordCloud !== 'undefined') {
       try {
+        const base = Math.min(w, h);
+        const maxFontPx = base * 0.32;
         window.WordCloud(canvas, {
           list,
           fontFamily,
-          color: () => color,
+          color: (word, weight) => getVariedColor(color, (word || '') + (weight ?? '')),
           clearCanvas: true,
-          gridSize: 6,
-          weightFactor: (size) => Math.max(size * (Math.min(w, h) / 400), 12),
-          minSize: 8,
+          gridSize: Math.max(1, 2),
+          weightFactor: (size) => Math.min((size * base) / 35, maxFontPx),
+          minSize: Math.max(10, base / 80),
           rotateRatio: 0.2,
           minRotation: -0.5,
           maxRotation: 0.5,

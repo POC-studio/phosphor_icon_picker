@@ -1,4 +1,4 @@
-import { parseWordsList, sortAndNormalizeWordList } from '../shared.js';
+import { parseWordsList, sortAndNormalizeWordList } from '../shared-code.js';
 
 export default function (instance, properties, context) {
   if (!properties) return;

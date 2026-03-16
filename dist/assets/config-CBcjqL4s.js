@@ -1,0 +1,35 @@
+const n="Word Cloud",o=!1,e=[],t=[{id:"export_png",label:"Export as PNG",type:"run_script",file:"actions/export-png.js"}],s={text_color:{type:"text",default:"#333333"},font_family:{type:"dropdown",options:["serif","sans serif","monospace"],default:"sans serif"},words_list:{type:"long_text",default:`12 Growth
+10 Insights
+10 Collaboration
+8 Action
+8 Clarity
+7 Inspiration
+7 Progress
+6 Energy
+6 Future
+6 Innovation
+6 Connection
+5 Success
+5 Learning
+5 Purpose
+5 Synergy
+5 Creativity
+5 Engagement
+5 Empowerment
+4 Strategy
+4 Focus
+4 Dynamics
+4 Achievement
+4 Discovery
+4 Momentum
+3 Teamwork
+3 Solutions
+3 Value
+3 Impact
+3 Vision
+3 Together
+2 Results
+2 Change
+2 Trust
+2 Sharing
+2 Ideas`}},i={name:n,use_bubble_size:!1,events:e,actions:t,properties:s};export{t as actions,i as default,e as events,n as name,s as properties,o as use_bubble_size};

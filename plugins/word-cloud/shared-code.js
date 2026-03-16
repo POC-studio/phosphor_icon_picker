@@ -1,6 +1,5 @@
 /**
- * Parse multiline text "weight word" into wordcloud2.js list format [[word, weight], ...].
- * Format: one line = number (weight) + space + word. Invalid lines are skipped.
+ * Code partagé Word Cloud pour la sandbox (non copié dans Bubble).
  */
 export function parseWordsList(text) {
   if (!text || typeof text !== 'string') return [];
@@ -20,15 +19,9 @@ export function parseWordsList(text) {
   return result;
 }
 
-/** Max normalized size for the largest word (keeps it on canvas). */
 const NORMALIZED_MAX = 22;
-/** Min normalized size (low floor so ratio between words is preserved: 200 vs 2 → much bigger vs much smaller). */
 const NORMALIZED_MIN = 1;
 
-/**
- * Sort list by weight descending, then normalize proportionally: size = (weight / maxWeight) * NORMALIZED_MAX.
- * Floor at NORMALIZED_MIN so tiny weights still render. Preserves true size ratio (e.g. 200 vs 2 → 22 vs 1).
- */
 export function sortAndNormalizeWordList(list) {
   if (!list || list.length === 0) return list;
   const sorted = [...list].sort((a, b) => b[1] - a[1]);
@@ -40,14 +33,8 @@ export function sortAndNormalizeWordList(list) {
   });
 }
 
-/** Amplitude of RGB variation so shades are clearly visible (same hue, lighter/darker). */
 const COLOR_DELTA = 45;
 
-/**
- * Returns a visible variation of baseColor for the given seed (e.g. word text).
- * Same hue: we add the same delta to R, G and B so the result is strictly
- * a lighter or darker shade of the requested color. Deterministic per seed.
- */
 export function getVariedColor(baseColor, seed) {
   if (!baseColor || typeof baseColor !== 'string') return '#333333';
   const str = baseColor.trim();
@@ -75,9 +62,6 @@ export function getVariedColor(baseColor, seed) {
   return `rgb(${r},${g},${b})`;
 }
 
-/**
- * Map Bubble dropdown option to CSS font-family string for wordcloud2.
- */
 export function getFontFamily(option) {
   const key = (option || 'sans serif').toLowerCase().replace(/\s+/g, ' ');
   const map = {
@@ -87,3 +71,4 @@ export function getFontFamily(option) {
   };
   return map[key] != null ? map[key] : map['sans serif'];
 }
+

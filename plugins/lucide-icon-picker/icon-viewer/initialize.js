@@ -1,35 +1,22 @@
-function parseStrokeWidth(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 2;
-}
-
-function loadLucideAndRun(callback) {
-  if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-    callback();
-    return;
-  }
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    script.onload = callback;
-    document.head.appendChild(script);
-  } else {
-    const check = setInterval(() => {
-      if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-        clearInterval(check);
-        callback();
-      }
-    }, 50);
-  }
-}
-
 export default function (instance, context) {
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    document.head.appendChild(script);
+  function waitForLucideReady(callback, maxAttempts, interval) {
+    maxAttempts = maxAttempts || 50;
+    interval = interval || 100;
+    var attempts = 0;
+    var timer = setInterval(function () {
+      if (typeof window !== "undefined" && window.lucide && typeof window.lucide.createIcons === "function") {
+        clearInterval(timer);
+        callback();
+      } else if (++attempts >= maxAttempts) {
+        clearInterval(timer);
+        console.warn("[Lucide] createIcons n'est pas disponible après attente.");
+      }
+    }, interval);
+  }
+
+  function parseStrokeWidth(v) {
+    var n = Number(v);
+    return isFinite(n) && n > 0 ? n : 2;
   }
 
   const container = document.createElement("div");
@@ -80,7 +67,8 @@ export default function (instance, context) {
   instance.data.mainIconWrapper = mainIconWrapper;
   instance.data.currentIcon = "smile";
 
-  loadLucideAndRun(() => {
+  // Attendre que Lucide soit prêt (sandbox + Bubble) avant de rendre l'icône
+  waitForLucideReady(() => {
     if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
       window.lucide.createIcons({
         root: mainIconWrapper,

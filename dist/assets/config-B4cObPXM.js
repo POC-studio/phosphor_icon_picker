@@ -1,1 +1,0 @@
-const e="Lucide Icon Viewer",t=["is_clicked"],i={initial_icon:{type:"text",default:"smile"},stroke_width:{type:"text",default:"2"},color:{type:"text",default:"#000000"}},o={name:e,events:t,properties:i};export{o as default,t as events,e as name,i as properties};

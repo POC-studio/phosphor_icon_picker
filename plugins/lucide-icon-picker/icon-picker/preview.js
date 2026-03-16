@@ -1,4 +1,3 @@
-// preview.js
 export default function (instance, properties) {
   if (!document.getElementById("lucide-script")) {
     const script = document.createElement("script");

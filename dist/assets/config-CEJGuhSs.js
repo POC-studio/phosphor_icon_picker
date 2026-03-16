@@ -1,0 +1,1 @@
+const e="Emoji Picker",s=!0,t=["emoji_selected"],o={initial_emoji:{type:"text",default:""},search_placeholder:{type:"text",default:"Search..."},return_format:{type:"dropdown",options:["emoji","hexcode","shortcode"],default:"emoji"}},i={name:e,use_bubble_size:!0,events:t,properties:o};export{i as default,t as events,e as name,o as properties,s as use_bubble_size};

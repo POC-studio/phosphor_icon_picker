@@ -1,4 +1,4 @@
-import { parseWordsList, getFontFamily, getVariedColor, sortAndNormalizeWordList } from '../shared.js';
+import { parseWordsList, getFontFamily, getVariedColor, sortAndNormalizeWordList } from '../shared-code.js';
 
 const WORDCLOUD2_SCRIPT_ID = 'wordcloud2-script';
 const WORDCLOUD2_URL = 'https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.0.2/wordcloud2.min.js';

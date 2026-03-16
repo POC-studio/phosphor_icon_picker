@@ -6,8 +6,41 @@
     <title>Bubble Plugin Sandbox</title>
     <!-- Import de jQuery (requis par l'API Bubble) -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <!-- Import de Phosphor Icons -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Les scripts externes (Phosphor, Lucide, WordCloud, etc.)
+         sont chargés dynamiquement à partir des fichiers shared.html
+         de chaque plugin pour rester alignés avec ce qui est copié dans Bubble. -->
+    <script type="module">
+      async function injectSharedFragment(path) {
+        try {
+          const res = await fetch(path);
+          if (!res.ok) return;
+          const html = await res.text();
+
+          const container = document.createElement("div");
+          container.innerHTML = html;
+
+          Array.from(container.children).forEach((node) => {
+            if (node.tagName === "SCRIPT") {
+              const script = document.createElement("script");
+              // Copier les attributs (src, type, etc.)
+              for (const attr of node.attributes) {
+                script.setAttribute(attr.name, attr.value);
+              }
+              script.text = node.textContent || "";
+              document.head.appendChild(script);
+            } else {
+              document.head.appendChild(node);
+            }
+          });
+        } catch (e) {
+          console.warn("Impossible de charger le shared:", path, e);
+        }
+      }
+
+      injectSharedFragment("./plugins/phosphor-icon-picker/shared.html");
+      injectSharedFragment("./plugins/lucide-icon-picker/shared.html");
+      injectSharedFragment("./plugins/word-cloud/shared.html");
+    </script>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>

@@ -141,6 +141,12 @@ async function loadPlugin(pluginName, elementName) {
     eventLog.innerHTML = '';
   }
   
+  // Réinitialiser la sidebar de droite (code export) pour ce nouvel élément
+  const codeExports = document.getElementById('code-exports');
+  if (codeExports) {
+    codeExports.innerHTML = '';
+  }
+  
   // Réinitialiser les objets Bubble
   currentInstance = new BubbleInstance(canvasContainer);
   currentContext = new BubbleContext();
@@ -196,14 +202,35 @@ async function loadPlugin(pluginName, elementName) {
     
     // 2. Charger le code source (pour affichage dans la sidebar droite)
     // Vite permet d'importer le contenu brut d'un fichier avec ?raw
-    const sharedRaw = await import(`./plugins/${pluginName}/shared.js?raw`).catch(() => ({default: ''}));
-    const initRaw = await import(`./plugins/${pluginName}/${elementName}/initialize.js?raw`).catch(() => ({default: ''}));
-    const updateRaw = await import(`./plugins/${pluginName}/${elementName}/update.js?raw`).catch(() => ({default: ''}));
-    const previewRaw = await import(`./plugins/${pluginName}/${elementName}/preview.js?raw`).catch(() => ({default: ''}));
-    
-    displayCode('shared.js', sharedRaw.default);
-    displayCode('initialize.js', initRaw.default);
-    displayCode('update.js', updateRaw.default);
+    const sharedRaw = await import(`./plugins/${pluginName}/shared.html?raw`).catch(() => ({ default: '' }));
+    const initRaw = await import(`./plugins/${pluginName}/${elementName}/initialize.js?raw`).catch(() => ({ default: '' }));
+    const updateRaw = await import(`./plugins/${pluginName}/${elementName}/update.js?raw`).catch(() => ({ default: '' }));
+    const previewRaw = await import(`./plugins/${pluginName}/${elementName}/preview.js?raw`).catch(() => ({ default: '' }));
+
+    // Adapter le format affiché pour qu'il soit directement copiable dans Bubble
+    const toBubbleCode = (source) => {
+      if (!source) return '';
+      const lines = source.split('\n');
+      const out = [];
+      for (let line of lines) {
+        const trimmed = line.trim();
+        // Supprimer les imports ES modules (Bubble ne les supporte pas)
+        if (trimmed.startsWith('import ')) continue;
+        // Transformer "export default function" en simple "function"
+        if (trimmed.startsWith('export default function')) {
+          out.push(line.replace('export default ', ''));
+          continue;
+        }
+        // Supprimer les "export default xxx;" terminaux
+        if (trimmed.startsWith('export default')) continue;
+        out.push(line);
+      }
+      return out.join('\n');
+    };
+
+    displayCode('shared.html', sharedRaw.default);
+    displayCode('initialize.js', toBubbleCode(initRaw.default));
+    displayCode('update.js', toBubbleCode(updateRaw.default));
     displayCode('preview.js', previewRaw.default);
 
     // 3. Exécuter le code du plugin
@@ -538,8 +565,8 @@ function getMockProperties(config) {
 function displayCode(filename, code) {
   const container = document.getElementById('code-exports');
   
-  // On nettoie le conteneur si c'est le premier fichier (shared.js)
-  if (filename === 'shared.js') {
+  // On nettoie le conteneur si c'est le premier fichier (shared.html)
+  if (filename === 'shared.html') {
     container.innerHTML = '';
   }
   

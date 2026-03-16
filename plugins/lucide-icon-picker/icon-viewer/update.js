@@ -1,4 +1,3 @@
-// update.js
 function parseStrokeWidth(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 2;
@@ -35,7 +34,7 @@ export default function (instance, properties, context) {
       window.lucide.createIcons({
         root: wrapper,
         attrs: {
-          stroke: color,
+          stroke: instance.data.currentColor,
           "stroke-width": instance.data.currentStrokeWidth,
           width: size,
           height: size,

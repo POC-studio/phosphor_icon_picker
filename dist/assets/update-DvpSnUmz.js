@@ -1,4 +1,4 @@
-const t=`import { parseWordsList } from '../shared.js';
+const r=`import { parseWordsList, sortAndNormalizeWordList } from '../shared-code.js';
 
 export default function (instance, properties, context) {
   if (!properties) return;
@@ -10,11 +10,12 @@ export default function (instance, properties, context) {
     instance.data.currentFontFamily = String(properties.font_family).trim() || 'sans serif';
   }
   if (properties.words_list != null) {
-    instance.data.currentList = parseWordsList(properties.words_list);
+    const raw = parseWordsList(properties.words_list);
+    instance.data.currentList = sortAndNormalizeWordList(raw);
   }
 
   if (instance.data.drawWordCloud) {
     instance.data.drawWordCloud();
   }
 }
-`;export{t as default};
+`;export{r as default};

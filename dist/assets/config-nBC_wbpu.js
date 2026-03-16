@@ -1,0 +1,1 @@
+const e="Lucide Icon Viewer",i=!0,t=["is_clicked"],s={initial_icon:{type:"text",default:"smile"},stroke_width:{type:"text",default:"2"},color:{type:"text",default:"#000000"}},o={name:e,use_bubble_size:!0,events:t,properties:s};export{o as default,t as events,e as name,s as properties,i as use_bubble_size};

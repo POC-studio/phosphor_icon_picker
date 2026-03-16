@@ -8,8 +8,8 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- Import de Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script type="module" crossorigin src="/assets/index-C4h4B601.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B7T1g7VY.css">
+    <script type="module" crossorigin src="/assets/index-DJpCuLgQ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DBLx3VQT.css">
   </head>
   <body>
     <div id="app">
@@ -29,7 +29,7 @@
           </select>
         </header>
 
-        <section class="control-section">
+        <section class="control-section" id="bubble-size-section">
           <h3>Bubble Layout (Size)</h3>
           <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
             <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
@@ -69,6 +69,13 @@
           <h3>Plugin Actions</h3>
           <div id="plugin-actions">
             <!-- Boutons d'actions générés dynamiquement -->
+          </div>
+        </section>
+
+        <section class="control-section" id="element-actions-section" style="display: none;">
+          <h3>Element Actions</h3>
+          <div id="element-actions">
+            <!-- Boutons d'actions d'élément générés dynamiquement -->
           </div>
         </section>
       </aside>

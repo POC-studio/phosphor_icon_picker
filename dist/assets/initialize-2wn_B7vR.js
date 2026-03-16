@@ -1,36 +1,11 @@
-const n=`function parseStrokeWidth(v) {
+const n=`import { loadLucide } from '../shared-code.js';
+
+function parseStrokeWidth(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 2;
 }
 
-function loadLucideAndRun(callback) {
-  if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-    callback();
-    return;
-  }
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    script.onload = callback;
-    document.head.appendChild(script);
-  } else {
-    const check = setInterval(() => {
-      if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-        clearInterval(check);
-        callback();
-      }
-    }, 50);
-  }
-}
-
 export default function (instance, context) {
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    document.head.appendChild(script);
-  }
 
   const container = document.createElement("div");
   container.style.width = "100%";
@@ -80,7 +55,7 @@ export default function (instance, context) {
   instance.data.mainIconWrapper = mainIconWrapper;
   instance.data.currentIcon = "smile";
 
-  loadLucideAndRun(() => {
+  loadLucide().then(() => {
     if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
       window.lucide.createIcons({
         root: mainIconWrapper,

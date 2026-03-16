@@ -1,36 +1,11 @@
-const n=`function parseStrokeWidth(v) {
+const n=`import { loadLucide } from '../shared-code.js';
+
+function parseStrokeWidth(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 2;
 }
 
-function loadLucideAndRun(callback) {
-  if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-    callback();
-    return;
-  }
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    script.onload = callback;
-    document.head.appendChild(script);
-  } else {
-    const check = setInterval(() => {
-      if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-        clearInterval(check);
-        callback();
-      }
-    }, 50);
-  }
-}
-
 export default function (instance, context) {
-  if (!document.getElementById("lucide-script")) {
-    const script = document.createElement("script");
-    script.id = "lucide-script";
-    script.src = "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js";
-    document.head.appendChild(script);
-  }
 
   const ICONS = [
     "a-arrow-down", "a-arrow-up", "a-large-small", "accessibility", "activity",
@@ -68,6 +43,17 @@ export default function (instance, context) {
   instance.data.allIcons = ICONS;
   instance.data.allowedIcons = null;
 
+  const mainIconWrapper = document.createElement("div");
+  mainIconWrapper.style.cursor = "pointer";
+  mainIconWrapper.style.display = "flex";
+  mainIconWrapper.style.alignItems = "center";
+  mainIconWrapper.style.justifyContent = "center";
+  mainIconWrapper.style.width = "100%";
+  mainIconWrapper.style.height = "100%";
+  mainIconWrapper.style.borderRadius = "8px";
+  mainIconWrapper.style.transition = "background-color 0.2s";
+  mainIconWrapper.innerHTML = '<i data-lucide="smile"></i>';
+
   function applyMainIcon() {
     const name = instance.data.currentIcon || "smile";
     const strokeWidth = instance.data.currentStrokeWidth;
@@ -86,17 +72,6 @@ export default function (instance, context) {
       });
     }
   }
-
-  const mainIconWrapper = document.createElement("div");
-  mainIconWrapper.style.cursor = "pointer";
-  mainIconWrapper.style.display = "flex";
-  mainIconWrapper.style.alignItems = "center";
-  mainIconWrapper.style.justifyContent = "center";
-  mainIconWrapper.style.width = "100%";
-  mainIconWrapper.style.height = "100%";
-  mainIconWrapper.style.borderRadius = "8px";
-  mainIconWrapper.style.transition = "background-color 0.2s";
-  mainIconWrapper.innerHTML = '<i data-lucide="smile"></i>';
 
   if (window.ResizeObserver && instance.canvas && instance.canvas[0]) {
     const observer = new ResizeObserver((entries) => {
@@ -193,7 +168,6 @@ export default function (instance, context) {
       instance.data.currentIcon = iconName;
       instance.publishState("selected_icon", iconName);
 
-      // Auto-binding : une seule valeur ; Bubble met à jour la propriété qui a « Accepts autobinding » (ex. value).
       if (typeof instance.publishAutobindingValue === "function") {
         instance.publishAutobindingValue(iconName);
       }
@@ -216,7 +190,8 @@ export default function (instance, context) {
     instance.data.dropdownIconWrappers.forEach((wrapper) => {
       const name = wrapper.dataset.iconName.toLowerCase();
       const matchesSearch = name.includes(term);
-      const isAllowed = instance.data.allowedIcons === null || instance.data.allowedIcons.has(name);
+      const isAllowed =
+        instance.data.allowedIcons === null || instance.data.allowedIcons.has(name);
       wrapper.style.display = matchesSearch && isAllowed ? "flex" : "none";
     });
   });
@@ -261,17 +236,20 @@ export default function (instance, context) {
   instance.data.applyMainIcon = applyMainIcon;
   instance.data.currentIcon = "smile";
 
-  loadLucideAndRun(() => {
+  loadLucide().then(() => {
     applyMainIcon();
-    window.lucide.createIcons({
-      root: iconsGrid,
-      attrs: {
-        stroke: instance.data.currentColor,
-        "stroke-width": instance.data.currentStrokeWidth,
-        width: 24,
-        height: 24,
-      },
-    });
+    if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons({
+        root: iconsGrid,
+        attrs: {
+          stroke: instance.data.currentColor,
+          "stroke-width": instance.data.currentStrokeWidth,
+          width: 24,
+          height: 24,
+        },
+      });
+    }
   });
 }
+
 `;export{n as default};

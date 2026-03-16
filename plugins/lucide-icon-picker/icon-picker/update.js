@@ -1,4 +1,3 @@
-// update.js
 function parseStrokeWidth(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : 2;

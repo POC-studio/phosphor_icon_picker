@@ -1,1 +1,0 @@
-const e="Avatar",t=["is_clicked"],s={username:{type:"text",default:""},image_url:{type:"text",default:""},style:{type:"dropdown",options:["serif","sans serif","monospace"],default:"sans serif"},text_color:{type:"text",default:"#333333"},background_color:{type:"text",default:"#e5e7eb"}},o={name:e,events:t,properties:s};export{o as default,t as events,e as name,s as properties};

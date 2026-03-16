@@ -1,27 +1,4 @@
-const n=`import { parseWordsList, getFontFamily } from '../shared.js';
-
-const WORDCLOUD2_SCRIPT_ID = 'wordcloud2-script';
-const WORDCLOUD2_URL = 'https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.0.2/wordcloud2.min.js';
-
-function loadWordCloud2() {
-  return new Promise((resolve) => {
-    if (typeof window.WordCloud !== 'undefined') {
-      resolve();
-      return;
-    }
-    const existing = document.getElementById(WORDCLOUD2_SCRIPT_ID);
-    if (existing) {
-      existing.addEventListener('load', () => resolve());
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = WORDCLOUD2_SCRIPT_ID;
-    script.src = WORDCLOUD2_URL;
-    script.onload = () => resolve();
-    script.onerror = () => resolve(); // no-op on error to avoid hanging
-    document.head.appendChild(script);
-  });
-}
+const n=`import { getFontFamily, getVariedColor } from '../shared-code.js';
 
 export default function (instance, context) {
   const container = document.createElement('div');
@@ -67,27 +44,29 @@ export default function (instance, context) {
     }
 
     try {
-      window.WordCloud(canvas, {
-        list,
-        fontFamily,
-        color: () => color,
-        clearCanvas: true,
-        gridSize: Math.round(4 * dpr),
-        weightFactor: (size) => Math.max(size * (Math.min(w, h) / 400), 12),
-        minSize: 8,
-        rotateRatio: 0.2,
-        minRotation: -0.5,
-        maxRotation: 0.5,
-        shrinkToFit: true,
-      });
-    } catch (e) {
-      // ignore
-    }
+        const base = Math.min(w, h);
+        const maxFontPx = base * 0.32;
+        window.WordCloud(canvas, {
+          list,
+          fontFamily,
+          color: (word, weight) => getVariedColor(color, (word || '') + (weight ?? '')),
+          clearCanvas: true,
+          gridSize: Math.max(1, Math.round(2 * dpr)),
+          weightFactor: (size) => Math.min((size * base) / 35, maxFontPx),
+          minSize: Math.max(10, base / 80),
+          rotateRatio: 0.2,
+          minRotation: -0.5,
+          maxRotation: 0.5,
+          shrinkToFit: true,
+        });
+      } catch (e) {
+        // ignore
+      }
   };
 
-  loadWordCloud2().then(() => {
-    instance.data.drawWordCloud();
-  });
+  // Dans Bubble, wordcloud2 est chargé via le header HTML (voir shared.js).
+  // Dans la sandbox, on part du principe qu'il est aussi déjà présent.
+  instance.data.drawWordCloud();
 
   if (window.ResizeObserver && instance.canvas && instance.canvas[0]) {
     const observer = new ResizeObserver(() => {
