@@ -1,4 +1,4 @@
-export default function (instance, properties) {
+export default function(instance, properties) {
   if (!document.getElementById("lucide-script")) {
     const script = document.createElement("script");
     script.id = "lucide-script";

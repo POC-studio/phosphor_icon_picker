@@ -1,18 +1,8 @@
-export default function (instance, context) {
-  function waitForLucideReady(callback, maxAttempts, interval) {
-    maxAttempts = maxAttempts || 50;
-    interval = interval || 100;
-    var attempts = 0;
-    var timer = setInterval(function () {
-      if (typeof window !== "undefined" && window.lucide && typeof window.lucide.createIcons === "function") {
-        clearInterval(timer);
-        callback();
-      } else if (++attempts >= maxAttempts) {
-        clearInterval(timer);
-        console.warn("[Lucide] createIcons n'est pas disponible après attente.");
-      }
-    }, interval);
-  }
+export default function(instance, context) {
+  console.log("[Lucide Picker][init] start", { instance, context });
+  const canvasRoot =
+    instance.canvas && instance.canvas.get ? instance.canvas.get(0) : null;
+  console.log("[Lucide Picker][init] canvas root", canvasRoot);
 
   function parseStrokeWidth(v) {
     var n = Number(v);
@@ -248,10 +238,14 @@ export default function (instance, context) {
   instance.data.applyMainIcon = applyMainIcon;
   instance.data.currentIcon = "smile";
 
-  // Attendre que Lucide soit prêt (sandbox + Bubble) avant de rendre toutes les icônes
-  waitForLucideReady(() => {
-    applyMainIcon();
-    if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
+  console.log("[Lucide Picker][init] before initial applyMainIcon");
+  applyMainIcon();
+  if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
+    console.log("[Lucide Picker][init] calling createIcons on grid", {
+      color: instance.data.currentColor,
+      strokeWidth: instance.data.currentStrokeWidth,
+    });
+    try {
       window.lucide.createIcons({
         root: iconsGrid,
         attrs: {
@@ -261,7 +255,14 @@ export default function (instance, context) {
           height: 24,
         },
       });
+    } catch (e) {
+      console.error("[Lucide Picker][init] createIcons error", e);
     }
-  });
+  } else {
+    console.warn(
+      "[Lucide Picker][init] window.lucide.createIcons not available",
+      window.lucide
+    );
+  }
 }
 
