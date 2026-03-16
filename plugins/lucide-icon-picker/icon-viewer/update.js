@@ -4,7 +4,17 @@ export default function(instance, properties, context) {
   }
 
   // 1) Récupération des props Bubble
-  var iconName = (properties.initial_icon || "smile").toLowerCase();
+  var rawInitial =
+    properties.initial_icon != null
+      ? String(properties.initial_icon).trim()
+      : "";
+  var PLACEHOLDER_ICON = "smile";
+  var PLACEHOLDER_GRAY = "#9ca3af";
+
+  if (!rawInitial) {
+    rawInitial = PLACEHOLDER_ICON;
+  }
+  var iconName = rawInitial.toLowerCase();
 
   var width = 32;
   var height = 32;
@@ -42,6 +52,11 @@ export default function(instance, properties, context) {
   var current = instance.data.current_icon_name;
   var svg = root.firstChild;
 
+  // Placeholder gris si aucune icône initiale fournie
+  var isPlaceholder =
+    !properties.initial_icon || !String(properties.initial_icon).trim();
+  var mainColor = isPlaceholder ? PLACEHOLDER_GRAY : color;
+
   // 2) Création ou changement d'icône
   if (!svg || iconName !== current) {
     instance.data.current_icon_name = iconName;
@@ -57,7 +72,7 @@ export default function(instance, properties, context) {
       try {
         lucideGlobal.createIcons({
           attrs: {
-            color: color,
+            color: mainColor,
             width: size,
             height: size,
             "stroke-width": strokeWidth,

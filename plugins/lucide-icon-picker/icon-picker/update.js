@@ -11,8 +11,11 @@ export default function(instance, properties, context) {
     properties.initial_icon != null
       ? String(properties.initial_icon).trim()
       : "";
+  var PLACEHOLDER_ICON = "smile";
+  var PLACEHOLDER_GRAY = "#9ca3af";
+
   if (!initialIconTrimmed) {
-    initialIconTrimmed = "smile";
+    initialIconTrimmed = PLACEHOLDER_ICON;
   }
   var iconName = (autobindingTrimmed || initialIconTrimmed).toLowerCase();
 
@@ -66,6 +69,13 @@ export default function(instance, properties, context) {
     }
   }
 
+  // Icône principale : si aucune icône « réelle » (autobinding / initial) → smile grisé
+  var isPlaceholder =
+    !autobindingTrimmed &&
+    (!properties.initial_icon || !String(properties.initial_icon).trim());
+
+  var mainColor = isPlaceholder ? PLACEHOLDER_GRAY : color;
+
   // On ne touche pas au dropdown : il est géré par initialize
   if (instance.data.mainIconWrapper) {
     instance.data.mainIconWrapper.innerHTML =
@@ -84,7 +94,7 @@ export default function(instance, properties, context) {
       // Global scan comme dans le code qui marche
       lucideGlobal.createIcons({
         attrs: {
-          color: color,
+          color: mainColor,
           width: size,
           height: size,
           "stroke-width": strokeWidth,
