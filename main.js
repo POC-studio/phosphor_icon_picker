@@ -574,14 +574,13 @@ function displayCode(filename, code) {
 
   // On nettoie le code (on enlève les import/export locaux de la sandbox)
   let cleanCode = code;
-  // Nettoyage basique des imports/exports (peut être amélioré selon la syntaxe)
+  // 1) Enlever tous les imports
   cleanCode = cleanCode.replace(/import\s+.*?;?\n/g, '');
-  cleanCode = cleanCode.replace(/export\s+default\s+function\s*\(.*?\)\s*{([\s\S]*)}/g, '$1'); // Extraire le corps de la fonction si export default
-  
-  // Mais comme l'utilisateur Bubble colle tout le contenu de la fonction Initialize, 
-  // on peut garder la fonction complète si c'est plus simple, mais le plan dit "sans les imports/exports".
-  // On va juste enlever les imports et le mot-clé export default
-  cleanCode = code.replace(/import\s+.*?;?\n/g, '').replace(/export\s+default\s+/g, '').trim();
+  // 2) Enlever le mot-clé "export default"
+  cleanCode = cleanCode.replace(/export\s+default\s+/g, '');
+  // 3) Normaliser la signature des fonctions anonymes pour Bubble : "function(instance, ...)" sans espace
+  cleanCode = cleanCode.replace(/function\s+\(/g, 'function(');
+  cleanCode = cleanCode.trim();
 
   const wrapper = document.createElement('div');
   wrapper.className = 'code-block-wrapper';

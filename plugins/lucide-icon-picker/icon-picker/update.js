@@ -1,23 +1,20 @@
 export default function(instance, properties, context) {
-  console.log("[Lucide Picker][update] start", { properties, context });
   if (!properties) {
-    console.log("[Lucide Picker][update] no properties, abort");
     return;
   }
 
   // 1) Récupération des props Bubble
-  var valueTrimmed =
-    properties.value != null ? String(properties.value).trim() : "";
+  // Autobinding : priorité à la valeur liée, puis à initial_icon.
+  var autobindingTrimmed =
+    properties.autobinding != null ? String(properties.autobinding).trim() : "";
   var initialIconTrimmed =
     properties.initial_icon != null
       ? String(properties.initial_icon).trim()
       : "";
-  var iconName = (valueTrimmed || initialIconTrimmed || "smile").toLowerCase();
-  console.log("[Lucide Picker][update] iconName", {
-    valueTrimmed,
-    initialIconTrimmed,
-    iconName,
-  });
+  if (!initialIconTrimmed) {
+    initialIconTrimmed = "smile";
+  }
+  var iconName = (autobindingTrimmed || initialIconTrimmed).toLowerCase();
 
   var width = 32;
   var height = 32;
@@ -56,15 +53,17 @@ export default function(instance, properties, context) {
   var root =
     instance.canvas && instance.canvas.get ? instance.canvas.get(0) : null;
   if (!root) {
-    console.log("[Lucide Picker][update] no canvas root", instance.canvas);
     return;
   }
-  console.log("[Lucide Picker][update] canvas root before render", root);
 
   var previousIcon = instance.data.currentIcon;
   if (!previousIcon || previousIcon !== iconName) {
     instance.data.currentIcon = iconName;
     instance.publishState("selected_icon", iconName);
+    // mettre à jour la valeur d'autobinding si disponible (même pattern que Phosphor)
+    if (typeof instance.publishAutobinding === "function") {
+      instance.publishAutobinding(iconName);
+    }
   }
 
   // On ne touche pas au dropdown : il est géré par initialize
@@ -75,18 +74,12 @@ export default function(instance, properties, context) {
     // fallback : tout mettre dans le canvas si jamais
     instance.canvas.html('<i data-lucide="' + iconName + '"></i>');
   }
-  console.log("[Lucide Picker][update] after html", root.innerHTML);
 
   var lucideGlobal =
     (typeof window !== "undefined" && window.lucide) ||
     (typeof lucide !== "undefined" ? lucide : null);
 
   if (lucideGlobal && typeof lucideGlobal.createIcons === "function") {
-    console.log(
-      "[Lucide Picker][update] calling createIcons",
-      lucideGlobal,
-      { color, size, strokeWidth }
-    );
     try {
       // Global scan comme dans le code qui marche
       lucideGlobal.createIcons({
@@ -98,13 +91,8 @@ export default function(instance, properties, context) {
         },
       });
     } catch (e) {
-      console.error("[Lucide Picker][update] createIcons error", e);
+      // ignore
     }
-  } else {
-    console.warn(
-      "[Lucide Picker][update] lucideGlobal.createIcons not available",
-      lucideGlobal
-    );
   }
 
   // 4) Mettre à jour les SVG du dropdown (si Lucide les a générés)
@@ -119,8 +107,14 @@ export default function(instance, properties, context) {
   }
 
   // 5) Filtrage allowed_icons + placeholder de recherche (on garde ta logique)
-  if (properties.search_placeholder !== undefined && instance.data.searchInput) {
-    instance.data.searchInput.placeholder = properties.search_placeholder;
+  if (instance.data.searchInput) {
+    var placeholder =
+      properties.search_placeholder !== undefined &&
+      properties.search_placeholder !== null &&
+      String(properties.search_placeholder).trim() !== ""
+        ? String(properties.search_placeholder)
+        : "Search...";
+    instance.data.searchInput.placeholder = placeholder;
   }
 
   if (properties.allowed_icons !== undefined) {

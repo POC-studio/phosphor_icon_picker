@@ -152,5 +152,80 @@ Lors du développement de ces plugins, nous avons documenté plusieurs comportem
 ### E. Autobinding (champ qui reçoit la valeur)
 * Le champ qui reçoit l’autobinding dans Bubble est **une propriété dédiée**, distincte de l’affichage (ex. `initial_icon`). En général on utilise une propriété **`value`** (type text) pour cela.
 * Dans l’éditeur de plugin Bubble, il faut **cocher « Accepts autobinding »** pour cette propriété (ex. `value`), pas pour les autres.
-* L’API est **`instance.publishAutobindingValue(propertyId, value)`** avec **deux arguments** : l’id de la propriété qui accepte l’autobinding (ex. `'value'`), puis la valeur à écrire. Bubble met alors à jour le champ en base relié par l’utilisateur à cette propriété.
-* En `update.js`, prendre en compte à la fois `properties.value` (rempli par Bubble après autobinding) et `properties.initial_icon` pour l’icône affichée (ex. priorité à `value` puis `initial_icon`).
+* L’API moderne sur les éléments est **`instance.publishAutobinding(value)`** (un seul argument, la valeur), **pas** `instance.publishAutobindingValue(...)`. C’est cette méthode qui est utilisée par les pickers Phosphor / Lucide.
+* En `update.js`, on donne toujours la priorité à la valeur liée puis à l’initiale, par exemple pour un picker d’icônes :
+  ```javascript
+  var autobindingTrimmed =
+    properties.autobinding != null ? String(properties.autobinding).trim() : "";
+  var initialIconTrimmed =
+    properties.initial_icon != null ? String(properties.initial_icon).trim() : "";
+  if (!initialIconTrimmed) {
+    initialIconTrimmed = "smile";
+  }
+  var iconName = (autobindingTrimmed || initialIconTrimmed).toLowerCase();
+
+  var previousIcon = instance.data.currentIcon;
+  if (!previousIcon || previousIcon !== iconName) {
+    instance.data.currentIcon = iconName;
+    instance.publishState("selected_icon", iconName);
+    if (typeof instance.publishAutobinding === "function") {
+      instance.publishAutobinding(iconName);
+    }
+  }
+  ```
+
+### F. Contraintes de syntaxe Bubble pour le JavaScript
+* Bubble est **très strict** sur la forme des fonctions collées dans l’éditeur de plugin :
+  * Il faut utiliser des fonctions anonymes au format **`function(instance, properties, context) { ... }`** ou `function(instance, context) { ... }` **sans espace** entre `function` et la parenthèse ouvrante.
+  * Si tu écris `function (instance, context)` avec un espace, Bubble peut lever une erreur du type « function statement requires a name » ou ignorer silencieusement le code.
+* Aucun `export` / `import` n’est autorisé dans le code collé dans Bubble :
+  * Pas de `export default function ...` dans l’éditeur Bubble.
+  * Localement (dans la sandbox Vite), on peut garder `export default function(instance, ...)` pour que le bundler fonctionne, puis une étape de transformation (`toBubbleCode`) supprime `export`/`import` et normalise les fonctions avant affichage.
+* Les helpers (`parseStrokeWidth`, `waitForLucideReady`, etc.) doivent être **définis à l’intérieur** de la fonction principale :
+  ```javascript
+  function(instance, properties, context) {
+    function parseStrokeWidth(v) {
+      var n = Number(v);
+      return isFinite(n) && n > 0 ? n : 2;
+    }
+    // ... reste du code ...
+  }
+  ```
+  Cela évite toute déclaration top-level que Bubble pourrait mal interpréter.
+
+### G. Chargement des librairies externes (Phosphor, Lucide, Word Cloud, etc.)
+* Dans un plugin Bubble, il n’y a **pas de `shared.js` exécutable** : on utilise plutôt le **Shared header** (ou le header de l’app) pour charger les librairies externes.
+* Le pattern retenu est :
+  * Côté sandbox locale : un fichier `shared.html` par plugin (ex. `plugins/lucide-icon-picker/shared.html`) qui contient **uniquement** la balise `<script>` à coller dans Bubble :
+    ```html
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    ```
+  * Dans `index.html` de la sandbox, un petit script lit ces fragments HTML et crée dynamiquement de vrais `<script>` dans le `<head>` pour que le bundle externe soit exécuté en local (Vite).
+* Dans Bubble, il suffit ensuite de copier le contenu du bloc `shared.html` et de le coller tel quel dans le **Shared header** du plugin :
+  * Par exemple pour Phosphor :
+    ```html
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    ```
+  * Et pour Lucide :
+    ```html
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    ```
+* **Très important :** aucun nouveau chargement de script ne doit être refait dans `initialize.js` / `update.js`. Ces fichiers partent du principe que la librairie globale (`window.PhosphorIcons`, `window.lucide`, etc.) est déjà présente grâce au header.
+
+### H. Comportements par défaut des pickers (icônes & recherche)
+* Pour les pickers d’icônes (Phosphor / Lucide), on applique des valeurs par défaut robustes côté code :
+  * `initial_icon` vide ⇒ on tombe toujours sur une icône sûre (`"smile"`).
+  * placeholder de recherche vide ⇒ on tombe sur `"Search..."`.
+* Exemple pour le placeholder de recherche dans un picker Lucide :
+  ```javascript
+  if (instance.data.searchInput) {
+    var placeholder =
+      properties.search_placeholder !== undefined &&
+      properties.search_placeholder !== null &&
+      String(properties.search_placeholder).trim() !== ""
+        ? String(properties.search_placeholder)
+        : "Search...";
+    instance.data.searchInput.placeholder = placeholder;
+  }
+  ```
+* Les valeurs de taille, couleur et épaisseur (`stroke_width`) sont toujours validées et normalisées dans `update.js` avant d’être passées à la librairie d’icônes, pour éviter les `NaN` et les styles incohérents.

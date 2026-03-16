@@ -6,7 +6,7 @@
  * @param {object} context - Bubble context (context.uploadContent(fileName, base64, callback))
  * @returns {Promise<string>} Resolves with the image URL returned by Bubble.
  */
-export default function (instance, properties, context) {
+export default function(instance, properties, context) {
   return new Promise((resolve, reject) => {
     const canvas = instance.data && instance.data.canvas;
     if (!canvas || typeof canvas.toDataURL !== 'function') {

@@ -1,7 +1,6 @@
 export default function(instance, context) {
-  console.log("[Lucide Viewer][init] start", { instance, context });
-
   // Initialisation minimale : on laisse tout le rendu à update.js
+  // mais on garde le clic pour l'événement Bubble.
   instance.canvas.css({
     cursor: "pointer",
     display: "inline-block",
@@ -10,5 +9,13 @@ export default function(instance, context) {
   const root = instance.canvas && instance.canvas.get
     ? instance.canvas.get(0)
     : null;
-  console.log("[Lucide Viewer][init] canvas root", root);
+
+  if (root) {
+    root.addEventListener("click", function(e) {
+      e.stopPropagation();
+      if (typeof instance.triggerEvent === "function") {
+        instance.triggerEvent("is_clicked");
+      }
+    });
+  }
 }

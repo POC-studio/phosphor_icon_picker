@@ -1,6 +1,6 @@
 import { parseWordsList, sortAndNormalizeWordList } from '../shared-code.js';
 
-export default function (instance, properties, context) {
+export default function(instance, properties, context) {
   if (!properties) return;
 
   if (properties.text_color != null && properties.text_color !== '') {

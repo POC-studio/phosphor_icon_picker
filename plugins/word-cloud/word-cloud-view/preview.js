@@ -23,7 +23,7 @@ function loadWordCloud2() {
   });
 }
 
-export default function (instance, properties) {
+export default function(instance, properties) {
   const container = document.createElement('div');
   container.style.width = '100%';
   container.style.height = '100%';

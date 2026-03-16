@@ -1,13 +1,10 @@
 export default function(instance, properties, context) {
-  console.log("[Lucide Viewer][update] start", { properties, context });
   if (!properties) {
-    console.log("[Lucide Viewer][update] no properties, abort");
     return;
   }
 
   // 1) Récupération des props Bubble
   var iconName = (properties.initial_icon || "smile").toLowerCase();
-  console.log("[Lucide Viewer][update] iconName", iconName);
 
   var width = 32;
   var height = 32;
@@ -39,27 +36,17 @@ export default function(instance, properties, context) {
     ? instance.canvas.get(0)
     : null;
   if (!root) {
-    console.log("[Lucide Viewer][update] no canvas root", instance.canvas);
     return;
   }
-  console.log("[Lucide Viewer][update] canvas root before html", root);
 
   var current = instance.data.current_icon_name;
   var svg = root.firstChild;
 
   // 2) Création ou changement d'icône
   if (!svg || iconName !== current) {
-    console.log("[Lucide Viewer][update] creating/replacing icon", {
-      previous: current,
-      next: iconName,
-    });
     instance.data.current_icon_name = iconName;
 
     instance.canvas.html('<i data-lucide="' + iconName + '"></i>');
-    console.log(
-      "[Lucide Viewer][update] after html",
-      root.innerHTML
-    );
     var element = root.firstChild;
 
     var lucideGlobal =
@@ -67,11 +54,6 @@ export default function(instance, properties, context) {
       (typeof lucide !== "undefined" ? lucide : null);
 
     if (lucideGlobal && typeof lucideGlobal.createIcons === "function") {
-      console.log(
-        "[Lucide Viewer][update] calling createIcons",
-        lucideGlobal,
-        { color, size, strokeWidth }
-      );
       try {
         lucideGlobal.createIcons({
           attrs: {
@@ -82,13 +64,8 @@ export default function(instance, properties, context) {
           },
         });
       } catch (e) {
-        console.error("[Lucide Viewer][update] createIcons error", e);
+        // ignore
       }
-    } else {
-      console.warn(
-        "[Lucide Viewer][update] lucideGlobal.createIcons not available",
-        lucideGlobal
-      );
     }
 
     instance.canvas.css({
@@ -98,27 +75,7 @@ export default function(instance, properties, context) {
 
     // On vérifie globalement si Lucide a vraiment généré un SVG
     var svgElement = root.querySelector("svg");
-    console.log(
-      "[Lucide Viewer][update] svgElement after createIcons",
-      svgElement
-    );
-    if (!svgElement) {
-      var naElement = document.createElement("div");
-      naElement.textContent = "NA";
-      naElement.style.width = size + "px";
-      naElement.style.height = size + "px";
-      naElement.style.display = "flex";
-      naElement.style.alignItems = "center";
-      naElement.style.justifyContent = "center";
-      naElement.style.borderRadius = "4px";
-      naElement.style.color = "#000000";
-      naElement.style.backgroundColor = "rgba(0, 0, 0, 0.1)";
-      naElement.style.fontSize = size / 3 + "px";
-      naElement.style.fontFamily = "sans-serif";
-      naElement.style.fontWeight = "bold";
-
-      instance.canvas.append(naElement);
-    } else {
+    if (svgElement) {
       svgElement.style.transition =
         "all " + transitionDuration + "ms " + transitionEasing;
     }

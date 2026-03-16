@@ -1,6 +1,6 @@
 import { getFontFamily, getVariedColor } from '../shared-code.js';
 
-export default function (instance, context) {
+export default function(instance, context) {
   const container = document.createElement('div');
   container.style.width = '100%';
   container.style.height = '100%';

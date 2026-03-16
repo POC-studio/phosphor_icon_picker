@@ -1,8 +1,6 @@
 export default function(instance, context) {
-  console.log("[Lucide Picker][init] start", { instance, context });
   const canvasRoot =
     instance.canvas && instance.canvas.get ? instance.canvas.get(0) : null;
-  console.log("[Lucide Picker][init] canvas root", canvasRoot);
 
   function parseStrokeWidth(v) {
     var n = Number(v);
@@ -170,8 +168,9 @@ export default function(instance, context) {
       instance.data.currentIcon = iconName;
       instance.publishState("selected_icon", iconName);
 
-      if (typeof instance.publishAutobindingValue === "function") {
-        instance.publishAutobindingValue(iconName);
+      // Autobinding : même pattern que sur le Phosphor Icon Picker
+      if (typeof instance.publishAutobinding === "function") {
+        instance.publishAutobinding(iconName);
       }
 
       instance.triggerEvent("icon_selected");
@@ -238,31 +237,17 @@ export default function(instance, context) {
   instance.data.applyMainIcon = applyMainIcon;
   instance.data.currentIcon = "smile";
 
-  console.log("[Lucide Picker][init] before initial applyMainIcon");
   applyMainIcon();
   if (typeof window.lucide !== "undefined" && window.lucide.createIcons) {
-    console.log("[Lucide Picker][init] calling createIcons on grid", {
-      color: instance.data.currentColor,
-      strokeWidth: instance.data.currentStrokeWidth,
+    window.lucide.createIcons({
+      root: iconsGrid,
+      attrs: {
+        stroke: instance.data.currentColor,
+        "stroke-width": instance.data.currentStrokeWidth,
+        width: 24,
+        height: 24,
+      },
     });
-    try {
-      window.lucide.createIcons({
-        root: iconsGrid,
-        attrs: {
-          stroke: instance.data.currentColor,
-          "stroke-width": instance.data.currentStrokeWidth,
-          width: 24,
-          height: 24,
-        },
-      });
-    } catch (e) {
-      console.error("[Lucide Picker][init] createIcons error", e);
-    }
-  } else {
-    console.warn(
-      "[Lucide Picker][init] window.lucide.createIcons not available",
-      window.lucide
-    );
   }
 }
 
