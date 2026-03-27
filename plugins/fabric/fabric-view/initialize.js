@@ -78,6 +78,62 @@ function getActiveSelectionTargets(fabricCanvas) {
   return [active];
 }
 
+/** Groupe Fabric « normal » (pas ActiveSelection). */
+function isFabricGroupObject(target) {
+  if (!target) return false;
+  return String(target.type || '').toLowerCase() === 'group';
+}
+
+/** Objets feuilles pour fill / stroke / typo (développe les groupes imbriqués). */
+function flattenStyleTargetsFromGroup(group) {
+  const out = [];
+  if (!group || typeof group.getObjects !== 'function') return out;
+  const kids = group.getObjects();
+  if (!Array.isArray(kids)) return out;
+  kids.forEach((child) => {
+    if (!child || child.isArtboard || child.isSafeZone) return;
+    if (isFabricGroupObject(child)) {
+      out.push(...flattenStyleTargetsFromGroup(child));
+    } else {
+      out.push(child);
+    }
+  });
+  return out;
+}
+
+/**
+ * Cibles pour la barre d’outils et applyStyleToSelection : comme une multi-sélection,
+ * avec développement des groupes pour éditer toutes les formes à l’intérieur.
+ */
+function getToolbarStyleTargets(fabricCanvas) {
+  if (!fabricCanvas) return [];
+  const active = fabricCanvas.getActiveObject();
+  if (!active) return [];
+
+  const expandTopLevel = (list) => {
+    const out = [];
+    list.forEach((item) => {
+      if (!item || item.isArtboard || item.isSafeZone) return;
+      if (isFabricGroupObject(item)) {
+        out.push(...flattenStyleTargetsFromGroup(item));
+      } else {
+        out.push(item);
+      }
+    });
+    return out;
+  };
+
+  if (isSelectionContainer(active)) {
+    const objects = active.getObjects();
+    const raw = Array.isArray(objects) ? objects.filter(Boolean) : [];
+    return expandTopLevel(raw);
+  }
+  if (isFabricGroupObject(active)) {
+    return flattenStyleTargetsFromGroup(active);
+  }
+  return [active];
+}
+
 function getSharedToolbarVisibility(targets) {
   if (!Array.isArray(targets) || targets.length === 0) return TOOLBAR_VISIBILITY_BY_TYPE.default;
   const initial = { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: true };
@@ -890,8 +946,8 @@ function updateTopBarForSelection(instance) {
   const isPanMode = toolMode === 'pan';
   const fabricCanvas = instance.data.fabricCanvas;
   const target = fabricCanvas ? fabricCanvas.getActiveObject() : null;
-  const targets = getActiveSelectionTargets(fabricCanvas);
-  const hasMultiSelection = targets.length > 1;
+  const targets = getToolbarStyleTargets(fabricCanvas);
+  const hasMultiSelection = targets.length > 1 || isFabricGroupObject(target);
   if (isPanMode) {
     ui.topBar.style.visibility = 'visible';
     ui.fillControl.setMixed(false);
@@ -1064,8 +1120,9 @@ function updateTopBarForSelection(instance) {
 function applyStyleToSelection(instance, patch) {
   const fabricCanvas = instance.data.fabricCanvas;
   if (!fabricCanvas) return;
-  const targets = getActiveSelectionTargets(fabricCanvas);
+  const targets = getToolbarStyleTargets(fabricCanvas);
   if (targets.length === 0) return;
+  const activeObject = fabricCanvas.getActiveObject();
   targets.forEach((target) => {
     const nextPatch = { ...patch };
     // Keep stroke width visually constant while object is scaled.
@@ -1102,6 +1159,15 @@ function applyStyleToSelection(instance, patch) {
     target.dirty = true;
     target.setCoords();
   });
+  // Ne pas appeler triggerLayout sur une ActiveSelection : ça peut casser la sélection / le hit-test.
+  if (isFabricGroupObject(activeObject)) {
+    activeObject.set('dirty', true);
+    if (typeof activeObject.triggerLayout === 'function') {
+      activeObject.triggerLayout();
+    } else if (typeof activeObject.setCoords === 'function') {
+      activeObject.setCoords();
+    }
+  }
   fabricCanvas.requestRenderAll();
   publishCanvasJson(instance);
   updateTopBarForSelection(instance);
@@ -1479,48 +1545,27 @@ export default function(instance) {
   const ungroupSelection = () => {
     const active = fabricCanvas.getActiveObject();
     if (!active || !isGroupObject(active)) return;
-    let didUngroup = false;
-    if (typeof active.toActiveSelection === 'function') {
-      try {
-        const selection = active.toActiveSelection();
-        if (selection) {
-          if (typeof selection.triggerLayout === 'function') {
-            selection.triggerLayout();
-          } else if (typeof selection.setCoords === 'function') {
-            selection.setCoords();
-          }
-          fabricCanvas.setActiveObject(selection);
-          didUngroup = true;
-        }
-      } catch (e) {
-        didUngroup = false;
+    // Fabric 6 : il faut d’abord retirer chaque enfant du groupe avec group.remove().
+    // Sinon les objets restent dans group._objects tout en étant ré-ajoutés au canvas :
+    // état incohérent → plus de sélection / hit-test.
+    const children = typeof active.getObjects === 'function' ? [...active.getObjects()] : [];
+    if (children.length === 0) return;
+
+    children.forEach((obj) => {
+      if (typeof active.remove === 'function') {
+        active.remove(obj);
       }
-    }
-    if (!didUngroup) {
-      // Fallback path for Fabric variants where toActiveSelection is unavailable
-      // or does not update canvas state as expected.
-      const children = typeof active.getObjects === 'function'
-        ? [...active.getObjects()]
-        : [];
-      if (children.length === 0) return;
-      if (typeof active._restoreObjectsState === 'function') {
-        active._restoreObjectsState();
+    });
+    fabricCanvas.remove(active);
+
+    if (typeof fabricLib.ActiveSelection === 'function') {
+      const selection = new fabricLib.ActiveSelection(children, { canvas: fabricCanvas });
+      fabricCanvas.setActiveObject(selection);
+      if (typeof selection.setCoords === 'function') {
+        selection.setCoords();
       }
-      fabricCanvas.remove(active);
-      children.forEach((obj) => {
-        fabricCanvas.add(obj);
-      });
-      if (typeof fabricLib.ActiveSelection === 'function') {
-        const selection = new fabricLib.ActiveSelection(children, { canvas: fabricCanvas });
-        if (typeof selection.triggerLayout === 'function') {
-          selection.triggerLayout();
-        } else if (typeof selection.setCoords === 'function') {
-          selection.setCoords();
-        }
-        fabricCanvas.setActiveObject(selection);
-      } else if (children.length === 1) {
-        fabricCanvas.setActiveObject(children[0]);
-      }
+    } else if (children.length === 1) {
+      fabricCanvas.setActiveObject(children[0]);
     }
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
@@ -2268,10 +2313,14 @@ export default function(instance) {
       if (!target) return;
       const normalizedStroke = normalizeCanvasColor(color, '#000000');
       const patch = { stroke: normalizedStroke };
+      const styleTargets = getToolbarStyleTargets(fabricCanvas);
+      const needsTextStrokeDefault = styleTargets.some(
+        (t) => isTextLikeObject(t) && Number(t.strokeWidth || 0) <= 0
+      );
       if (shouldZeroStrokeWidth(normalizedStroke)) {
         patch.strokeWidth = 0;
         ui.strokeWidthInput.value = '0';
-      } else if (isTextLikeObject(target) && Number(target.strokeWidth || 0) <= 0) {
+      } else if (needsTextStrokeDefault) {
         patch.strokeWidth = 1;
         ui.strokeWidthInput.value = '1';
       }
@@ -2291,10 +2340,14 @@ export default function(instance) {
       if (!target) return;
       const color = normalizeCanvasColor(hex, '#000000');
       const patch = { stroke: color };
+      const styleTargets = getToolbarStyleTargets(fabricCanvas);
+      const needsTextStrokeDefault = styleTargets.some(
+        (t) => isTextLikeObject(t) && Number(t.strokeWidth || 0) <= 0
+      );
       if (shouldZeroStrokeWidth(color)) {
         patch.strokeWidth = 0;
         ui.strokeWidthInput.value = '0';
-      } else if (isTextLikeObject(target) && Number(target.strokeWidth || 0) <= 0) {
+      } else if (needsTextStrokeDefault) {
         patch.strokeWidth = 1;
         ui.strokeWidthInput.value = '1';
       }
@@ -2317,7 +2370,7 @@ export default function(instance) {
   ui.radiusInput.addEventListener('input', () => {
     const active = fabricCanvas.getActiveObject();
     if (!active) return;
-    const targets = getActiveSelectionTargets(fabricCanvas);
+    const targets = getToolbarStyleTargets(fabricCanvas);
     if (targets.length === 0) return;
     const radius = Math.max(0, Math.min(200, Number(ui.radiusInput.value || 0)));
     const updated = [];
@@ -2344,6 +2397,9 @@ export default function(instance) {
     if (isSelectionContainer(active) && updated.length > 1) {
       const selection = new fabricLib.ActiveSelection(updated, { canvas: fabricCanvas });
       fabricCanvas.setActiveObject(selection);
+    } else if (isFabricGroupObject(active)) {
+      if (typeof active.triggerLayout === 'function') active.triggerLayout();
+      fabricCanvas.setActiveObject(active);
     } else if (updated.length === 1) {
       fabricCanvas.setActiveObject(updated[0]);
     }
@@ -2352,7 +2408,7 @@ export default function(instance) {
     updateTopBarForSelection(instance);
   });
   ui.fontSizeInput.addEventListener('input', () => {
-    const targets = getActiveSelectionTargets(fabricCanvas).filter((item) => isTextLikeObject(item));
+    const targets = getToolbarStyleTargets(fabricCanvas).filter((item) => isTextLikeObject(item));
     if (targets.length === 0) return;
     const fontSize = Math.max(1, Math.min(400, Number(ui.fontSizeInput.value || 16)));
     targets.forEach((target) => {
@@ -2370,9 +2426,24 @@ export default function(instance) {
     updateTopBarForSelection(instance);
     publishCanvasJson(instance);
   };
+  const onSelectionCleared = () => {
+    onSelectionChanged();
+    // Après dégroupe / désélection, Fabric peut laisser selectable/evented à false sur les objets
+    // remis au premier plan — on rétablit pour que le hit-test refonctionne au frame suivant.
+    requestAnimationFrame(() => {
+      if (!fabricCanvas) return;
+      fabricCanvas.getObjects().forEach((obj) => {
+        if (!obj || obj.isArtboard || obj.isSafeZone) return;
+        if (isFabricGroupObject(obj) || isSelectionContainer(obj)) return;
+        if (typeof obj.set === 'function') {
+          obj.set({ selectable: true, evented: true });
+        }
+      });
+    });
+  };
   fabricCanvas.on('selection:created', onSelectionChanged);
   fabricCanvas.on('selection:updated', onSelectionChanged);
-  fabricCanvas.on('selection:cleared', onSelectionChanged);
+  fabricCanvas.on('selection:cleared', onSelectionCleared);
   fabricCanvas.on('mouse:down', (opt) => {
     instance.data.altKeyAtMouseDown = false;
     if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
