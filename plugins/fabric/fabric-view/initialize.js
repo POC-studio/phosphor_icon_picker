@@ -27,6 +27,7 @@ const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
   'moon', 'rocket', 'leaf', 'music-note', 'shopping-cart', 'gift', 'globe', 'map-pin',
 ];
 const PHOSPHOR_STYLES = ['regular', 'bold', 'fill', 'light', 'thin', 'duotone'];
+const ARTBOARD_VIEWER_MARGIN_PX = 24;
 
 function stripStyleSuffix(iconFileName, style) {
   if (typeof iconFileName !== 'string') return '';
@@ -280,6 +281,115 @@ function publishCanvasJson(instance) {
   }
 }
 
+function readDocumentDimension(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+function getDocumentSize(instance) {
+  const fallbackWidth = 1000;
+  const fallbackHeight = 1000;
+  const data = instance && instance.data ? instance.data : {};
+  const width = readDocumentDimension(data.canvasWidth, fallbackWidth);
+  const height = readDocumentDimension(data.canvasHeight, fallbackHeight);
+  return { width, height };
+}
+
+function computeFit(boardWidth, boardHeight, docWidth, docHeight) {
+  const safeBoardW = Math.max(Number(boardWidth) || 1, 1);
+  const safeBoardH = Math.max(Number(boardHeight) || 1, 1);
+  const safeDocW = Math.max(Number(docWidth) || 1, 1);
+  const safeDocH = Math.max(Number(docHeight) || 1, 1);
+  const scale = Math.min(safeBoardW / safeDocW, safeBoardH / safeDocH);
+  const offsetX = (safeBoardW - safeDocW * scale) / 2;
+  const offsetY = (safeBoardH - safeDocH * scale) / 2;
+  return { scale, offsetX, offsetY };
+}
+
+function ensureArtboardAtBack(instance) {
+  if (!instance || !instance.data) return;
+  const canvas = instance.data.fabricCanvas;
+  const artboard = instance.data.artboardRect;
+  if (!canvas || !artboard) return;
+  if (typeof canvas.sendObjectToBack === 'function') {
+    canvas.sendObjectToBack(artboard);
+  } else if (typeof artboard.sendToBack === 'function') {
+    artboard.sendToBack();
+  }
+}
+
+function ensureArtboardRect(instance, fabricLib) {
+  if (!instance || !instance.data) return null;
+  const canvas = instance.data.fabricCanvas;
+  if (!canvas || !fabricLib) return null;
+  const doc = getDocumentSize(instance);
+  let artboard = instance.data.artboardRect || null;
+  if (!artboard) {
+    artboard = new fabricLib.Rect({
+      left: 0,
+      top: 0,
+      width: doc.width,
+      height: doc.height,
+      originX: 'left',
+      originY: 'top',
+      fill: '#ffffff',
+      stroke: 'transparent',
+      strokeWidth: 0,
+      selectable: false,
+      evented: false,
+      hasControls: false,
+      hasBorders: false,
+      lockMovementX: true,
+      lockMovementY: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: true,
+      excludeFromExport: true,
+      isArtboard: true,
+    });
+    canvas.add(artboard);
+    instance.data.artboardRect = artboard;
+  } else {
+    artboard.set({
+      left: 0,
+      top: 0,
+      width: doc.width,
+      height: doc.height,
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+      isArtboard: true,
+      stroke: 'transparent',
+      fill: '#ffffff',
+    });
+  }
+  ensureArtboardAtBack(instance);
+  return artboard;
+}
+
+function applyViewportTransform(instance) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas || !instance.data.viewport) return;
+  const fabricCanvas = instance.data.fabricCanvas;
+  const viewport = instance.data.viewport;
+  fabricCanvas.setViewportTransform([
+    viewport.scale,
+    0,
+    0,
+    viewport.scale,
+    viewport.offsetX,
+    viewport.offsetY,
+  ]);
+}
+
+function getDocumentCenter(instance) {
+  const doc = getDocumentSize(instance);
+  return {
+    x: doc.width / 2,
+    y: doc.height / 2,
+  };
+}
+
 function normalizeObjectScale(target) {
   if (!target || typeof target.set !== 'function') return;
   if (target.type === 'activeSelection') return;
@@ -458,6 +568,7 @@ function buildShell() {
   leftBar.style.flexDirection = 'column';
   leftBar.style.alignItems = 'center';
   leftBar.style.paddingTop = '12px';
+  leftBar.style.paddingBottom = '12px';
   leftBar.style.gap = '10px';
   leftBar.style.flexShrink = '0';
 
@@ -466,7 +577,7 @@ function buildShell() {
   board.style.position = 'relative';
   board.style.minWidth = '0';
   board.style.minHeight = '0';
-  board.style.background = '#ffffff';
+  board.style.background = '#e5e7eb';
 
   const canvasHost = document.createElement('div');
   canvasHost.style.position = 'absolute';
@@ -510,13 +621,24 @@ function buildShell() {
   const shapeBtn = mkBtn('ph ph-square', 'Shape');
   const iconBtn = mkBtn('ph ph-smiley', 'Emojis');
   const penBtn = mkBtn('ph ph-pen', 'Pen');
+  const panBtn = mkBtn('ph ph-hand', 'Pan');
   const imageBtn = mkBtn('ph ph-image', 'Image');
+  const zoomOutBtn = mkBtn('ph ph-minus', 'Zoom out');
+  const zoomInBtn = mkBtn('ph ph-plus', 'Zoom in');
+  const fitBtn = mkBtn('ph ph-corners-in', 'Fit');
 
   leftBar.appendChild(textBtn);
   leftBar.appendChild(shapeBtn);
   leftBar.appendChild(iconBtn);
   leftBar.appendChild(penBtn);
   leftBar.appendChild(imageBtn);
+  const leftSpacer = document.createElement('div');
+  leftSpacer.style.flex = '1';
+  leftBar.appendChild(leftSpacer);
+  leftBar.appendChild(panBtn);
+  leftBar.appendChild(zoomInBtn);
+  leftBar.appendChild(zoomOutBtn);
+  leftBar.appendChild(fitBtn);
 
   return {
     root,
@@ -535,7 +657,11 @@ function buildShell() {
     textBtn,
     iconBtn,
     penBtn,
+    panBtn,
     imageBtn,
+    zoomOutBtn,
+    zoomInBtn,
+    fitBtn,
     shapeBtn,
     board,
   };
@@ -544,11 +670,32 @@ function buildShell() {
 function updateTopBarForSelection(instance) {
   const ui = instance.data.ui;
   if (!ui) return;
-  const isDrawMode = instance.data && instance.data.toolMode === 'draw';
+  const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : 'select';
+  const isDrawMode = toolMode === 'draw';
+  const isPanMode = toolMode === 'pan';
   const fabricCanvas = instance.data.fabricCanvas;
   const target = fabricCanvas ? fabricCanvas.getActiveObject() : null;
   const targets = getActiveSelectionTargets(fabricCanvas);
   const hasMultiSelection = targets.length > 1;
+  if (isPanMode) {
+    ui.topBar.style.visibility = 'hidden';
+    ui.fillControl.setMixed(false);
+    ui.strokeControl.setMixed(false);
+    ui.fillControl.setDisabled(true);
+    ui.strokeControl.setDisabled(true);
+    ui.strokeWidthInput.disabled = true;
+    ui.radiusInput.disabled = true;
+    ui.fontSizeInput.disabled = true;
+    ui.strokeWidthInput.style.opacity = '0.55';
+    ui.radiusInput.style.opacity = '0.55';
+    ui.fontSizeInput.style.opacity = '0.55';
+    ui.topFill.style.display = 'inline-flex';
+    ui.topStroke.style.display = 'inline-flex';
+    ui.topStrokeWidth.style.display = 'inline-flex';
+    ui.topRadius.style.display = 'inline-flex';
+    ui.topFontSize.style.display = 'inline-flex';
+    return;
+  }
   if (!target && !isDrawMode) {
     ui.topBar.style.visibility = 'hidden';
     ui.fillControl.setMixed(false);
@@ -747,9 +894,44 @@ function ensureCanvasSize(instance) {
   const fabricCanvas = instance.data.fabricCanvas;
   const ui = instance.data.ui;
   if (!fabricCanvas || !ui || !ui.board) return;
-  const width = Math.max(ui.board.clientWidth || 1, 1);
-  const height = Math.max(ui.board.clientHeight || 1, 1);
+  const width = Math.max(Number(ui.board.clientWidth) || 1, 1);
+  const height = Math.max(Number(ui.board.clientHeight) || 1, 1);
+  const doc = getDocumentSize(instance);
+  const margin = Math.max(0, Number(ARTBOARD_VIEWER_MARGIN_PX) || 0);
+  const fitAreaWidth = Math.max(1, width - margin * 2);
+  const fitAreaHeight = Math.max(1, height - margin * 2);
+  const fit = computeFit(fitAreaWidth, fitAreaHeight, doc.width, doc.height);
+  const zoomScale = Math.max(0.1, Math.min(8, Number(instance.data.zoomScale) || 1));
+  const scaled = fit.scale * zoomScale;
+  const panX = Number.isFinite(Number(instance.data.panX)) ? Number(instance.data.panX) : 0;
+  const panY = Number.isFinite(Number(instance.data.panY)) ? Number(instance.data.panY) : 0;
+  const offsetX = (width - doc.width * scaled) / 2 + panX;
+  const offsetY = (height - doc.height * scaled) / 2 + panY;
+  instance.data.viewport = {
+    docW: doc.width,
+    docH: doc.height,
+    scale: scaled,
+    offsetX,
+    offsetY,
+    zoomScale,
+    panX,
+    panY,
+  };
+
   fabricCanvas.setDimensions({ width, height });
+  applyViewportTransform(instance);
+  const artboard = ensureArtboardRect(instance, instance.data.fabricLib);
+  if (artboard) {
+    artboard.set({
+      left: 0,
+      top: 0,
+      width: doc.width,
+      height: doc.height,
+      strokeWidth: 0,
+    });
+    if (typeof artboard.setCoords === 'function') artboard.setCoords();
+    ensureArtboardAtBack(instance);
+  }
   fabricCanvas.requestRenderAll();
 }
 
@@ -922,6 +1104,19 @@ export default function(instance) {
   const fabricLib = resolveFabric();
   const ui = buildShell();
   instance.data.ui = ui;
+  instance.data.fabricLib = fabricLib;
+  instance.data.canvasWidth = 1000;
+  instance.data.canvasHeight = 1000;
+  instance.data.viewport = {
+    docW: 1000,
+    docH: 1000,
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    zoomScale: 1,
+    panX: 0,
+    panY: 0,
+  };
   instance.canvas.append(ui.root);
 
   if (!fabricLib || typeof fabricLib.Canvas !== 'function') {
@@ -951,6 +1146,12 @@ export default function(instance) {
   instance.data.toolMode = 'select';
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
+  instance.data.zoomScale = 1;
+  instance.data.panX = 0;
+  instance.data.panY = 0;
+  instance.data.isPanning = false;
+  instance.data.panLastClientX = 0;
+  instance.data.panLastClientY = 0;
 
   const applyPenBrush = () => {
     if (!fabricCanvas.freeDrawingBrush && typeof fabricLib.PencilBrush === 'function') {
@@ -966,26 +1167,39 @@ export default function(instance) {
   };
 
   const setToolMode = (mode) => {
-    instance.data.toolMode = mode === 'draw' ? 'draw' : 'select';
+    instance.data.toolMode = mode === 'draw' || mode === 'pan' ? mode : 'select';
     const isDrawMode = instance.data.toolMode === 'draw';
+    const isPanMode = instance.data.toolMode === 'pan';
     fabricCanvas.isDrawingMode = isDrawMode;
-    fabricCanvas.selection = !isDrawMode;
-    fabricCanvas.skipTargetFind = isDrawMode;
-    fabricCanvas.defaultCursor = isDrawMode ? 'crosshair' : 'default';
+    fabricCanvas.selection = !isDrawMode && !isPanMode;
+    fabricCanvas.skipTargetFind = isDrawMode || isPanMode;
+    fabricCanvas.defaultCursor = isDrawMode ? 'crosshair' : (isPanMode ? 'grab' : 'default');
     if (isDrawMode) {
       fabricCanvas.discardActiveObject();
       applyPenBrush();
+    }
+    if (isPanMode) {
+      fabricCanvas.discardActiveObject();
+    }
+    if (!isPanMode) {
+      instance.data.isPanning = false;
+      ui.board.style.cursor = '';
     }
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
   };
 
   const setActiveToolButton = (activeBtn) => {
-    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.imageBtn].forEach((btn) => {
+    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn].forEach((btn) => {
       if (!btn) return;
       btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
       btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
     });
+  };
+  const exitPanMode = () => {
+    if (instance.data.toolMode !== 'pan') return;
+    setToolMode('select');
+    setActiveToolButton(null);
   };
 
   const groupSelection = () => {
@@ -1005,6 +1219,7 @@ export default function(instance) {
       fabricCanvas.add(group);
       fabricCanvas.setActiveObject(group);
     }
+    ensureArtboardAtBack(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
@@ -1052,6 +1267,7 @@ export default function(instance) {
         fabricCanvas.setActiveObject(children[0]);
       }
     }
+    ensureArtboardAtBack(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
@@ -1101,6 +1317,7 @@ export default function(instance) {
       if (action === 'group') groupSelection();
       else if (action === 'ungroup') ungroupSelection();
       else applyZOrderToSelection(fabricCanvas, action);
+      ensureArtboardAtBack(instance);
       closeContextMenu();
       publishCanvasJson(instance);
       updateTopBarForSelection(instance);
@@ -1187,10 +1404,9 @@ export default function(instance) {
   }, true);
 
   const addShapeByType = (shapeType) => {
-    const w = ui.board.clientWidth;
-    const h = ui.board.clientHeight;
-    const baseLeft = Math.round(w * 0.5 - 60);
-    const baseTop = Math.round(h * 0.5 - 60);
+    const center = getDocumentCenter(instance);
+    const baseLeft = Math.round(center.x - 60);
+    const baseTop = Math.round(center.y - 60);
     let shape = null;
 
     if (shapeType === 'square') {
@@ -1310,9 +1526,10 @@ export default function(instance) {
 
     if (!Array.isArray(objects) || objects.length === 0) {
       // Last-resort fallback: add visible text marker so click always gives feedback.
+      const center = getDocumentCenter(instance);
       const fallback = new fabricLib.Textbox(iconName, {
-        left: Math.round(ui.board.clientWidth * 0.5),
-        top: Math.round(ui.board.clientHeight * 0.5),
+        left: Math.round(center.x),
+        top: Math.round(center.y),
         originX: 'center',
         originY: 'center',
         fontSize: 28,
@@ -1343,9 +1560,10 @@ export default function(instance) {
     });
     const scaledW = typeof grouped.getScaledWidth === 'function' ? grouped.getScaledWidth() : 0;
     const scaledH = typeof grouped.getScaledHeight === 'function' ? grouped.getScaledHeight() : 0;
+    const center = getDocumentCenter(instance);
     grouped.set({
-      left: Math.round((ui.board.clientWidth - scaledW) * 0.5),
-      top: Math.round((ui.board.clientHeight - scaledH) * 0.5),
+      left: Math.round(center.x - scaledW / 2),
+      top: Math.round(center.y - scaledH / 2),
       fill: '#0f172a',
       stroke: '#00000000',
       strokeWidth: 0,
@@ -1361,15 +1579,18 @@ export default function(instance) {
     publishCanvasJson(instance);
   };
 
-  const seed = createRandomSeedObjects(fabricLib, ui.board.clientWidth, ui.board.clientHeight);
+  const doc = getDocumentSize(instance);
+  const seed = createRandomSeedObjects(fabricLib, doc.width, doc.height);
   seed.forEach((obj) => fabricCanvas.add(obj));
   ensureCanvasSize(instance);
   updateTopBarForSelection(instance);
 
   ui.textBtn.addEventListener('click', () => {
+    exitPanMode();
     setToolMode('select');
     setActiveToolButton(ui.textBtn);
-    const text = createDefaultTextbox(fabricLib, ui.board.clientWidth, ui.board.clientHeight);
+    const docSize = getDocumentSize(instance);
+    const text = createDefaultTextbox(fabricLib, docSize.width, docSize.height);
     if (!text) return;
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
@@ -1597,12 +1818,14 @@ export default function(instance) {
   instance.data.iconMenu = iconMenu;
 
   ui.shapeBtn.addEventListener('click', () => {
+    exitPanMode();
     setToolMode('select');
     setActiveToolButton(ui.shapeBtn);
     iconMenu.style.display = 'none';
     shapeMenu.style.display = shapeMenu.style.display === 'none' ? 'flex' : 'none';
   });
   ui.iconBtn.addEventListener('click', () => {
+    exitPanMode();
     setToolMode('select');
     setActiveToolButton(ui.iconBtn);
     shapeMenu.style.display = 'none';
@@ -1618,17 +1841,108 @@ export default function(instance) {
       event.preventDefault();
       event.stopPropagation();
     }
+    exitPanMode();
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'draw' ? 'select' : 'draw';
     setToolMode(nextMode);
     setActiveToolButton(nextMode === 'draw' ? ui.penBtn : null);
   });
+  ui.panBtn.addEventListener('click', (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    const nextMode = instance.data.toolMode === 'pan' ? 'select' : 'pan';
+    setToolMode(nextMode);
+    setActiveToolButton(nextMode === 'pan' ? ui.panBtn : null);
+  });
 
   ui.imageBtn.addEventListener('click', () => {
+    exitPanMode();
     setToolMode('select');
     setActiveToolButton(ui.imageBtn);
     // Placeholder V1: outil affiché, import d'image non implémenté.
+  });
+
+  const updateZoomButtons = () => {
+    const z = Math.max(0.1, Math.min(8, Number(instance.data.zoomScale) || 1));
+    ui.zoomOutBtn.disabled = z <= 0.1;
+    ui.zoomInBtn.disabled = z >= 8;
+    ui.zoomOutBtn.style.opacity = ui.zoomOutBtn.disabled ? '0.45' : '1';
+    ui.zoomInBtn.style.opacity = ui.zoomInBtn.disabled ? '0.45' : '1';
+    ui.zoomOutBtn.style.cursor = ui.zoomOutBtn.disabled ? 'default' : 'pointer';
+    ui.zoomInBtn.style.cursor = ui.zoomInBtn.disabled ? 'default' : 'pointer';
+  };
+  const applyZoomDelta = (delta) => {
+    const current = Math.max(0.1, Math.min(8, Number(instance.data.zoomScale) || 1));
+    const next = Math.max(0.1, Math.min(8, current + delta));
+    if (next === current) return;
+    instance.data.zoomScale = next;
+    ensureCanvasSize(instance);
+    updateZoomButtons();
+  };
+  const applyZoomAtViewerPoint = (nextZoomScale, clientX, clientY) => {
+    const clampedZoom = Math.max(0.1, Math.min(8, Number(nextZoomScale) || 1));
+    const viewport = instance.data.viewport || {};
+    const currentScale = Math.max(1e-6, Number(viewport.scale) || 1);
+    const currentOffsetX = Number(viewport.offsetX) || 0;
+    const currentOffsetY = Number(viewport.offsetY) || 0;
+    const boardRect = ui.board.getBoundingClientRect();
+    const viewerX = (Number(clientX) || 0) - boardRect.left;
+    const viewerY = (Number(clientY) || 0) - boardRect.top;
+    const docX = (viewerX - currentOffsetX) / currentScale;
+    const docY = (viewerY - currentOffsetY) / currentScale;
+
+    instance.data.zoomScale = clampedZoom;
+
+    const boardW = Math.max(Number(ui.board.clientWidth) || 1, 1);
+    const boardH = Math.max(Number(ui.board.clientHeight) || 1, 1);
+    const doc = getDocumentSize(instance);
+    const margin = Math.max(0, Number(ARTBOARD_VIEWER_MARGIN_PX) || 0);
+    const fitAreaWidth = Math.max(1, boardW - margin * 2);
+    const fitAreaHeight = Math.max(1, boardH - margin * 2);
+    const fit = computeFit(fitAreaWidth, fitAreaHeight, doc.width, doc.height);
+    const nextScale = fit.scale * clampedZoom;
+    const baseOffsetX = (boardW - doc.width * nextScale) / 2;
+    const baseOffsetY = (boardH - doc.height * nextScale) / 2;
+    instance.data.panX = viewerX - docX * nextScale - baseOffsetX;
+    instance.data.panY = viewerY - docY * nextScale - baseOffsetY;
+
+    ensureCanvasSize(instance);
+    updateZoomButtons();
+  };
+  ui.zoomOutBtn.addEventListener('click', () => {
+    exitPanMode();
+    applyZoomDelta(-0.1);
+  });
+  ui.zoomInBtn.addEventListener('click', () => {
+    exitPanMode();
+    applyZoomDelta(0.1);
+  });
+  ui.fitBtn.addEventListener('click', () => {
+    exitPanMode();
+    instance.data.zoomScale = 1;
+    instance.data.panX = 0;
+    instance.data.panY = 0;
+    ensureCanvasSize(instance);
+    updateZoomButtons();
+  });
+  updateZoomButtons();
+  fabricCanvas.on('mouse:wheel', (event) => {
+    const e = event && event.e ? event.e : null;
+    if (!e) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const current = Math.max(0.1, Math.min(8, Number(instance.data.zoomScale) || 1));
+    const delta = Number(e.deltaY) || 0;
+    if (delta === 0) return;
+    const factor = delta > 0 ? 0.92 : 1.08;
+    const next = Math.max(0.1, Math.min(8, current * factor));
+    if (next === current) return;
+    applyZoomAtViewerPoint(next, e.clientX, e.clientY);
   });
 
   ui.fillControl.setHandlers({
@@ -1759,6 +2073,45 @@ export default function(instance) {
   fabricCanvas.on('selection:created', onSelectionChanged);
   fabricCanvas.on('selection:updated', onSelectionChanged);
   fabricCanvas.on('selection:cleared', onSelectionChanged);
+  fabricCanvas.on('mouse:down', (event) => {
+    if (instance.data.toolMode !== 'pan') return;
+    const e = event && event.e ? event.e : null;
+    if (!e) return;
+    instance.data.isPanning = true;
+    instance.data.panLastClientX = Number(e.clientX) || 0;
+    instance.data.panLastClientY = Number(e.clientY) || 0;
+    ui.board.style.cursor = 'grabbing';
+  });
+  fabricCanvas.on('mouse:down', (event) => {
+    if (instance.data.toolMode === 'pan') return;
+    const target = event && event.target ? event.target : null;
+    const clickedArtboard = !!(target && target.isArtboard);
+    const clickedEmpty = !target || clickedArtboard;
+    if (!clickedEmpty) return;
+    if (!fabricCanvas.getActiveObject()) return;
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.requestRenderAll();
+    updateTopBarForSelection(instance);
+  });
+  fabricCanvas.on('mouse:move', (event) => {
+    if (instance.data.toolMode !== 'pan' || !instance.data.isPanning) return;
+    const e = event && event.e ? event.e : null;
+    if (!e) return;
+    const currentX = Number(e.clientX) || 0;
+    const currentY = Number(e.clientY) || 0;
+    const deltaX = currentX - (Number(instance.data.panLastClientX) || 0);
+    const deltaY = currentY - (Number(instance.data.panLastClientY) || 0);
+    instance.data.panLastClientX = currentX;
+    instance.data.panLastClientY = currentY;
+    instance.data.panX = (Number(instance.data.panX) || 0) + deltaX;
+    instance.data.panY = (Number(instance.data.panY) || 0) + deltaY;
+    ensureCanvasSize(instance);
+  });
+  fabricCanvas.on('mouse:up', () => {
+    if (!instance.data.isPanning) return;
+    instance.data.isPanning = false;
+    ui.board.style.cursor = instance.data.toolMode === 'pan' ? 'grab' : '';
+  });
   fabricCanvas.on('object:scaling', (event) => {
     const target = event && event.target ? event.target : null;
     const transform = event && event.transform ? event.transform : null;
@@ -1829,9 +2182,11 @@ export default function(instance) {
   });
   fabricCanvas.on('object:added', (event) => {
     const target = event && event.target ? event.target : null;
+    if (target && target.isArtboard) return;
     if (target && typeof target.set === 'function' && 'strokeWidth' in target) {
       target.set({ strokeUniform: true });
     }
+    ensureArtboardAtBack(instance);
     publishCanvasJson(instance);
   });
   fabricCanvas.on('object:modified', (event) => {
@@ -1857,11 +2212,15 @@ export default function(instance) {
     if (target && typeof target.setCoords === 'function') {
       target.setCoords();
     }
+    ensureArtboardAtBack(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
-  fabricCanvas.on('object:removed', () => publishCanvasJson(instance));
+  fabricCanvas.on('object:removed', () => {
+    ensureArtboardAtBack(instance);
+    publishCanvasJson(instance);
+  });
   fabricCanvas.on('path:created', () => {
     const path = fabricCanvas.getActiveObject();
     if (path && path.type === 'path') {
@@ -1898,6 +2257,7 @@ export default function(instance) {
         });
       }
     }
+    ensureArtboardAtBack(instance);
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
@@ -1920,6 +2280,7 @@ export default function(instance) {
     instance.data.resizeObserver = observer;
   }
 
+  instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   setActiveToolButton(null);
   publishCanvasJson(instance);
 }

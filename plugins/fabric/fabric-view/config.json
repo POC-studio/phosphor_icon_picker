@@ -2,5 +2,16 @@
   "name": "Fabric View",
   "use_bubble_size": false,
   "events": ["new_color_selected"],
-  "properties": {}
+  "properties": {
+    "canvas_width": {
+      "label": "Canvas width (px)",
+      "type": "text",
+      "default": "1000"
+    },
+    "canvas_height": {
+      "label": "Canvas height (px)",
+      "type": "text",
+      "default": "1000"
+    }
+  }
 }

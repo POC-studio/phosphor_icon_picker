@@ -1,12 +1,39 @@
-export default function(instance) {
+function readDimension(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+export default function(instance, properties) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
   const ui = instance && instance.data ? instance.data.ui : null;
-  if (!fabricCanvas || !ui || !ui.board) return;
+  if (!instance || !instance.data || !fabricCanvas || !ui || !ui.board) return;
 
-  const width = Math.max(ui.board.clientWidth || 1, 1);
-  const height = Math.max(ui.board.clientHeight || 1, 1);
-  fabricCanvas.setDimensions({ width, height });
-  fabricCanvas.requestRenderAll();
+  const nextDocW = readDimension(properties && properties.canvas_width, 1000);
+  const nextDocH = readDimension(properties && properties.canvas_height, 1000);
+  instance.data.canvasWidth = nextDocW;
+  instance.data.canvasHeight = nextDocH;
+  if (!instance.data.viewport) {
+    instance.data.viewport = {
+      docW: nextDocW,
+      docH: nextDocH,
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+    };
+  } else {
+    instance.data.viewport.docW = nextDocW;
+    instance.data.viewport.docH = nextDocH;
+  }
+
+  if (typeof instance.data.ensureCanvasSize === 'function') {
+    instance.data.ensureCanvasSize();
+  } else {
+    const width = Math.max(ui.board.clientWidth || 1, 1);
+    const height = Math.max(ui.board.clientHeight || 1, 1);
+    fabricCanvas.setDimensions({ width, height });
+    fabricCanvas.requestRenderAll();
+  }
 
   try {
     const payload = JSON.stringify(fabricCanvas.toJSON());
