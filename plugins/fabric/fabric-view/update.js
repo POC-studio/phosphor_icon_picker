@@ -11,6 +11,10 @@ export default function(instance, properties) {
 
   const nextDocW = readDimension(properties && properties.canvas_width, 1000);
   const nextDocH = readDimension(properties && properties.canvas_height, 1000);
+  const nextTitleRaw = properties && typeof properties.document_title === 'string'
+    ? properties.document_title
+    : '';
+  instance.data.documentTitle = nextTitleRaw;
   instance.data.canvasWidth = nextDocW;
   instance.data.canvasHeight = nextDocH;
   if (!instance.data.viewport) {
@@ -33,6 +37,9 @@ export default function(instance, properties) {
     const height = Math.max(ui.board.clientHeight || 1, 1);
     fabricCanvas.setDimensions({ width, height });
     fabricCanvas.requestRenderAll();
+  }
+  if (typeof instance.data.refreshTopBar === 'function') {
+    instance.data.refreshTopBar();
   }
 
   try {

@@ -12,6 +12,11 @@
       "label": "Canvas height (px)",
       "type": "text",
       "default": "1000"
+    },
+    "document_title": {
+      "label": "Document title",
+      "type": "text",
+      "default": "Document title"
     }
   }
 }

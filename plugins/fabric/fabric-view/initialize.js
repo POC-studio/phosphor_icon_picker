@@ -479,14 +479,34 @@ function buildShell() {
 
   const topBar = document.createElement('div');
   topBar.style.display = 'flex';
-  topBar.style.visibility = 'hidden';
   topBar.style.alignItems = 'center';
-  topBar.style.justifyContent = 'flex-end';
+  topBar.style.justifyContent = 'flex-start';
   topBar.style.gap = '10px';
   topBar.style.padding = '10px 12px';
+  topBar.style.height = '52px';
+  topBar.style.minHeight = '52px';
+  topBar.style.maxHeight = '52px';
+  topBar.style.boxSizing = 'border-box';
   topBar.style.background = '#ffffff';
   topBar.style.borderBottom = '1px solid #e2e8f0';
   topBar.style.flexShrink = '0';
+  const documentTitle = document.createElement('div');
+  documentTitle.style.fontSize = '13px';
+  documentTitle.style.fontWeight = '600';
+  documentTitle.style.color = '#0f172a';
+  documentTitle.style.whiteSpace = 'nowrap';
+  documentTitle.style.overflow = 'hidden';
+  documentTitle.style.textOverflow = 'ellipsis';
+  documentTitle.style.flex = '1 1 auto';
+  documentTitle.style.minWidth = '0';
+
+  const topControls = document.createElement('div');
+  topControls.style.display = 'flex';
+  topControls.style.alignItems = 'center';
+  topControls.style.justifyContent = 'flex-end';
+  topControls.style.gap = '10px';
+  topControls.style.flexShrink = '0';
+  topControls.style.marginLeft = 'auto';
 
   const fillControl = createFlatColorPicker({ label: 'Fill', initialColor: '#111827', swatchMode: 'fill' });
   const strokeControl = createFlatColorPicker({ label: 'Stroke', initialColor: '#000000', swatchMode: 'stroke' });
@@ -549,11 +569,13 @@ function buildShell() {
   topFontSize.appendChild(fontSizeInput);
 
 
-  topBar.appendChild(topFill);
-  topBar.appendChild(topStroke);
-  topBar.appendChild(topStrokeWidth);
-  topBar.appendChild(topRadius);
-  topBar.appendChild(topFontSize);
+  topBar.appendChild(documentTitle);
+  topControls.appendChild(topFill);
+  topControls.appendChild(topStroke);
+  topControls.appendChild(topStrokeWidth);
+  topControls.appendChild(topRadius);
+  topControls.appendChild(topFontSize);
+  topBar.appendChild(topControls);
 
   const body = document.createElement('div');
   body.style.display = 'flex';
@@ -643,6 +665,8 @@ function buildShell() {
   return {
     root,
     topBar,
+    documentTitle,
+    topControls,
     fillControl,
     strokeControl,
     strokeWidthInput,
@@ -670,6 +694,12 @@ function buildShell() {
 function updateTopBarForSelection(instance) {
   const ui = instance.data.ui;
   if (!ui) return;
+  const rawTitle = typeof instance.data.documentTitle === 'string'
+    ? instance.data.documentTitle.trim()
+    : '';
+  const hasTitle = rawTitle.length > 0;
+  ui.documentTitle.textContent = hasTitle ? rawTitle : '';
+  ui.documentTitle.style.display = hasTitle ? 'block' : 'none';
   const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : 'select';
   const isDrawMode = toolMode === 'draw';
   const isPanMode = toolMode === 'pan';
@@ -678,7 +708,7 @@ function updateTopBarForSelection(instance) {
   const targets = getActiveSelectionTargets(fabricCanvas);
   const hasMultiSelection = targets.length > 1;
   if (isPanMode) {
-    ui.topBar.style.visibility = 'hidden';
+    ui.topBar.style.visibility = 'visible';
     ui.fillControl.setMixed(false);
     ui.strokeControl.setMixed(false);
     ui.fillControl.setDisabled(true);
@@ -689,15 +719,15 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
-    ui.topFill.style.display = 'inline-flex';
-    ui.topStroke.style.display = 'inline-flex';
-    ui.topStrokeWidth.style.display = 'inline-flex';
-    ui.topRadius.style.display = 'inline-flex';
-    ui.topFontSize.style.display = 'inline-flex';
+    ui.topFill.style.display = 'none';
+    ui.topStroke.style.display = 'none';
+    ui.topStrokeWidth.style.display = 'none';
+    ui.topRadius.style.display = 'none';
+    ui.topFontSize.style.display = 'none';
     return;
   }
   if (!target && !isDrawMode) {
-    ui.topBar.style.visibility = 'hidden';
+    ui.topBar.style.visibility = 'visible';
     ui.fillControl.setMixed(false);
     ui.strokeControl.setMixed(false);
     ui.fillControl.setDisabled(true);
@@ -708,15 +738,16 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
-    ui.topFill.style.display = 'inline-flex';
-    ui.topStroke.style.display = 'inline-flex';
-    ui.topStrokeWidth.style.display = 'inline-flex';
-    ui.topRadius.style.display = 'inline-flex';
-    ui.topFontSize.style.display = 'inline-flex';
+    ui.topFill.style.display = 'none';
+    ui.topStroke.style.display = 'none';
+    ui.topStrokeWidth.style.display = 'none';
+    ui.topRadius.style.display = 'none';
+    ui.topFontSize.style.display = 'none';
     return;
   }
   if (!target && isDrawMode) {
     ui.topBar.style.visibility = 'visible';
+    ui.documentTitle.style.display = 'none';
     ui.fillControl.setMixed(false);
     ui.strokeControl.setMixed(false);
     ui.fillControl.setVisible(false);
@@ -732,6 +763,7 @@ function updateTopBarForSelection(instance) {
     return;
   }
   ui.topBar.style.visibility = 'visible';
+  ui.documentTitle.style.display = 'none';
   const visibility = hasMultiSelection ? getSharedToolbarVisibility(targets) : getToolbarVisibilityForTarget(target);
   ui.fillControl.setVisible(visibility.fill);
   ui.strokeControl.setVisible(visibility.stroke);
@@ -1144,6 +1176,7 @@ export default function(instance) {
   instance.data.fabricCanvas = fabricCanvas;
   instance.publishState('new_color', '');
   instance.data.toolMode = 'select';
+  instance.data.documentTitle = 'Document title';
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -2281,6 +2314,7 @@ export default function(instance) {
   }
 
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
+  instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
   setActiveToolButton(null);
   publishCanvasJson(instance);
 }
