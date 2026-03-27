@@ -471,94 +471,116 @@ function ensureArtboardAtBack(instance) {
   }
 }
 
-function readPrintMargins(value) {
+function readMarginPx(value) {
   const n = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (!Number.isFinite(n) || n < 0) return 0;
   return Math.min(n, 100000);
 }
 
-function ensureSafeZoneAtFront(instance) {
-  if (!instance || !instance.data) return;
-  const canvas = instance.data.fabricCanvas;
-  const zone = instance.data.safeZoneRect;
-  if (!canvas || !zone) return;
-  if (typeof canvas.bringObjectToFront === 'function') {
-    canvas.bringObjectToFront(zone);
-  } else if (typeof zone.bringToFront === 'function') {
-    zone.bringToFront();
-  }
+function getDocumentMargins(instance) {
+  const data = instance && instance.data ? instance.data : {};
+  return {
+    top: readMarginPx(data.marginTop),
+    right: readMarginPx(data.marginRight),
+    bottom: readMarginPx(data.marginBottom),
+    left: readMarginPx(data.marginLeft),
+  };
 }
 
-function ensureSafeZoneRect(instance, fabricLib) {
+function ensureMarginGuidesAtFront(instance) {
+  if (!instance || !instance.data) return;
+  const canvas = instance.data.fabricCanvas;
+  const guides = instance.data.marginGuideLines;
+  if (!canvas || !guides) return;
+  ['top', 'right', 'bottom', 'left'].forEach((key) => {
+    const line = guides[key];
+    if (!line) return;
+    if (typeof canvas.bringObjectToFront === 'function') {
+      canvas.bringObjectToFront(line);
+    } else if (typeof line.bringToFront === 'function') {
+      line.bringToFront();
+    }
+  });
+}
+
+function ensureMarginGuideLines(instance, fabricLib) {
   if (!instance || !instance.data || !instance.data.fabricCanvas || !fabricLib) return;
   const canvas = instance.data.fabricCanvas;
+  const LineCtor = fabricLib.Line;
+  if (typeof LineCtor !== 'function') return;
   const doc = getDocumentSize(instance);
-  const marginPx = readPrintMargins(instance.data.margins);
-  const innerW = doc.width - 2 * marginPx;
-  const innerH = doc.height - 2 * marginPx;
-  const shouldShow = marginPx > 0 && innerW > 0 && innerH > 0;
-
-  let zone = instance.data.safeZoneRect || null;
-  if (!shouldShow) {
-    if (zone) {
-      canvas.remove(zone);
-      instance.data.safeZoneRect = null;
-    }
-    return;
-  }
-
+  const dw = doc.width;
+  const dh = doc.height;
+  const m = getDocumentMargins(instance);
   const vpScale = Math.max(1e-6, Number(instance.data.viewport && instance.data.viewport.scale) || 1);
-  const safeZoneStrokeDoc = 1 / vpScale;
+  const strokeDoc = 1 / vpScale;
 
-  if (!zone) {
-    zone = new fabricLib.Rect({
-      left: marginPx,
-      top: marginPx,
-      width: innerW,
-      height: innerH,
-      originX: 'left',
-      originY: 'top',
-      fill: 'transparent',
-      stroke: '#7dd3fc',
-      strokeWidth: safeZoneStrokeDoc,
-      strokeUniform: true,
-      selectable: false,
-      evented: false,
-      hasControls: false,
-      hasBorders: false,
-      lockMovementX: true,
-      lockMovementY: true,
-      lockScalingX: true,
-      lockScalingY: true,
-      lockRotation: true,
-      excludeFromExport: true,
-      isSafeZone: true,
-    });
-    canvas.add(zone);
-    instance.data.safeZoneRect = zone;
-  } else {
-    zone.set({
-      left: marginPx,
-      top: marginPx,
-      width: innerW,
-      height: innerH,
-      fill: 'transparent',
-      stroke: '#7dd3fc',
-      strokeWidth: safeZoneStrokeDoc,
-      visible: true,
-      selectable: false,
-      evented: false,
-      excludeFromExport: true,
-      isSafeZone: true,
-    });
-    if (typeof zone.setCoords === 'function') zone.setCoords();
+  if (instance.data.safeZoneRect) {
+    try {
+      canvas.remove(instance.data.safeZoneRect);
+    } catch (e) {
+      /* ignore */
+    }
+    instance.data.safeZoneRect = null;
   }
+
+  if (!instance.data.marginGuideLines) {
+    instance.data.marginGuideLines = { top: null, right: null, bottom: null, left: null };
+  }
+  const guides = instance.data.marginGuideLines;
+
+  const baseOpts = {
+    stroke: '#7dd3fc',
+    strokeWidth: strokeDoc,
+    strokeUniform: true,
+    selectable: false,
+    evented: false,
+    hasControls: false,
+    hasBorders: false,
+    excludeFromExport: true,
+    isSafeZone: true,
+  };
+
+  const upsertLine = (key, show, x1, y1, x2, y2) => {
+    if (!show) {
+      if (guides[key]) {
+        try {
+          canvas.remove(guides[key]);
+        } catch (e) {
+          /* ignore */
+        }
+        guides[key] = null;
+      }
+      return;
+    }
+    if (!guides[key]) {
+      guides[key] = new LineCtor([x1, y1, x2, y2], { ...baseOpts });
+      canvas.add(guides[key]);
+    } else {
+      guides[key].set({
+        x1,
+        y1,
+        x2,
+        y2,
+        strokeWidth: strokeDoc,
+        visible: true,
+        stroke: baseOpts.stroke,
+        strokeUniform: baseOpts.strokeUniform,
+      });
+      if (typeof guides[key].setCoords === 'function') guides[key].setCoords();
+    }
+  };
+
+  upsertLine('top', m.top > 0 && m.top < dh, 0, m.top, dw, m.top);
+  upsertLine('bottom', m.bottom > 0 && m.bottom < dh, 0, dh - m.bottom, dw, dh - m.bottom);
+  upsertLine('left', m.left > 0 && m.left < dw, m.left, 0, m.left, dh);
+  upsertLine('right', m.right > 0 && m.right < dw, dw - m.right, 0, dw - m.right, dh);
 }
 
 function syncGuideLayers(instance) {
   ensureArtboardAtBack(instance);
-  ensureSafeZoneRect(instance, instance.data.fabricLib);
-  ensureSafeZoneAtFront(instance);
+  ensureMarginGuideLines(instance, instance.data.fabricLib);
+  ensureMarginGuidesAtFront(instance);
 }
 
 function ensureArtboardRect(instance, fabricLib) {
@@ -630,6 +652,141 @@ function getDocumentCenter(instance) {
     x: doc.width / 2,
     y: doc.height / 2,
   };
+}
+
+function unionBoundingRectOfObjects(objects) {
+  let minL = Infinity;
+  let minT = Infinity;
+  let maxR = -Infinity;
+  let maxB = -Infinity;
+  objects.forEach((obj) => {
+    if (!obj || obj.isArtboard || obj.isSafeZone) return;
+    obj.setCoords();
+    const br = obj.getBoundingRect();
+    minL = Math.min(minL, br.left);
+    minT = Math.min(minT, br.top);
+    maxR = Math.max(maxR, br.left + br.width);
+    maxB = Math.max(maxB, br.top + br.height);
+  });
+  if (!Number.isFinite(minL)) return null;
+  return {
+    left: minL,
+    top: minT,
+    width: maxR - minL,
+    height: maxB - minT,
+    right: maxR,
+    bottom: maxB,
+  };
+}
+
+function deltasForAlignInUnion(br, union, mode) {
+  let dx = 0;
+  let dy = 0;
+  const cx = br.left + br.width / 2;
+  const cy = br.top + br.height / 2;
+  const uc = union.left + union.width / 2;
+  const vc = union.top + union.height / 2;
+  if (mode === 'left') dx = union.left - br.left;
+  else if (mode === 'center-h') dx = uc - cx;
+  else if (mode === 'right') dx = union.right - (br.left + br.width);
+  else if (mode === 'top') dy = union.top - br.top;
+  else if (mode === 'middle') dy = vc - cy;
+  else if (mode === 'bottom') dy = union.bottom - (br.top + br.height);
+  return { dx, dy };
+}
+
+/** Cadre pour aligner un seul objet sur les bords (gauche/droite/haut/bas) : zone intérieure aux marges si définie, sinon artboard. Les centres H/V utilisent toujours l’artboard plein. */
+function getSingleObjectAlignFrame(instance) {
+  const doc = getDocumentSize(instance);
+  const docW = doc.width;
+  const docH = doc.height;
+  const m = getDocumentMargins(instance);
+  const innerW = docW - m.left - m.right;
+  const innerH = docH - m.top - m.bottom;
+  const hasAnyMargin = m.left > 0 || m.right > 0 || m.top > 0 || m.bottom > 0;
+  if (hasAnyMargin && innerW > 0 && innerH > 0) {
+    return {
+      left: m.left,
+      top: m.top,
+      right: docW - m.right,
+      bottom: docH - m.bottom,
+      width: innerW,
+      height: innerH,
+    };
+  }
+  return {
+    left: 0,
+    top: 0,
+    right: docW,
+    bottom: docH,
+    width: docW,
+    height: docH,
+  };
+}
+
+function alignSelectionToDocument(instance, fabricCanvas, mode) {
+  if (!instance || !fabricCanvas || !mode) return;
+  const active = fabricCanvas.getActiveObject();
+  if (!active || active.isArtboard || active.isSafeZone) return;
+  const targets = getActiveSelectionTargets(fabricCanvas).filter(
+    (o) => o && !o.isArtboard && !o.isSafeZone,
+  );
+  if (targets.length === 0) return;
+
+  if (targets.length === 1) {
+    const target = targets[0];
+    target.setCoords();
+    const br = target.getBoundingRect();
+    const doc = getDocumentSize(instance);
+    const docW = doc.width;
+    const docH = doc.height;
+    const docCx = docW / 2;
+    const docCy = docH / 2;
+    const frame = getSingleObjectAlignFrame(instance);
+    let dx = 0;
+    let dy = 0;
+    if (mode === 'left') dx = frame.left - br.left;
+    else if (mode === 'center-h') dx = docCx - (br.left + br.width / 2);
+    else if (mode === 'right') dx = frame.right - (br.left + br.width);
+    else if (mode === 'top') dy = frame.top - br.top;
+    else if (mode === 'middle') dy = docCy - (br.top + br.height / 2);
+    else if (mode === 'bottom') dy = frame.bottom - (br.top + br.height);
+    else return;
+    if (dx === 0 && dy === 0) return;
+    target.set({
+      left: target.left + dx,
+      top: target.top + dy,
+    });
+    target.setCoords();
+  } else {
+    const fabricLib = instance.data.fabricLib;
+    const union = unionBoundingRectOfObjects(targets);
+    if (!union) return;
+    const items = targets.slice();
+    fabricCanvas.discardActiveObject();
+    items.forEach((obj) => {
+      if (!obj || obj.isArtboard || obj.isSafeZone) return;
+      obj.setCoords();
+      const br = obj.getBoundingRect();
+      const { dx, dy } = deltasForAlignInUnion(br, union, mode);
+      if (dx === 0 && dy === 0) return;
+      obj.set({
+        left: obj.left + dx,
+        top: obj.top + dy,
+      });
+      obj.setCoords();
+    });
+    if (items.length > 1 && fabricLib && typeof fabricLib.ActiveSelection === 'function') {
+      const sel = new fabricLib.ActiveSelection(items, { canvas: fabricCanvas });
+      fabricCanvas.setActiveObject(sel);
+      sel.setCoords();
+    }
+  }
+
+  fabricCanvas.requestRenderAll();
+  syncGuideLayers(instance);
+  publishCanvasJson(instance);
+  updateTopBarForSelection(instance);
 }
 
 function guessImageFileExtension(file) {
@@ -819,7 +976,11 @@ function buildShell() {
   topBar.style.alignItems = 'center';
   topBar.style.justifyContent = 'flex-start';
   topBar.style.gap = '10px';
-  topBar.style.padding = '10px 12px';
+  topBar.style.paddingTop = '10px';
+  topBar.style.paddingRight = '12px';
+  topBar.style.paddingBottom = '10px';
+  // Même retrait horizontal que la toolbar verticale : 56px de large, boutons 36px centrés → 10px de chaque côté.
+  topBar.style.paddingLeft = '10px';
   topBar.style.height = '52px';
   topBar.style.minHeight = '52px';
   topBar.style.maxHeight = '52px';
@@ -976,6 +1137,29 @@ function buildShell() {
     return btn;
   };
 
+  const alignToolbar = document.createElement('div');
+  alignToolbar.style.display = 'none';
+  alignToolbar.style.flexDirection = 'row';
+  alignToolbar.style.alignItems = 'center';
+  alignToolbar.style.gap = '4px';
+  alignToolbar.style.flexShrink = '0';
+  alignToolbar.style.marginRight = '10px';
+
+  const mkAlignBtn = (iconClass, title, mode) => {
+    const btn = mkBtn(iconClass, title);
+    btn.setAttribute('data-align-mode', mode);
+    return btn;
+  };
+
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-left-simple', 'Aligner à gauche', 'left'));
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-center-horizontal-simple', 'Centrer horizontalement', 'center-h'));
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-right-simple', 'Aligner à droite', 'right'));
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-top-simple', 'Aligner en haut', 'top'));
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-center-vertical-simple', 'Centrer verticalement', 'middle'));
+  alignToolbar.appendChild(mkAlignBtn('ph ph-align-bottom-simple', 'Aligner en bas', 'bottom'));
+
+  topBar.insertBefore(alignToolbar, documentTitle);
+
   const textBtn = mkBtn('ph ph-text-t', 'Text');
   const shapeBtn = mkBtn('ph ph-square', 'Shape');
   const iconBtn = mkBtn('ph ph-smiley', 'Emojis');
@@ -1002,6 +1186,7 @@ function buildShell() {
   return {
     root,
     topBar,
+    alignToolbar,
     documentTitle,
     topControls,
     fillControl,
@@ -1031,6 +1216,9 @@ function buildShell() {
 function updateTopBarForSelection(instance) {
   const ui = instance.data.ui;
   if (!ui) return;
+  if (ui.alignToolbar) {
+    ui.alignToolbar.style.display = 'none';
+  }
   const rawTitle = typeof instance.data.documentTitle === 'string'
     ? instance.data.documentTitle.trim()
     : '';
@@ -1101,6 +1289,10 @@ function updateTopBarForSelection(instance) {
   }
   ui.topBar.style.visibility = 'visible';
   ui.documentTitle.style.display = 'none';
+  if (ui.alignToolbar) {
+    const canAlign = target && !target.isArtboard && !target.isSafeZone;
+    ui.alignToolbar.style.display = canAlign ? 'flex' : 'none';
+  }
   const visibility = hasMultiSelection ? getSharedToolbarVisibility(targets) : getToolbarVisibilityForTarget(target);
   ui.fillControl.setVisible(visibility.fill);
   ui.strokeControl.setVisible(visibility.stroke);
@@ -1524,7 +1716,10 @@ export default function(instance, context) {
   instance.publishState('new_color', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
-  instance.data.margins = 0;
+  instance.data.marginTop = 0;
+  instance.data.marginRight = 0;
+  instance.data.marginBottom = 0;
+  instance.data.marginLeft = 0;
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -2348,6 +2543,17 @@ export default function(instance, context) {
     iconMenu.style.display = 'none';
     imageFileInput.click();
   });
+
+  if (ui.alignToolbar) {
+    ui.alignToolbar.querySelectorAll('button[data-align-mode]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        const mode = btn.getAttribute('data-align-mode');
+        if (!mode) return;
+        alignSelectionToDocument(instance, fabricCanvas, mode);
+      });
+    });
+  }
 
   const updateZoomButtons = () => {
     const z = Math.max(0.1, Math.min(8, Number(instance.data.zoomScale) || 1));

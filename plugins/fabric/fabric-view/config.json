@@ -18,8 +18,23 @@
       "type": "text",
       "default": "Document title"
     },
-    "margins": {
-      "label": "Margins (px)",
+    "margin_top": {
+      "label": "Margin top (px)",
+      "type": "text",
+      "default": "0"
+    },
+    "margin_right": {
+      "label": "Margin right (px)",
+      "type": "text",
+      "default": "0"
+    },
+    "margin_bottom": {
+      "label": "Margin bottom (px)",
+      "type": "text",
+      "default": "0"
+    },
+    "margin_left": {
+      "label": "Margin left (px)",
       "type": "text",
       "default": "0"
     }

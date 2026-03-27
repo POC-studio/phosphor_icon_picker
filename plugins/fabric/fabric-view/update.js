@@ -4,7 +4,7 @@ function readDimension(value, fallback) {
   return parsed;
 }
 
-function readMargins(value) {
+function readMarginPx(value) {
   const n = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.min(n, 100000);
@@ -21,7 +21,10 @@ export default function(instance, properties) {
     ? properties.document_title
     : '';
   instance.data.documentTitle = nextTitleRaw;
-  instance.data.margins = readMargins(properties && properties.margins);
+  instance.data.marginTop = readMarginPx(properties && properties.margin_top);
+  instance.data.marginRight = readMarginPx(properties && properties.margin_right);
+  instance.data.marginBottom = readMarginPx(properties && properties.margin_bottom);
+  instance.data.marginLeft = readMarginPx(properties && properties.margin_left);
   instance.data.canvasWidth = nextDocW;
   instance.data.canvasHeight = nextDocH;
   if (!instance.data.viewport) {
