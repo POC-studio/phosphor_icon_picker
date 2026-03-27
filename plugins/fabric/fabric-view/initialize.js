@@ -430,6 +430,7 @@ function publishCanvasJson(instance) {
   } catch (e) {
     instance.publishState('canvas_json', '{}');
   }
+  instance.triggerEvent('json_changed');
 }
 
 function readDocumentDimension(value, fallback) {

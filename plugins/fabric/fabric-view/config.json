@@ -1,7 +1,7 @@
 {
   "name": "Fabric View",
   "use_bubble_size": false,
-  "events": ["new_color_selected"],
+  "events": ["new_color_selected", "json_changed"],
   "properties": {
     "canvas_width": {
       "label": "Canvas width (px)",

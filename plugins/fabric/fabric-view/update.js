@@ -55,4 +55,5 @@ export default function(instance, properties) {
   } catch (e) {
     instance.publishState('canvas_json', '{}');
   }
+  instance.triggerEvent('json_changed');
 }
