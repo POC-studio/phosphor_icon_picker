@@ -1,10 +1,528 @@
-import {
-  createRandomSeedObjects,
-  createDefaultTextbox,
-  ensureHexColor,
-  getObjectStyle,
-} from '../shared-code.js';
-import { createFlatColorPicker } from '../../shared/flat-color-picker.js';
+export default function(instance, context) {
+const RANDOM_COLORS = ['#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ef4444', '#0ea5e9', '#f59e0b'];
+
+function randomFrom(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function createRandomSeedObjects(fabricLib, canvasWidth, canvasHeight) {
+  if (!fabricLib) return [];
+  const maxW = Math.max(canvasWidth || 900, 600);
+  const maxH = Math.max(canvasHeight || 520, 360);
+
+  const rect = new fabricLib.Rect({
+    left: randomInt(40, Math.floor(maxW * 0.3)),
+    top: randomInt(40, Math.floor(maxH * 0.3)),
+    width: randomInt(90, 180),
+    height: randomInt(70, 140),
+    fill: randomFrom(RANDOM_COLORS),
+    stroke: '#111827',
+    strokeWidth: 2,
+    strokeUniform: true,
+    rx: 8,
+    ry: 8,
+    cornerRadiusPx: 8,
+    angle: randomInt(-20, 20),
+  });
+
+  const circle = new fabricLib.Circle({
+    left: randomInt(Math.floor(maxW * 0.35), Math.floor(maxW * 0.65)),
+    top: randomInt(40, Math.floor(maxH * 0.35)),
+    radius: randomInt(35, 70),
+    fill: randomFrom(RANDOM_COLORS),
+    stroke: '#111827',
+    strokeWidth: 2,
+    strokeUniform: true,
+    angle: randomInt(-25, 25),
+  });
+
+  const text = new fabricLib.Textbox('Fabric V1', {
+    left: randomInt(Math.floor(maxW * 0.2), Math.floor(maxW * 0.6)),
+    top: randomInt(Math.floor(maxH * 0.45), Math.floor(maxH * 0.75)),
+    width: 180,
+    fontSize: 34,
+    fontWeight: 700,
+    fill: '#111827',
+    stroke: '#00000000',
+    strokeWidth: 0,
+    strokeUniform: true,
+    angle: randomInt(-10, 10),
+  });
+
+  return [rect, circle, text];
+}
+
+function createDefaultRectangle(fabricLib, canvasWidth, canvasHeight) {
+  if (!fabricLib) return null;
+  const maxW = Math.max(canvasWidth || 900, 600);
+  const maxH = Math.max(canvasHeight || 520, 360);
+  return new fabricLib.Rect({
+    left: Math.round(maxW * 0.5 - 60),
+    top: Math.round(maxH * 0.5 - 45),
+    width: 120,
+    height: 90,
+    fill: '#14b8a6',
+    stroke: '#111827',
+    strokeWidth: 2,
+    strokeUniform: true,
+    rx: 8,
+    ry: 8,
+    cornerRadiusPx: 8,
+  });
+}
+
+function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
+  if (!fabricLib) return null;
+  const maxW = Math.max(canvasWidth || 900, 600);
+  const maxH = Math.max(canvasHeight || 520, 360);
+  return new fabricLib.Textbox('Edit me', {
+    left: Math.round(maxW * 0.5 - 90),
+    top: Math.round(maxH * 0.5 - 20),
+    width: 180,
+    fontSize: 30,
+    fontWeight: 600,
+    fill: '#111827',
+    stroke: '#00000000',
+    strokeWidth: 0,
+    strokeUniform: true,
+  });
+}
+
+function ensureHexColor(value, fallback) {
+  const safeFallback = fallback || '#111827';
+  if (!value || typeof value !== 'string') return safeFallback;
+  const color = value.trim();
+  if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(color)) return color;
+  const rgbMatch = color.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+  if (rgbMatch) {
+    const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
+    const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
+    const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
+    const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
+    if (Number.isFinite(a) && a <= 0) return 'transparent';
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#000000';
+      ctx.fillStyle = color;
+      const normalized = String(ctx.fillStyle || '').trim();
+      if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(normalized)) return normalized;
+      const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+      if (nMatch) {
+        const r = Math.max(0, Math.min(255, Number(nMatch[1])));
+        const g = Math.max(0, Math.min(255, Number(nMatch[2])));
+        const b = Math.max(0, Math.min(255, Number(nMatch[3])));
+        const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
+        if (Number.isFinite(a) && a <= 0) return 'transparent';
+        const toHex = (n) => n.toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+    }
+  } catch (e) {
+    // ignore parsing fallback errors
+  }
+  // Keep original CSS color instead of forcing black fallback.
+  return color;
+}
+
+function isTransparentColor(value) {
+  if (typeof value !== 'string') return false;
+  const v = value.trim().toLowerCase();
+  return v === 'transparent' || v === '#00000000' || v === 'rgba(0,0,0,0)' || v === 'rgba(0, 0, 0, 0)';
+}
+
+function getObjectStyle(target) {
+  if (!target) {
+    return { fill: 'transparent', stroke: 'transparent', strokeWidth: 1, radius: 0 };
+  }
+  const fill = typeof target.fill === 'string'
+    ? target.fill
+    : (target.fill && typeof target.fill.toString === 'function' ? String(target.fill.toString()) : 'transparent');
+  const stroke = typeof target.stroke === 'string'
+    ? target.stroke
+    : (target.stroke && typeof target.stroke.toString === 'function' ? String(target.stroke.toString()) : 'transparent');
+  let strokeWidth = Number.isFinite(Number(target.strokeWidth)) ? Number(target.strokeWidth) : 1;
+  const scaleX = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
+  const scaleY = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);
+  const rawRx = Number.isFinite(Number(target.rx)) ? Number(target.rx) : 0;
+  const rawRy = Number.isFinite(Number(target.ry)) ? Number(target.ry) : rawRx;
+  const visualRadius = Number.isFinite(Number(target.cornerRadiusPx))
+    ? Math.max(0, Number(target.cornerRadiusPx))
+    : Math.max(0, Math.min(rawRx * scaleX, rawRy * scaleY));
+  const normalizedFill = isTransparentColor(fill) ? 'transparent' : ensureHexColor(fill, '#111827');
+  const normalizedStroke = isTransparentColor(stroke) ? 'transparent' : ensureHexColor(stroke, '#000000');
+  if (normalizedStroke !== 'transparent' && strokeWidth <= 0) {
+    strokeWidth = 1;
+  }
+  return {
+    fill: normalizedFill,
+    stroke: normalizedStroke,
+    strokeWidth: Math.max(0, Math.min(50, strokeWidth)),
+    radius: Math.max(0, Math.min(200, visualRadius)),
+  };
+}
+
+
+const DEFAULT_FLAT_UI_COLORS = [
+  '#1abc9c', '#16a085', '#2ecc71', '#27ae60', '#3498db',
+  '#2980b9', '#9b59b6', '#8e44ad', '#f1c40f', '#f39c12',
+  '#e67e22', '#d35400', '#e74c3c', '#c0392b', '#ecf0f1',
+  '#bdc3c7', '#95a5a6', '#7f8c8d', '#34495e', '#2c3e50',
+];
+
+function ensureHex(value, fallback) {
+  if (!value || typeof value !== 'string') return fallback;
+  const v = value.trim();
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) return v;
+  const rgbMatch = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+  if (rgbMatch) {
+    const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
+    const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
+    const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
+    const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
+    if (Number.isFinite(a) && a <= 0) return 'transparent';
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#000000';
+      ctx.fillStyle = v;
+      const normalized = String(ctx.fillStyle || '').trim();
+      if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(normalized)) return normalized;
+      const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+      if (nMatch) {
+        const r = Math.max(0, Math.min(255, Number(nMatch[1])));
+        const g = Math.max(0, Math.min(255, Number(nMatch[2])));
+        const b = Math.max(0, Math.min(255, Number(nMatch[3])));
+        const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
+        if (Number.isFinite(a) && a <= 0) return 'transparent';
+        const toHex = (n) => n.toString(16).padStart(2, '0');
+        return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
+    }
+  } catch (e) {
+    // ignore parsing fallback errors
+  }
+  // Preserve valid CSS color strings instead of forcing fallback.
+  return v;
+}
+
+
+function applySwatchStyle(swatch, swatchMode, color) {
+  if (!swatch) return;
+  if (isTransparentColor(color)) {
+    swatch.style.background = '#ffffff';
+    swatch.style.border = '1px solid #cbd5e1';
+    return;
+  }
+  if (swatchMode === 'stroke') {
+    swatch.style.border = `3px solid ${color}`;
+    swatch.style.background = 'transparent';
+    return;
+  }
+  swatch.style.border = 'none';
+  swatch.style.background = color;
+}
+
+function styleButtonBase(button) {
+  button.style.height = '28px';
+  button.style.minWidth = '28px';
+  button.style.border = 'none';
+  button.style.borderRadius = '8px';
+  button.style.background = 'transparent';
+  button.style.cursor = 'pointer';
+  button.style.display = 'inline-flex';
+  button.style.alignItems = 'center';
+  button.style.justifyContent = 'center';
+}
+
+function createFlatColorPicker(options = {}) {
+  const label = options.label || 'Color';
+  const flatColors = Array.isArray(options.flatColors) && options.flatColors.length > 0
+    ? options.flatColors
+    : DEFAULT_FLAT_UI_COLORS;
+  const initial = typeof options.initialColor === 'string' ? options.initialColor : '#111827';
+  let currentColor = isTransparentColor(initial) ? 'transparent' : ensureHex(initial, '#111827');
+  const swatchMode = options.swatchMode === 'stroke' ? 'stroke' : 'fill';
+  let handlers = { onPresetSelect: null, onCustomSelect: null };
+  let disabled = false;
+  let mixed = false;
+
+  const root = document.createElement('label');
+  root.style.display = 'inline-flex';
+  root.style.gap = '8px';
+  root.style.alignItems = 'center';
+  root.style.fontSize = '12px';
+  root.style.color = '#334155';
+  root.textContent = label;
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  styleButtonBase(trigger);
+  trigger.style.width = '28px';
+  trigger.style.padding = '0';
+
+  const swatch = document.createElement('span');
+  swatch.style.width = '16px';
+  swatch.style.height = '16px';
+  swatch.style.borderRadius = '999px';
+  applySwatchStyle(swatch, swatchMode, currentColor);
+  trigger.appendChild(swatch);
+
+  root.appendChild(trigger);
+
+  const popover = document.createElement('div');
+  popover.style.position = 'fixed';
+  popover.style.zIndex = '2147483647';
+  popover.style.display = 'none';
+  popover.style.background = '#ffffff';
+  popover.style.border = '1px solid #e2e8f0';
+  popover.style.borderRadius = '12px';
+  popover.style.padding = '10px';
+  popover.style.boxShadow = '0 12px 30px rgba(15, 23, 42, 0.16)';
+  popover.style.width = '220px';
+
+  const paletteTitle = document.createElement('div');
+  paletteTitle.textContent = 'Flat UI colors';
+  paletteTitle.style.fontSize = '12px';
+  paletteTitle.style.color = '#64748b';
+  paletteTitle.style.marginBottom = '8px';
+  popover.appendChild(paletteTitle);
+
+  const swatchGrid = document.createElement('div');
+  swatchGrid.style.display = 'grid';
+  swatchGrid.style.gridTemplateColumns = 'repeat(5, minmax(0, 1fr))';
+  swatchGrid.style.gap = '8px';
+  swatchGrid.style.marginBottom = '10px';
+  popover.appendChild(swatchGrid);
+
+  flatColors.forEach((color) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = color;
+    b.style.width = '100%';
+    b.style.aspectRatio = '1 / 1';
+    b.style.borderRadius = '999px';
+    b.style.border = '1px solid #cbd5e1';
+    b.style.background = color;
+    b.style.cursor = 'pointer';
+    b.addEventListener('click', () => {
+      if (disabled) return;
+      currentColor = color;
+      swatch.style.background = color;
+      if (typeof handlers.onPresetSelect === 'function') handlers.onPresetSelect(color);
+      close();
+    });
+    swatchGrid.appendChild(b);
+  });
+
+  const customRow = document.createElement('div');
+  customRow.style.display = 'flex';
+  customRow.style.alignItems = 'center';
+  customRow.style.justifyContent = 'space-between';
+  customRow.style.gap = '8px';
+  popover.appendChild(customRow);
+
+  const customLabel = document.createElement('span');
+  customLabel.textContent = 'Custom color';
+  customLabel.style.fontSize = '12px';
+  customLabel.style.color = '#64748b';
+  customRow.appendChild(customLabel);
+
+  const openCustomBtn = document.createElement('button');
+  openCustomBtn.type = 'button';
+  openCustomBtn.textContent = '+';
+  styleButtonBase(openCustomBtn);
+  openCustomBtn.style.width = '28px';
+  openCustomBtn.style.fontWeight = '700';
+  customRow.appendChild(openCustomBtn);
+
+  const transparentBtn = document.createElement('button');
+  transparentBtn.type = 'button';
+  transparentBtn.textContent = 'Transparent';
+  styleButtonBase(transparentBtn);
+  transparentBtn.style.padding = '0 10px';
+  transparentBtn.style.fontSize = '12px';
+  transparentBtn.style.border = '1px solid #e2e8f0';
+  transparentBtn.style.background = '#ffffff';
+  transparentBtn.style.color = '#475569';
+  transparentBtn.style.width = '100%';
+  transparentBtn.style.marginTop = '10px';
+  transparentBtn.style.justifyContent = 'flex-start';
+  popover.appendChild(transparentBtn);
+
+  const customPanel = document.createElement('div');
+  customPanel.style.display = 'none';
+  customPanel.style.marginTop = '10px';
+  customPanel.style.paddingTop = '10px';
+  customPanel.style.borderTop = '1px solid #eef2f7';
+
+  const customInput = document.createElement('input');
+  customInput.type = 'color';
+  customInput.value = currentColor;
+  customInput.style.width = '100%';
+  customInput.style.height = '34px';
+  customInput.style.border = '1px solid #cbd5e1';
+  customInput.style.borderRadius = '8px';
+  customInput.style.padding = '0';
+  customInput.style.background = '#ffffff';
+  customPanel.appendChild(customInput);
+
+  const customActions = document.createElement('div');
+  customActions.style.display = 'flex';
+  customActions.style.justifyContent = 'flex-end';
+  customActions.style.gap = '8px';
+  customActions.style.marginTop = '8px';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  styleButtonBase(cancelBtn);
+  cancelBtn.style.padding = '0 10px';
+
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.textContent = 'Apply';
+  styleButtonBase(applyBtn);
+  applyBtn.style.padding = '0 10px';
+  applyBtn.style.borderColor = '#93c5fd';
+  applyBtn.style.background = '#eff6ff';
+
+  customActions.appendChild(cancelBtn);
+  customActions.appendChild(applyBtn);
+  customPanel.appendChild(customActions);
+  popover.appendChild(customPanel);
+
+  function placePopover() {
+    const rect = trigger.getBoundingClientRect();
+    const width = 220;
+    const left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.right - width));
+    const top = rect.bottom + 8;
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+
+  function open() {
+    if (disabled) return;
+    customInput.value = isTransparentColor(currentColor) ? '#111827' : currentColor;
+    customPanel.style.display = 'none';
+    popover.style.display = 'block';
+    placePopover();
+  }
+
+  function close() {
+    popover.style.display = 'none';
+    customPanel.style.display = 'none';
+  }
+
+  function setColor(color) {
+    currentColor = isTransparentColor(color) ? 'transparent' : ensureHex(color, currentColor);
+    if (!mixed) {
+      applySwatchStyle(swatch, swatchMode, currentColor);
+    }
+  }
+
+  function setMixed(isMixed) {
+    mixed = !!isMixed;
+    if (mixed) {
+      swatch.style.background = '#e2e8f0';
+      swatch.style.border = '1px solid #94a3b8';
+      trigger.style.opacity = disabled ? '0.55' : '1';
+      root.style.color = '#94a3b8';
+      return;
+    }
+    root.style.color = '#334155';
+    applySwatchStyle(swatch, swatchMode, currentColor);
+  }
+
+  function setDisabled(nextDisabled) {
+    disabled = !!nextDisabled;
+    trigger.disabled = disabled;
+    trigger.style.opacity = disabled ? '0.55' : '1';
+    if (!mixed) root.style.color = disabled ? '#94a3b8' : '#334155';
+    if (disabled) close();
+  }
+
+  function setVisible(isVisible) {
+    root.style.display = isVisible ? 'inline-flex' : 'none';
+    if (!isVisible) close();
+  }
+
+  function setHandlers(nextHandlers) {
+    handlers = {
+      onPresetSelect: nextHandlers && typeof nextHandlers.onPresetSelect === 'function'
+        ? nextHandlers.onPresetSelect
+        : null,
+      onCustomSelect: nextHandlers && typeof nextHandlers.onCustomSelect === 'function'
+        ? nextHandlers.onCustomSelect
+        : null,
+    };
+  }
+
+  openCustomBtn.addEventListener('click', () => {
+    if (disabled) return;
+    customPanel.style.display = customPanel.style.display === 'none' ? 'block' : 'none';
+    if (customPanel.style.display === 'block') customInput.focus();
+    placePopover();
+  });
+  cancelBtn.addEventListener('click', () => {
+    close();
+  });
+  applyBtn.addEventListener('click', () => {
+    if (disabled) return;
+    const hex = ensureHex(customInput.value, currentColor);
+    currentColor = hex;
+    applySwatchStyle(swatch, swatchMode, hex);
+    if (typeof handlers.onCustomSelect === 'function') handlers.onCustomSelect(hex);
+    close();
+  });
+  transparentBtn.addEventListener('click', () => {
+    if (disabled) return;
+    currentColor = 'transparent';
+    applySwatchStyle(swatch, swatchMode, currentColor);
+    if (typeof handlers.onPresetSelect === 'function') handlers.onPresetSelect('transparent');
+    close();
+  });
+  trigger.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (popover.style.display === 'none') open();
+    else close();
+  });
+
+  document.addEventListener('click', (event) => {
+    if (popover.style.display === 'none') return;
+    const target = event.target;
+    if (target && (popover.contains(target) || trigger.contains(target))) return;
+    close();
+  }, true);
+  window.addEventListener('resize', () => {
+    if (popover.style.display !== 'none') placePopover();
+  });
+
+  document.body.appendChild(popover);
+
+  return {
+    root,
+    setColor,
+    setMixed,
+    setDisabled,
+    setVisible,
+    setHandlers,
+    close,
+  };
+}
+
+
 
 function resolveFabric() {
   if (window.fabric) return window.fabric;
@@ -358,12 +876,6 @@ function isShapeObject(target) {
 
 function isCornerControl(controlName) {
   return controlName === 'tl' || controlName === 'tr' || controlName === 'bl' || controlName === 'br';
-}
-
-function isTransparentColor(value) {
-  if (typeof value !== 'string') return false;
-  const v = value.trim().toLowerCase();
-  return v === 'transparent' || v === '#00000000' || v === 'rgba(0,0,0,0)' || v === 'rgba(0, 0, 0, 0)';
 }
 
 function normalizeCanvasColor(value, fallback) {
@@ -1089,7 +1601,7 @@ function buildShell() {
   leftBar.style.alignItems = 'center';
   leftBar.style.paddingTop = '12px';
   leftBar.style.paddingBottom = '12px';
-  leftBar.style.gap = '10px';
+  leftBar.style.gap = '4px';
   leftBar.style.flexShrink = '0';
 
   const board = document.createElement('div');
@@ -1671,7 +2183,7 @@ function isTypingContext(target) {
   return false;
 }
 
-export default function(instance, context) {
+
   const fabricLib = resolveFabric();
   const ui = buildShell();
   instance.data.ui = ui;

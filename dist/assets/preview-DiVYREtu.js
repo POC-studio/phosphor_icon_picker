@@ -1,4 +1,4 @@
-export default function(instance, properties) {
+const e=`export default function(instance, properties) {
   function readDimension(value, fallback) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -30,7 +30,7 @@ export default function(instance, properties) {
   artboard.style.width = '85%';
   artboard.style.maxWidth = '100%';
   artboard.style.maxHeight = '100%';
-  artboard.style.aspectRatio = `${docW} / ${docH}`;
+  artboard.style.aspectRatio = \`\${docW} / \${docH}\`;
   artboard.style.background = '#ffffff';
   artboard.style.border = 'none';
   artboard.style.boxSizing = 'border-box';
@@ -40,3 +40,4 @@ export default function(instance, properties) {
   container.appendChild(stage);
   instance.canvas.append(container);
 }
+`;export{e as default};

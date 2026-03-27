@@ -1,4 +1,4 @@
-export default function(instance, properties, context) {
+const n=`export default function(instance, properties, context) {
   function readDimension(value, fallback) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -60,3 +60,4 @@ export default function(instance, properties, context) {
   }
   instance.triggerEvent('json_changed');
 }
+`;export{n as default};
