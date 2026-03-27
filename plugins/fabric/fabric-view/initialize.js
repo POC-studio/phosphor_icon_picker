@@ -1494,6 +1494,47 @@ export default function(instance) {
     updateTopBarForSelection(instance);
   };
 
+  /** Décalage en coordonnées document (px) pour Dupliquer depuis le menu contextuel */
+  const DUPLICATE_MENU_OFFSET_X = 14;
+  const DUPLICATE_MENU_OFFSET_Y = 14;
+
+  const duplicateSelection = () => {
+    const active = fabricCanvas.getActiveObject();
+    if (!active) return;
+    if (active.isArtboard || active.isSafeZone) return;
+    if (typeof active.isEditing === 'function' && active.isEditing) return;
+    if (typeof active.isEditing === 'boolean' && active.isEditing) return;
+    if (typeof active.clone !== 'function') return;
+
+    const finish = (cloned) => {
+      if (!cloned) return;
+      cloned.set({
+        left: (Number(cloned.left) || 0) + DUPLICATE_MENU_OFFSET_X,
+        top: (Number(cloned.top) || 0) + DUPLICATE_MENU_OFFSET_Y,
+      });
+      if (typeof cloned.setCoords === 'function') cloned.setCoords();
+      applyStrokeUniformDeep(cloned);
+      fabricCanvas.add(cloned);
+      fabricCanvas.discardActiveObject();
+      fabricCanvas.setActiveObject(cloned);
+      fabricCanvas.requestRenderAll();
+      syncGuideLayers(instance);
+      publishCanvasJson(instance);
+      updateTopBarForSelection(instance);
+    };
+
+    try {
+      const result = active.clone();
+      if (result && typeof result.then === 'function') {
+        result.then(finish).catch(() => {});
+      } else {
+        finish(result);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  };
+
   const contextMenu = document.createElement('div');
   contextMenu.style.position = 'fixed';
   contextMenu.style.display = 'none';
@@ -1535,10 +1576,14 @@ export default function(instance) {
       btn.style.background = '#ffffff';
     });
     btn.addEventListener('click', () => {
+      closeContextMenu();
+      if (action === 'duplicate') {
+        duplicateSelection();
+        return;
+      }
       if (action === 'group') groupSelection();
       else if (action === 'ungroup') ungroupSelection();
       else applyZOrderToSelection(fabricCanvas, action, instance);
-      closeContextMenu();
       publishCanvasJson(instance);
       updateTopBarForSelection(instance);
     });
@@ -1553,6 +1598,7 @@ export default function(instance) {
     } else if (isGroupObject(active)) {
       addContextItem('Ungroup', 'ungroup');
     }
+    addContextItem('Duplicate', 'duplicate');
     addContextItem('Bring to Front', 'to-front');
     addContextItem('Bring Forward', 'forward');
     addContextItem('Send Backward', 'backward');
