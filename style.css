@@ -151,6 +151,35 @@ body.sidebars-hidden #app .canvas-area {
   line-height: 1.35;
 }
 
+.state-collapse-toggle {
+  border: 1px solid #dbe3ef;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.state-collapse-toggle:hover {
+  background: #f1f5f9;
+}
+
+.state-collapsible-value {
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 /* Zone Centrale (Canvas) */
 .canvas-area {
   flex: 1;

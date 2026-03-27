@@ -1,0 +1,1 @@
+const e="Fabric",i="A full-size canvas editor for Bubble powered by Fabric.js v6. Add and edit text and shapes with an intuitive toolbar-driven interface.",t={name:e,description:i};export{t as default,i as description,e as name};

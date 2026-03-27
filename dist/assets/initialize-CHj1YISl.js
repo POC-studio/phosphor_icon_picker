@@ -1,0 +1,1 @@
+function n(t,e){t.canvas.css({cursor:"pointer",display:"inline-block"});const i=t.canvas&&t.canvas.get?t.canvas.get(0):null;i&&i.addEventListener("click",function(o){o.stopPropagation(),typeof t.triggerEvent=="function"&&t.triggerEvent("is_clicked")})}export{n as default};

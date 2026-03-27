@@ -182,6 +182,10 @@ async function initSandbox() {
       elementSelector.innerHTML = `
         <option value="word-cloud-view">Word Cloud</option>
       `;
+    } else if (pluginSelector.value === 'fabric') {
+      elementSelector.innerHTML = `
+        <option value="fabric-view">Fabric View</option>
+      `;
     }
   }
 
