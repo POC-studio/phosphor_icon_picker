@@ -1423,23 +1423,47 @@ export default function(instance) {
     setActiveToolButton(null);
   };
 
+  const removeEmptySelectionContainers = () => {
+    const objs = [...fabricCanvas.getObjects()];
+    objs.forEach((o) => {
+      if (!o || !isSelectionContainer(o)) return;
+      const kids = typeof o.getObjects === 'function' ? o.getObjects() : [];
+      if (Array.isArray(kids) && kids.length === 0) {
+        fabricCanvas.remove(o);
+      }
+    });
+  };
+
   const groupSelection = () => {
     const active = fabricCanvas.getActiveObject();
     if (!active || !isSelectionContainer(active)) return;
-    if (typeof active.toGroup === 'function') {
-      const grouped = active.toGroup();
-      if (grouped) fabricCanvas.setActiveObject(grouped);
-    } else {
-      const targets = getActiveSelectionTargets(fabricCanvas);
-      if (targets.length <= 1 || typeof fabricLib.Group !== 'function') return;
-      targets.forEach((obj) => fabricCanvas.remove(obj));
-      const group = new fabricLib.Group(targets, {
-        originX: 'left',
-        originY: 'top',
-      });
-      fabricCanvas.add(group);
-      fabricCanvas.setActiveObject(group);
+    if (typeof fabricLib.Group !== 'function') return;
+
+    const targets = getActiveSelectionTargets(fabricCanvas).filter(
+      (o) => o && !o.isArtboard && !o.isSafeZone
+    );
+    if (targets.length <= 1) return;
+
+    const objectRefs = targets.slice();
+    fabricCanvas.discardActiveObject();
+    removeEmptySelectionContainers();
+
+    objectRefs.forEach((o) => {
+      if (typeof o.setCoords === 'function') o.setCoords();
+    });
+
+    const group = new fabricLib.Group(objectRefs, {
+      canvas: fabricCanvas,
+      originX: 'left',
+      originY: 'top',
+    });
+    if (typeof group.triggerLayout === 'function') {
+      group.triggerLayout();
+    } else if (typeof group.setCoords === 'function') {
+      group.setCoords();
     }
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
@@ -1460,6 +1484,11 @@ export default function(instance) {
       try {
         const selection = active.toActiveSelection();
         if (selection) {
+          if (typeof selection.triggerLayout === 'function') {
+            selection.triggerLayout();
+          } else if (typeof selection.setCoords === 'function') {
+            selection.setCoords();
+          }
           fabricCanvas.setActiveObject(selection);
           didUngroup = true;
         }
@@ -1483,6 +1512,11 @@ export default function(instance) {
       });
       if (typeof fabricLib.ActiveSelection === 'function') {
         const selection = new fabricLib.ActiveSelection(children, { canvas: fabricCanvas });
+        if (typeof selection.triggerLayout === 'function') {
+          selection.triggerLayout();
+        } else if (typeof selection.setCoords === 'function') {
+          selection.setCoords();
+        }
         fabricCanvas.setActiveObject(selection);
       } else if (children.length === 1) {
         fabricCanvas.setActiveObject(children[0]);
