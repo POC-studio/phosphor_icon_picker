@@ -632,6 +632,97 @@ function getDocumentCenter(instance) {
   };
 }
 
+function guessImageFileExtension(file) {
+  const t = String(file && file.type ? file.type : '').toLowerCase();
+  if (t === 'image/jpeg') return '.jpg';
+  if (t === 'image/png') return '.png';
+  if (t === 'image/gif') return '.gif';
+  if (t === 'image/webp') return '.webp';
+  if (t === 'image/svg+xml') return '.svg';
+  return '.png';
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('FileReader failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function dataUrlToBase64(dataUrl) {
+  if (typeof dataUrl !== 'string') return '';
+  const idx = dataUrl.indexOf('base64,');
+  return idx >= 0 ? dataUrl.slice(idx + 7) : dataUrl;
+}
+
+async function loadFabricImageFromUrl(ImageApi, url) {
+  if (!ImageApi || typeof ImageApi.fromURL !== 'function' || !url) return null;
+  const isDataOrBlob = /^data:|^blob:/i.test(url);
+  if (isDataOrBlob) {
+    try {
+      return await ImageApi.fromURL(url, {});
+    } catch (e) {
+      return null;
+    }
+  }
+  const isRemoteHttp = /^https?:\/\//i.test(url);
+  if (isRemoteHttp) {
+    try {
+      return await ImageApi.fromURL(url, { crossOrigin: 'anonymous' });
+    } catch (e) {
+      // Préprod / mock Bubble : souvent pas de CORS — retenter sans crossOrigin.
+    }
+    try {
+      return await ImageApi.fromURL(url, {});
+    } catch (e) {
+      return null;
+    }
+  }
+  try {
+    return await ImageApi.fromURL(url, {});
+  } catch (e) {
+    return null;
+  }
+}
+
+async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
+  const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  if (!fabricCanvas || !fabricLib || !url) return;
+  const ImageApi = fabricLib.Image;
+  let img = await loadFabricImageFromUrl(ImageApi, url);
+  if (!img && fallbackUrl && fallbackUrl !== url) {
+    img = await loadFabricImageFromUrl(ImageApi, fallbackUrl);
+  }
+  if (!img) return;
+  const doc = getDocumentSize(instance);
+  const center = getDocumentCenter(instance);
+  const el = img._element || (typeof img.getElement === 'function' ? img.getElement() : null);
+  const iw = (el && el.naturalWidth) || img.width || 100;
+  const ih = (el && el.naturalHeight) || img.height || 100;
+  const maxW = doc.width * 0.85;
+  const maxH = doc.height * 0.85;
+  let scale = 1;
+  if (iw > 0 && ih > 0) {
+    scale = Math.min(maxW / iw, maxH / ih, 1);
+  }
+  img.set({
+    left: Math.round(center.x),
+    top: Math.round(center.y),
+    originX: 'center',
+    originY: 'center',
+    scaleX: scale,
+    scaleY: scale,
+  });
+  applyStrokeUniformDeep(img);
+  fabricCanvas.add(img);
+  fabricCanvas.setActiveObject(img);
+  fabricCanvas.requestRenderAll();
+  updateTopBarForSelection(instance);
+  publishCanvasJson(instance);
+}
+
 function normalizeObjectScale(target) {
   if (!target || typeof target.set !== 'function') return;
   if (target.type === 'activeSelection') return;
@@ -640,6 +731,10 @@ function normalizeObjectScale(target) {
   if (scaleX === 1 && scaleY === 1) return;
 
   const type = target.type || '';
+  // FabricImage : width/height servent au cadre / crop source — ne pas y fusionner scaleX/Y (effet « crop » au resize).
+  if (String(type).toLowerCase() === 'image') {
+    return;
+  }
   // Keep all shapes as scaled objects so side handles can deform them.
   if (isShapeObject(target)) {
     return;
@@ -1384,7 +1479,7 @@ function isTypingContext(target) {
   return false;
 }
 
-export default function(instance) {
+export default function(instance, context) {
   const fabricLib = resolveFabric();
   const ui = buildShell();
   instance.data.ui = ui;
@@ -2206,11 +2301,52 @@ export default function(instance) {
     setActiveToolButton(nextMode === 'pan' ? ui.panBtn : null);
   });
 
+  const imageFileInput = document.createElement('input');
+  imageFileInput.type = 'file';
+  imageFileInput.accept = 'image/*';
+  imageFileInput.setAttribute('aria-hidden', 'true');
+  imageFileInput.tabIndex = -1;
+  imageFileInput.style.position = 'absolute';
+  imageFileInput.style.width = '0';
+  imageFileInput.style.height = '0';
+  imageFileInput.style.opacity = '0';
+  imageFileInput.style.pointerEvents = 'none';
+  ui.root.appendChild(imageFileInput);
+
+  imageFileInput.addEventListener('change', async () => {
+    const file = imageFileInput.files && imageFileInput.files[0];
+    imageFileInput.value = '';
+    if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const base64 = dataUrlToBase64(dataUrl);
+      const ext = guessImageFileExtension(file);
+      const rawName = typeof file.name === 'string' && file.name.trim() ? file.name.trim() : `image${ext}`;
+      const safeName = rawName.replace(/[^\w.-]/g, '_') || `image${ext}`;
+
+      let imageUrl = dataUrl;
+      if (context && typeof context.uploadContent === 'function' && base64) {
+        imageUrl = await new Promise((resolve, reject) => {
+          context.uploadContent(safeName, base64, (err, url) => {
+            if (err) reject(err);
+            else resolve(url || dataUrl);
+          });
+        });
+      }
+
+      await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
+    } catch (e) {
+      // Upload ou chargement refusé — pas d'état partiel à nettoyer.
+    }
+  });
+
   ui.imageBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
     setActiveToolButton(ui.imageBtn);
-    // Placeholder V1: outil affiché, import d'image non implémenté.
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    imageFileInput.click();
   });
 
   const updateZoomButtons = () => {
