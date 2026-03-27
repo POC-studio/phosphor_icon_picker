@@ -6,9 +6,7 @@ export default function(instance, properties, context) {
     const style = properties.style || 'regular';
     instance.data.currentStyle = style;
     
-    // La couleur affichée = celle demandée par l'utilisateur dans le champ "color" (properties.color).
-    // Si Bubble envoie une valeur (hex, rgb, nom), on l'utilise. Sinon on garde la dernière connue.
-    let color = properties.color != null ? String(properties.color).trim() : '';
+    let color = properties.icon_color != null ? String(properties.icon_color).trim() : '';
     if (!color) {
       color = instance.data.currentColor || '#000000';
     }

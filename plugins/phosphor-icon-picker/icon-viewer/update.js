@@ -7,7 +7,7 @@ export default function(instance, properties, context) {
     instance.data.currentStyle = style;
     
     // Même logique que pour l'Icon Picker : on ne remet pas la couleur à zéro
-    let color = properties.color;
+    let color = properties.icon_color;
     if (typeof color === 'string') {
       color = color.trim();
     }

@@ -38,8 +38,7 @@ export default function(instance, properties) {
   }
   const size = Math.min(width || 32, height || 32);
 
-  // Couleur : exactement comme en run = celle demandée par l'utilisateur (champ color)
-  let color = (properties.color != null && properties.color !== '') ? String(properties.color).trim() : '';
+  let color = (properties.icon_color != null && properties.icon_color !== '') ? String(properties.icon_color).trim() : '';
   if (!color) color = '#000000';
   mainIcon.style.color = color;
   mainIcon.style.fontSize = `${size}px`;

@@ -25,9 +25,10 @@ export default function(instance, properties) {
   container.style.backgroundColor = 'transparent';
   
   const mainIcon = document.createElement('i');
-  const iconName = (properties.initial_icon && String(properties.initial_icon).trim())
+  const rawIcon = (properties.initial_icon && String(properties.initial_icon).trim())
     ? String(properties.initial_icon).trim().toLowerCase()
     : 'smiley';
+  const iconName = /^[a-z0-9-]+$/.test(rawIcon) ? rawIcon : 'arrows-left-right';
   const style = (properties.style && String(properties.style).trim())
     ? String(properties.style).trim()
     : 'regular';
@@ -42,8 +43,7 @@ export default function(instance, properties) {
   }
   const size = Math.min(width || 32, height || 32);
 
-  // Couleur : exactement comme en run = celle demandée par l'utilisateur (champ color)
-  let color = (properties.color != null && properties.color !== '') ? String(properties.color).trim() : '';
+  let color = (properties.icon_color != null && properties.icon_color !== '') ? String(properties.icon_color).trim() : '';
   if (!color) color = '#000000';
   mainIcon.style.color = color;
   mainIcon.style.fontSize = `${size}px`;

@@ -41,13 +41,21 @@ export default function(instance, properties) {
   circle.title = username || '';
 
   if (imageUrl) {
-    const img = document.createElement('img');
-    img.src = imageUrl;
-    img.setAttribute('alt', '');
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'cover';
-    circle.appendChild(img);
+    const svgRaw = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><rect x="32" y="48" width="192" height="160" rx="8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="156" cy="100" r="12" fill="currentColor"/><path d="M147.31,164,173,138.34a8,8,0,0,1,11.31,0L224,178.06" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M32,168.69l54.34-54.35a8,8,0,0,1,11.32,0L191.31,208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>`;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = svgRaw;
+    const svgEl = wrapper.firstElementChild;
+
+    // Colorize strokes with the same text color as the initial variant.
+    if (svgEl) {
+      svgEl.style.width = `${Math.round(size * 0.6)}px`;
+      svgEl.style.height = `${Math.round(size * 0.6)}px`;
+      svgEl.style.color = textColor;
+      svgEl.style.display = 'block';
+    }
+
+    if (svgEl) circle.appendChild(svgEl);
   } else {
     const letterSpan = document.createElement('span');
     letterSpan.style.display = 'flex';

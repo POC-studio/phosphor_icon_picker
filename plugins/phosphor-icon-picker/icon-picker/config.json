@@ -17,8 +17,8 @@
       "options": ["regular", "thin", "light", "bold", "fill", "duotone"],
       "default": "regular"
     },
-    "color": {
-      "type": "text",
+    "icon_color": {
+      "type": "color",
       "default": "#000000"
     },
     "search_placeholder": {

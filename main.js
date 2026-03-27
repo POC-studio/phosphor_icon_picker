@@ -13,6 +13,94 @@ async function initSandbox() {
   const widthInput = document.getElementById('canvas-width-input');
   const heightInput = document.getElementById('canvas-height-input');
   const canvasContainer = document.getElementById('canvas-container');
+  const app = document.getElementById('app');
+  const leftSidebar = document.querySelector('.left-sidebar');
+  const rightSidebar = document.querySelector('.right-sidebar');
+  const canvasArea = document.querySelector('.canvas-area');
+  let floatingToggleBtn = document.getElementById('floating-toggle-sidebars-btn');
+  if (!floatingToggleBtn) {
+    floatingToggleBtn = document.createElement('button');
+    floatingToggleBtn.id = 'floating-toggle-sidebars-btn';
+    floatingToggleBtn.type = 'button';
+    floatingToggleBtn.textContent = 'Masquer les sidebars';
+  }
+  // Le bouton doit être un enfant direct de body pour ne jamais être recouvert
+  // par les layouts internes des plugins.
+  if (floatingToggleBtn.parentElement !== document.body) {
+    document.body.appendChild(floatingToggleBtn);
+  }
+  floatingToggleBtn.style.position = 'fixed';
+  floatingToggleBtn.style.top = '12px';
+  floatingToggleBtn.style.right = '12px';
+  floatingToggleBtn.style.zIndex = '2147483647';
+  floatingToggleBtn.style.pointerEvents = 'auto';
+
+  function applyFocusMode(isFocus) {
+    if (!app || !floatingToggleBtn) return;
+
+    // État global sur body : plus robuste qu'un état sur #app.
+    document.body.classList.toggle('sidebars-hidden', isFocus);
+
+    // Nettoyer d'éventuels styles inline hérités d'anciens essais.
+    if (leftSidebar) leftSidebar.style.removeProperty('display');
+    if (rightSidebar) rightSidebar.style.removeProperty('display');
+    if (canvasArea) {
+      canvasArea.style.removeProperty('width');
+      canvasArea.style.removeProperty('flex');
+    }
+
+    floatingToggleBtn.setAttribute('aria-pressed', String(isFocus));
+    floatingToggleBtn.textContent = isFocus ? 'Afficher les sidebars' : 'Masquer les sidebars';
+
+    try {
+      localStorage.setItem('sandbox-focus-mode', isFocus ? '1' : '0');
+    } catch (e) {
+      // Ignore les erreurs de stockage (navigation privée, blocage storage, etc.)
+    }
+
+    if (typeof applyBubbleSizeCallback === 'function') {
+      applyBubbleSizeCallback();
+    }
+
+    // Refresh léger universel : laisse les plugins avec ResizeObserver se recalculer.
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+    });
+  }
+
+  // Handler global en capture : évite qu'un plugin bloque le clic (stopPropagation, overlay, etc.).
+  if (!document.body.dataset.sidebarsToggleBound) {
+    document.addEventListener('click', (event) => {
+      const btn = event.target && event.target.closest
+        ? event.target.closest('#floating-toggle-sidebars-btn')
+        : null;
+      if (!btn) return;
+      event.preventDefault();
+      const isFocus = !document.body.classList.contains('sidebars-hidden');
+      applyFocusMode(isFocus);
+    }, true);
+    document.body.dataset.sidebarsToggleBound = '1';
+  }
+
+  // Raccourci de sécurité pour toujours pouvoir ressortir du mode focus
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('sidebars-hidden')) {
+      applyFocusMode(false);
+    }
+    if (event.key.toLowerCase() === 'f') {
+      const isFocus = !document.body.classList.contains('sidebars-hidden');
+      applyFocusMode(isFocus);
+    }
+  });
+
+  let savedFocus = false;
+  try {
+    savedFocus = localStorage.getItem('sandbox-focus-mode') === '1';
+  } catch (e) {
+    savedFocus = false;
+  }
+  applyFocusMode(savedFocus);
   
   // Initialiser la taille du canvas (affichage des champs W/H selon config use_bubble_size de l'élément)
   function updateCanvasSize() {
