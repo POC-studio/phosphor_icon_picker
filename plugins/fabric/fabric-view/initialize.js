@@ -143,7 +143,101 @@ function applyStrokeUniformDeep(target) {
   }
 }
 
-function applyZOrderToSelection(fabricCanvas, action) {
+function isPartOfActiveObject(active, clicked) {
+  if (!active || !clicked) return false;
+  if (active === clicked) return true;
+  if (isSelectionContainer(active)) {
+    const objs = active.getObjects();
+    return Array.isArray(objs) && objs.indexOf(clicked) !== -1;
+  }
+  if (clicked.group && clicked.group === active) return true;
+  return false;
+}
+
+function applyStateFromTransformOriginal(target, orig) {
+  if (!target || !orig || typeof orig !== 'object') return;
+  // Ne pas copier originX/originY depuis transform.original : Fabric y met les
+  // coordonnées d’ancrage du contrôle de drag (u.x/u.y), pas originX/originY
+  // de l’objet — les appliquer décale le clone (souvent haut-gauche).
+  const keys = ['left', 'top', 'scaleX', 'scaleY', 'angle', 'skewX', 'skewY', 'flipX', 'flipY'];
+  const patch = {};
+  keys.forEach((k) => {
+    if (orig[k] !== undefined) patch[k] = orig[k];
+  });
+  target.set(patch);
+  if (typeof target.setCoords === 'function') target.setCoords();
+}
+
+function isDragMoveTransform(transform) {
+  if (!transform) return false;
+  if (transform.corner) return false;
+  const a = transform.action;
+  if (a === 'scale' || a === 'rotate' || a === 'skewX' || a === 'skewY') return false;
+  if (a === 'drag' || a === 'translate' || a === 'move') return true;
+  return a === undefined || a === null;
+}
+
+function performAltDuplicateDrag(instance, fabricCanvas, e) {
+  if (!instance || !fabricCanvas || !e) return;
+  const target = e.target;
+  const transform = e.transform;
+  if (!target || !transform || !transform.original) return;
+  if (target.isArtboard || target.isSafeZone) return;
+  if (typeof target.isEditing === 'function' && target.isEditing) return;
+  if (typeof target.isEditing === 'boolean' && target.isEditing) return;
+  if (!isDragMoveTransform(transform)) return;
+
+  const active = fabricCanvas.getActiveObject();
+  if (!active || target !== active) return;
+  if (!instance.data.altKeyAtMouseDown) return;
+
+  const orig = transform.original;
+
+  instance.data._altDuplicateDone = true;
+
+  const cloneSource = active;
+  const done = (cloned) => {
+    if (!cloned) {
+      instance.data._altDuplicateDone = false;
+      return;
+    }
+    // Comportement type Illustrator inversé : le clone reste à la position de départ,
+    // l’objet d’origine continue d’être déplacé (transform inchangé sur la source).
+    applyStateFromTransformOriginal(cloned, orig);
+    if (typeof cloned.setCoords === 'function') cloned.setCoords();
+    applyStrokeUniformDeep(cloned);
+    const stackIndex = fabricCanvas.getObjects().indexOf(cloneSource);
+    if (stackIndex >= 0 && typeof fabricCanvas.insertAt === 'function') {
+      fabricCanvas.insertAt(stackIndex, cloned);
+    } else {
+      fabricCanvas.add(cloned);
+    }
+    fabricCanvas.requestRenderAll();
+    syncGuideLayers(instance);
+    publishCanvasJson(instance);
+    updateTopBarForSelection(instance);
+  };
+
+  if (typeof cloneSource.clone !== 'function') {
+    instance.data._altDuplicateDone = false;
+    return;
+  }
+
+  try {
+    const result = cloneSource.clone();
+    if (result && typeof result.then === 'function') {
+      result.then(done).catch(() => {
+        instance.data._altDuplicateDone = false;
+      });
+    } else {
+      done(result);
+    }
+  } catch (err) {
+    instance.data._altDuplicateDone = false;
+  }
+}
+
+function applyZOrderToSelection(fabricCanvas, action, instance) {
   if (!fabricCanvas) return;
   const targets = getActiveSelectionTargets(fabricCanvas);
   if (!Array.isArray(targets) || targets.length === 0) return;
@@ -177,6 +271,7 @@ function applyZOrderToSelection(fabricCanvas, action) {
     [...ordered].reverse().forEach((obj) => sendBack(obj));
   }
 
+  if (instance) syncGuideLayers(instance);
   fabricCanvas.requestRenderAll();
 }
 
@@ -317,6 +412,96 @@ function ensureArtboardAtBack(instance) {
   } else if (typeof artboard.sendToBack === 'function') {
     artboard.sendToBack();
   }
+}
+
+function readPrintMargins(value) {
+  const n = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(n, 100000);
+}
+
+function ensureSafeZoneAtFront(instance) {
+  if (!instance || !instance.data) return;
+  const canvas = instance.data.fabricCanvas;
+  const zone = instance.data.safeZoneRect;
+  if (!canvas || !zone) return;
+  if (typeof canvas.bringObjectToFront === 'function') {
+    canvas.bringObjectToFront(zone);
+  } else if (typeof zone.bringToFront === 'function') {
+    zone.bringToFront();
+  }
+}
+
+function ensureSafeZoneRect(instance, fabricLib) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas || !fabricLib) return;
+  const canvas = instance.data.fabricCanvas;
+  const doc = getDocumentSize(instance);
+  const marginPx = readPrintMargins(instance.data.margins);
+  const innerW = doc.width - 2 * marginPx;
+  const innerH = doc.height - 2 * marginPx;
+  const shouldShow = marginPx > 0 && innerW > 0 && innerH > 0;
+
+  let zone = instance.data.safeZoneRect || null;
+  if (!shouldShow) {
+    if (zone) {
+      canvas.remove(zone);
+      instance.data.safeZoneRect = null;
+    }
+    return;
+  }
+
+  const vpScale = Math.max(1e-6, Number(instance.data.viewport && instance.data.viewport.scale) || 1);
+  const safeZoneStrokeDoc = 1 / vpScale;
+
+  if (!zone) {
+    zone = new fabricLib.Rect({
+      left: marginPx,
+      top: marginPx,
+      width: innerW,
+      height: innerH,
+      originX: 'left',
+      originY: 'top',
+      fill: 'transparent',
+      stroke: '#7dd3fc',
+      strokeWidth: safeZoneStrokeDoc,
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+      hasControls: false,
+      hasBorders: false,
+      lockMovementX: true,
+      lockMovementY: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockRotation: true,
+      excludeFromExport: true,
+      isSafeZone: true,
+    });
+    canvas.add(zone);
+    instance.data.safeZoneRect = zone;
+  } else {
+    zone.set({
+      left: marginPx,
+      top: marginPx,
+      width: innerW,
+      height: innerH,
+      fill: 'transparent',
+      stroke: '#7dd3fc',
+      strokeWidth: safeZoneStrokeDoc,
+      visible: true,
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+      isSafeZone: true,
+    });
+    if (typeof zone.setCoords === 'function') zone.setCoords();
+  }
+}
+
+function syncGuideLayers(instance) {
+  ensureArtboardAtBack(instance);
+  ensureSafeZoneRect(instance, instance.data.fabricLib);
+  ensureSafeZoneAtFront(instance);
 }
 
 function ensureArtboardRect(instance, fabricLib) {
@@ -962,8 +1147,8 @@ function ensureCanvasSize(instance) {
       strokeWidth: 0,
     });
     if (typeof artboard.setCoords === 'function') artboard.setCoords();
-    ensureArtboardAtBack(instance);
   }
+  syncGuideLayers(instance);
   fabricCanvas.requestRenderAll();
 }
 
@@ -1177,6 +1362,7 @@ export default function(instance) {
   instance.publishState('new_color', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
+  instance.data.margins = 0;
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -1185,6 +1371,8 @@ export default function(instance) {
   instance.data.isPanning = false;
   instance.data.panLastClientX = 0;
   instance.data.panLastClientY = 0;
+  instance.data.altKeyAtMouseDown = false;
+  instance.data._altDuplicateDone = false;
 
   const applyPenBrush = () => {
     if (!fabricCanvas.freeDrawingBrush && typeof fabricLib.PencilBrush === 'function') {
@@ -1252,7 +1440,7 @@ export default function(instance) {
       fabricCanvas.add(group);
       fabricCanvas.setActiveObject(group);
     }
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
@@ -1300,7 +1488,7 @@ export default function(instance) {
         fabricCanvas.setActiveObject(children[0]);
       }
     }
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
@@ -1349,8 +1537,7 @@ export default function(instance) {
     btn.addEventListener('click', () => {
       if (action === 'group') groupSelection();
       else if (action === 'ungroup') ungroupSelection();
-      else applyZOrderToSelection(fabricCanvas, action);
-      ensureArtboardAtBack(instance);
+      else applyZOrderToSelection(fabricCanvas, action, instance);
       closeContextMenu();
       publishCanvasJson(instance);
       updateTopBarForSelection(instance);
@@ -2106,6 +2293,22 @@ export default function(instance) {
   fabricCanvas.on('selection:created', onSelectionChanged);
   fabricCanvas.on('selection:updated', onSelectionChanged);
   fabricCanvas.on('selection:cleared', onSelectionChanged);
+  fabricCanvas.on('mouse:down', (opt) => {
+    instance.data.altKeyAtMouseDown = false;
+    if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
+    const t = opt.target;
+    if (!t || t.isArtboard || t.isSafeZone) return;
+    const active = fabricCanvas.getActiveObject();
+    if (!active) return;
+    if (!isPartOfActiveObject(active, t)) return;
+    instance.data.altKeyAtMouseDown = !!opt.e.altKey;
+  });
+  fabricCanvas.on('object:moving', (e) => {
+    if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
+    if (!instance.data.altKeyAtMouseDown) return;
+    if (instance.data._altDuplicateDone) return;
+    performAltDuplicateDrag(instance, fabricCanvas, e);
+  });
   fabricCanvas.on('mouse:down', (event) => {
     if (instance.data.toolMode !== 'pan') return;
     const e = event && event.e ? event.e : null;
@@ -2144,6 +2347,10 @@ export default function(instance) {
     if (!instance.data.isPanning) return;
     instance.data.isPanning = false;
     ui.board.style.cursor = instance.data.toolMode === 'pan' ? 'grab' : '';
+  });
+  fabricCanvas.on('mouse:up', () => {
+    instance.data.altKeyAtMouseDown = false;
+    instance.data._altDuplicateDone = false;
   });
   fabricCanvas.on('object:scaling', (event) => {
     const target = event && event.target ? event.target : null;
@@ -2215,11 +2422,11 @@ export default function(instance) {
   });
   fabricCanvas.on('object:added', (event) => {
     const target = event && event.target ? event.target : null;
-    if (target && target.isArtboard) return;
+    if (target && (target.isArtboard || target.isSafeZone)) return;
     if (target && typeof target.set === 'function' && 'strokeWidth' in target) {
       target.set({ strokeUniform: true });
     }
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     publishCanvasJson(instance);
   });
   fabricCanvas.on('object:modified', (event) => {
@@ -2245,13 +2452,13 @@ export default function(instance) {
     if (target && typeof target.setCoords === 'function') {
       target.setCoords();
     }
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
   fabricCanvas.on('object:removed', () => {
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     publishCanvasJson(instance);
   });
   fabricCanvas.on('path:created', () => {
@@ -2290,7 +2497,7 @@ export default function(instance) {
         });
       }
     }
-    ensureArtboardAtBack(instance);
+    syncGuideLayers(instance);
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });

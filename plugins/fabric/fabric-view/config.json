@@ -17,6 +17,11 @@
       "label": "Document title",
       "type": "text",
       "default": "Document title"
+    },
+    "margins": {
+      "label": "Margins (px)",
+      "type": "text",
+      "default": "0"
     }
   }
 }
