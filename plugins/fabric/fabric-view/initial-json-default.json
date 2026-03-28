@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "activeArtboardIndex": 0,
+  "artboards": [
+    {
+      "version": "6.6.0",
+      "objects": [
+        {
+          "type": "rect",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 0,
+          "top": 0,
+          "width": 1754,
+          "height": 2480,
+          "fill": "#ffffff",
+          "stroke": null,
+          "strokeWidth": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": 0,
+          "opacity": 1,
+          "selectable": false,
+          "evented": false,
+          "hasControls": false,
+          "hasBorders": false,
+          "excludeFromExport": true,
+          "isArtboard": true
+        },
+        {
+          "type": "circle",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 320,
+          "top": 620,
+          "radius": 85,
+          "fill": "#f97316",
+          "stroke": "#111827",
+          "strokeWidth": 2,
+          "strokeUniform": true,
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": 0
+        }
+      ]
+    },
+    {
+      "version": "6.6.0",
+      "objects": [
+        {
+          "type": "rect",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 0,
+          "top": 0,
+          "width": 3508,
+          "height": 2480,
+          "fill": "#ffffff",
+          "stroke": null,
+          "strokeWidth": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": 0,
+          "opacity": 1,
+          "selectable": false,
+          "evented": false,
+          "hasControls": false,
+          "hasBorders": false,
+          "excludeFromExport": true,
+          "isArtboard": true
+        },
+        {
+          "type": "rect",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 480,
+          "top": 720,
+          "width": 420,
+          "height": 180,
+          "fill": "#a855f7",
+          "stroke": "#111827",
+          "strokeWidth": 2,
+          "strokeUniform": true,
+          "rx": 16,
+          "ry": 16,
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": -6
+        }
+      ]
+    },
+    {
+      "version": "6.6.0",
+      "objects": [
+        {
+          "type": "rect",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 0,
+          "top": 0,
+          "width": 1754,
+          "height": 2480,
+          "fill": "#ffffff",
+          "stroke": null,
+          "strokeWidth": 0,
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": 0,
+          "opacity": 1,
+          "selectable": false,
+          "evented": false,
+          "hasControls": false,
+          "hasBorders": false,
+          "excludeFromExport": true,
+          "isArtboard": true
+        },
+        {
+          "type": "textbox",
+          "version": "6.6.0",
+          "originX": "left",
+          "originY": "top",
+          "left": 280,
+          "top": 980,
+          "width": 420,
+          "text": "Page 3",
+          "fontSize": 52,
+          "fontWeight": "700",
+          "fill": "#0f766e",
+          "stroke": null,
+          "strokeWidth": 0,
+          "strokeUniform": true,
+          "textAlign": "left",
+          "scaleX": 1,
+          "scaleY": 1,
+          "angle": 0
+        }
+      ]
+    }
+  ]
+}

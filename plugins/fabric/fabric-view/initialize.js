@@ -3023,20 +3023,17 @@ function isTypingContext(target) {
       scaleX: initialScale,
       scaleY: initialScale,
     });
-    // Keep transform anchored to opposite handle (not centered).
     grouped.set({
-      originX: 'left',
-      originY: 'top',
-      centeredScaling: false,
-      centeredRotation: false,
+      originX: 'center',
+      originY: 'center',
+      centeredScaling: true,
+      centeredRotation: true,
       objectCaching: false,
     });
-    const scaledW = typeof grouped.getScaledWidth === 'function' ? grouped.getScaledWidth() : 0;
-    const scaledH = typeof grouped.getScaledHeight === 'function' ? grouped.getScaledHeight() : 0;
     const center = getDocumentCenter(instance);
     grouped.set({
-      left: Math.round(center.x - scaledW / 2),
-      top: Math.round(center.y - scaledH / 2),
+      left: Math.round(center.x),
+      top: Math.round(center.y),
       fill: '#0f172a',
       stroke: '#00000000',
       strokeWidth: 0,
@@ -3672,7 +3669,9 @@ function isTypingContext(target) {
 
   const onSelectionChanged = () => {
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
+    // Ne pas appeler publishCanvasJson ici : ajouter un objet déclenche déjà object:added
+    // puis setActiveObject → selection:created, ce qui doublait la publication.
+    // Le JSON du canevas ne change pas lors d’un simple changement de sélection.
   };
   const onSelectionCleared = () => {
     onSelectionChanged();

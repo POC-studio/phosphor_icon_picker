@@ -558,6 +558,49 @@ const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
 const PHOSPHOR_STYLES = ['regular', 'bold', 'fill', 'light', 'thin', 'duotone'];
 const ARTBOARD_VIEWER_MARGIN_PX = 24;
 
+/** 5 mm @ 300 dpi — même logique que le plan (A4 plié, 3 pages). */
+const PX_PER_MM = 300 / 25.4;
+const MARGIN_5MM_PX = Math.round(5 * PX_PER_MM);
+
+/** Page 0 et 2 : A5 vertical (portrait, hauteur > largeur) ; page 1 : A4 paysage. */
+const ARTBOARD_PRESETS = [
+  {
+    width: 1754,
+    height: 2480,
+    marginTop: MARGIN_5MM_PX,
+    marginRight: MARGIN_5MM_PX,
+    marginBottom: MARGIN_5MM_PX,
+    marginLeft: 0,
+  },
+  {
+    width: 3508,
+    height: 2480,
+    marginTop: MARGIN_5MM_PX,
+    marginRight: MARGIN_5MM_PX,
+    marginBottom: MARGIN_5MM_PX,
+    marginLeft: MARGIN_5MM_PX,
+  },
+  {
+    width: 1754,
+    height: 2480,
+    marginTop: MARGIN_5MM_PX,
+    marginRight: 0,
+    marginBottom: MARGIN_5MM_PX,
+    marginLeft: MARGIN_5MM_PX,
+  },
+];
+
+function clampArtboardIndex(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(2, Math.floor(n)));
+}
+
+function getActivePreset(instance) {
+  const idx = clampArtboardIndex(instance && instance.data ? instance.data.activeArtboardIndex : 0);
+  return ARTBOARD_PRESETS[idx];
+}
+
 function stripStyleSuffix(iconFileName, style) {
   if (typeof iconFileName !== 'string') return '';
   const raw = iconFileName.replace('.svg', '');
@@ -840,7 +883,6 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
     }
     fabricCanvas.requestRenderAll();
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -986,30 +1028,35 @@ function oppositeOriginForCorner(corner) {
   return null;
 }
 
-function publishCanvasJson(instance) {
+function publishCanvasJson(instance, options) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) return;
+  const silent = (options && options.silent)
+    || (instance.data._artboardSwapInProgress === true);
+  const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
+  instance.data.activeArtboardIndex = idx;
+  if (!Array.isArray(instance.data.pageSnapshots)) {
+    instance.data.pageSnapshots = [null, null, null];
+  }
   try {
-    const payload = JSON.stringify(instance.data.fabricCanvas.toJSON());
+    instance.data.pageSnapshots[idx] = instance.data.fabricCanvas.toJSON();
+    const payload = JSON.stringify({
+      version: 1,
+      activeArtboardIndex: idx,
+      artboards: instance.data.pageSnapshots.slice(),
+    });
+    instance.data._lastPublishedCanvasJson = payload;
     instance.publishState('canvas_json', payload);
   } catch (e) {
     instance.publishState('canvas_json', '{}');
   }
-  instance.triggerEvent('json_changed');
-}
-
-function readDocumentDimension(value, fallback) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
+  if (!silent) {
+    instance.triggerEvent('json_changed');
+  }
 }
 
 function getDocumentSize(instance) {
-  const fallbackWidth = 1000;
-  const fallbackHeight = 1000;
-  const data = instance && instance.data ? instance.data : {};
-  const width = readDocumentDimension(data.canvasWidth, fallbackWidth);
-  const height = readDocumentDimension(data.canvasHeight, fallbackHeight);
-  return { width, height };
+  const p = getActivePreset(instance);
+  return { width: p.width, height: p.height };
 }
 
 function computeFit(boardWidth, boardHeight, docWidth, docHeight) {
@@ -1035,20 +1082,132 @@ function ensureArtboardAtBack(instance) {
   }
 }
 
-function readMarginPx(value) {
-  const n = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.min(n, 100000);
+function getDocumentMargins(instance) {
+  const p = getActivePreset(instance);
+  return {
+    top: p.marginTop,
+    right: p.marginRight,
+    bottom: p.marginBottom,
+    left: p.marginLeft,
+  };
 }
 
-function getDocumentMargins(instance) {
-  const data = instance && instance.data ? instance.data : {};
-  return {
-    top: readMarginPx(data.marginTop),
-    right: readMarginPx(data.marginRight),
-    bottom: readMarginPx(data.marginBottom),
-    left: readMarginPx(data.marginLeft),
+function rebindArtboardFromCanvas(instance) {
+  const canvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  if (!canvas) return;
+  const artboard = canvas.getObjects().find((o) => o && o.isArtboard);
+  instance.data.artboardRect = artboard || null;
+}
+
+function stripSafeZoneObjects(instance) {
+  const canvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  if (!canvas) return;
+  const toRemove = canvas.getObjects().filter((o) => o && o.isSafeZone);
+  toRemove.forEach((o) => {
+    try {
+      canvas.remove(o);
+    } catch (e) {
+      /* ignore */
+    }
+  });
+  instance.data.marginGuideLines = {
+    top: null, right: null, bottom: null, left: null, fold: null,
   };
+}
+
+function finalizeAfterArtboardLoad(instance, fabricLib) {
+  if (!instance || !instance.data || !fabricLib) return;
+  rebindArtboardFromCanvas(instance);
+  stripSafeZoneObjects(instance);
+  const doc = getDocumentSize(instance);
+  let artboard = instance.data.artboardRect;
+  if (!artboard) {
+    ensureArtboardRect(instance, fabricLib);
+  } else {
+    artboard.set({
+      left: 0,
+      top: 0,
+      width: doc.width,
+      height: doc.height,
+      selectable: false,
+      evented: false,
+      excludeFromExport: true,
+      isArtboard: true,
+      stroke: 'transparent',
+      fill: '#ffffff',
+    });
+    if (typeof artboard.setCoords === 'function') artboard.setCoords();
+  }
+  ensureArtboardAtBack(instance);
+  syncGuideLayers(instance);
+  ensureCanvasSize(instance);
+}
+
+function goToArtboard(instance, targetIndex, opts) {
+  const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  const fabricLib = instance && instance.data ? instance.data.fabricLib : null;
+  if (!fabricCanvas || !fabricLib) return Promise.resolve();
+  const skipSave = opts && opts.skipSave;
+  const idx = clampArtboardIndex(targetIndex);
+  const prev = clampArtboardIndex(instance.data.activeArtboardIndex);
+  if (!Array.isArray(instance.data.pageSnapshots)) {
+    instance.data.pageSnapshots = [null, null, null];
+  }
+  if (!skipSave) {
+    try {
+      instance.data.pageSnapshots[prev] = fabricCanvas.toJSON();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  instance.data._artboardSwapInProgress = true;
+  fabricCanvas.discardActiveObject();
+  instance.data.zoomScale = 1;
+  instance.data.panX = 0;
+  instance.data.panY = 0;
+  instance.data.activeArtboardIndex = idx;
+  const preset = ARTBOARD_PRESETS[idx];
+  instance.data.canvasWidth = preset.width;
+  instance.data.canvasHeight = preset.height;
+  const snap = instance.data.pageSnapshots[idx];
+  const loadInput = snap != null ? snap : { objects: [] };
+  const p = loadFromJsonPromise(fabricCanvas, loadInput);
+  return p
+    .then(() => finalizeAfterArtboardLoad(instance, fabricLib))
+    .finally(() => {
+      instance.data._artboardSwapInProgress = false;
+    });
+}
+
+function loadFromJsonPromise(fabricCanvas, json) {
+  if (!fabricCanvas) return Promise.resolve();
+  const maybe = fabricCanvas.loadFromJSON(json);
+  if (maybe && typeof maybe.then === 'function') return maybe;
+  return Promise.resolve();
+}
+
+function loadWrappedCanvasJson(instance, jsonString) {
+  if (!instance || !instance.data) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonString);
+  } catch (e) {
+    return;
+  }
+  if (!parsed || !Array.isArray(parsed.artboards) || parsed.artboards.length !== 3) {
+    return;
+  }
+  instance.data.pageSnapshots = [
+    parsed.artboards[0],
+    parsed.artboards[1],
+    parsed.artboards[2],
+  ];
+  const idx = clampArtboardIndex(parsed.activeArtboardIndex);
+  instance.data.activeArtboardIndex = idx;
+  goToArtboard(instance, idx, { skipSave: true }).then(() => {
+    publishCanvasJson(instance);
+    updateTopBarForSelection(instance);
+  });
 }
 
 function ensureMarginGuidesAtFront(instance) {
@@ -1056,7 +1215,7 @@ function ensureMarginGuidesAtFront(instance) {
   const canvas = instance.data.fabricCanvas;
   const guides = instance.data.marginGuideLines;
   if (!canvas || !guides) return;
-  ['top', 'right', 'bottom', 'left'].forEach((key) => {
+  ['top', 'right', 'bottom', 'left', 'fold'].forEach((key) => {
     const line = guides[key];
     if (!line) return;
     if (typeof canvas.bringObjectToFront === 'function') {
@@ -1089,7 +1248,9 @@ function ensureMarginGuideLines(instance, fabricLib) {
   }
 
   if (!instance.data.marginGuideLines) {
-    instance.data.marginGuideLines = { top: null, right: null, bottom: null, left: null };
+    instance.data.marginGuideLines = {
+      top: null, right: null, bottom: null, left: null, fold: null,
+    };
   }
   const guides = instance.data.marginGuideLines;
 
@@ -1105,7 +1266,8 @@ function ensureMarginGuideLines(instance, fabricLib) {
     isSafeZone: true,
   };
 
-  const upsertLine = (key, show, x1, y1, x2, y2) => {
+  const upsertLine = (key, show, x1, y1, x2, y2, stylePatch) => {
+    const lineOpts = { ...baseOpts, ...(stylePatch || {}) };
     if (!show) {
       if (guides[key]) {
         try {
@@ -1118,7 +1280,7 @@ function ensureMarginGuideLines(instance, fabricLib) {
       return;
     }
     if (!guides[key]) {
-      guides[key] = new LineCtor([x1, y1, x2, y2], { ...baseOpts });
+      guides[key] = new LineCtor([x1, y1, x2, y2], { ...lineOpts });
       canvas.add(guides[key]);
     } else {
       guides[key].set({
@@ -1128,8 +1290,11 @@ function ensureMarginGuideLines(instance, fabricLib) {
         y2,
         strokeWidth: strokeDoc,
         visible: true,
-        stroke: baseOpts.stroke,
-        strokeUniform: baseOpts.strokeUniform,
+        stroke: lineOpts.stroke,
+        strokeUniform: lineOpts.strokeUniform,
+        ...(stylePatch && stylePatch.strokeDashArray != null
+          ? { strokeDashArray: stylePatch.strokeDashArray }
+          : {}),
       });
       if (typeof guides[key].setCoords === 'function') guides[key].setCoords();
     }
@@ -1139,6 +1304,21 @@ function ensureMarginGuideLines(instance, fabricLib) {
   upsertLine('bottom', m.bottom > 0 && m.bottom < dh, 0, dh - m.bottom, dw, dh - m.bottom);
   upsertLine('left', m.left > 0 && m.left < dw, m.left, 0, m.left, dh);
   upsertLine('right', m.right > 0 && m.right < dw, dw - m.right, 0, dw - m.right, dh);
+
+  const isMiddleSpread = clampArtboardIndex(instance.data.activeArtboardIndex) === 1;
+  const midX = dw / 2;
+  upsertLine(
+    'fold',
+    isMiddleSpread && midX > 0.5 && midX < dw - 0.5,
+    midX,
+    0,
+    midX,
+    dh,
+    {
+      stroke: '#cbd5e1',
+      strokeDashArray: [8, 6],
+    },
+  );
 }
 
 function syncGuideLayers(instance) {
@@ -1441,7 +1621,6 @@ async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
   fabricCanvas.setActiveObject(img);
   fabricCanvas.requestRenderAll();
   updateTopBarForSelection(instance);
-  publishCanvasJson(instance);
 }
 
 function normalizeObjectScale(target) {
@@ -1658,8 +1837,40 @@ function buildShell() {
   topFontSize.style.color = '#334155';
   topFontSize.appendChild(fontSizeInput);
 
+  const mkBtn = (iconClass, title) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.title = title;
+    btn.style.width = '36px';
+    btn.style.height = '36px';
+    btn.style.border = '1px solid #cbd5e1';
+    btn.style.background = '#ffffff';
+    btn.style.borderRadius = '10px';
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.cursor = 'pointer';
+    btn.style.color = '#0f172a';
+
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.style.fontSize = '18px';
+    btn.appendChild(icon);
+    return btn;
+  };
+
+  const artboardNav = document.createElement('div');
+  artboardNav.style.display = 'flex';
+  artboardNav.style.alignItems = 'center';
+  artboardNav.style.gap = '4px';
+  artboardNav.style.flexShrink = '0';
+  const artboardPrevBtn = mkBtn('ph ph-caret-left', 'Page précédente');
+  const artboardNextBtn = mkBtn('ph ph-caret-right', 'Page suivante');
+  artboardNav.appendChild(artboardPrevBtn);
+  artboardNav.appendChild(artboardNextBtn);
 
   topBar.appendChild(documentTitle);
+  topControls.appendChild(artboardNav);
   topControls.appendChild(topFill);
   topControls.appendChild(topStroke);
   topControls.appendChild(topStrokeWidth);
@@ -1707,28 +1918,6 @@ function buildShell() {
   body.appendChild(board);
   root.appendChild(topBar);
   root.appendChild(body);
-
-  const mkBtn = (iconClass, title) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.title = title;
-    btn.style.width = '36px';
-    btn.style.height = '36px';
-    btn.style.border = '1px solid #cbd5e1';
-    btn.style.background = '#ffffff';
-    btn.style.borderRadius = '10px';
-    btn.style.display = 'inline-flex';
-    btn.style.alignItems = 'center';
-    btn.style.justifyContent = 'center';
-    btn.style.cursor = 'pointer';
-    btn.style.color = '#0f172a';
-
-    const icon = document.createElement('i');
-    icon.className = iconClass;
-    icon.style.fontSize = '18px';
-    btn.appendChild(icon);
-    return btn;
-  };
 
   const alignToolbar = document.createElement('div');
   alignToolbar.style.display = 'none';
@@ -1783,6 +1972,9 @@ function buildShell() {
     topBar,
     alignToolbar,
     documentTitle,
+    artboardNav,
+    artboardPrevBtn,
+    artboardNextBtn,
     topControls,
     fillControl,
     strokeControl,
@@ -1811,9 +2003,22 @@ function buildShell() {
   };
 }
 
+function updateArtboardNavVisibility(instance) {
+  const ui = instance && instance.data ? instance.data.ui : null;
+  if (!ui || !ui.artboardNav || !ui.artboardPrevBtn || !ui.artboardNextBtn) return;
+  const canvas = instance.data.fabricCanvas;
+  const hasSelection = !!(canvas && canvas.getActiveObject());
+  const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
+  const showNav = !hasSelection;
+  ui.artboardNav.style.display = showNav ? 'flex' : 'none';
+  ui.artboardPrevBtn.style.visibility = idx <= 0 ? 'hidden' : 'visible';
+  ui.artboardNextBtn.style.visibility = idx >= 2 ? 'hidden' : 'visible';
+}
+
 function updateTopBarForSelection(instance) {
   const ui = instance.data.ui;
   if (!ui) return;
+  try {
   if (ui.alignToolbar) {
     ui.alignToolbar.style.display = 'none';
   }
@@ -1821,8 +2026,11 @@ function updateTopBarForSelection(instance) {
     ? instance.data.documentTitle.trim()
     : '';
   const hasTitle = rawTitle.length > 0;
-  ui.documentTitle.textContent = hasTitle ? rawTitle : '';
-  ui.documentTitle.style.display = hasTitle ? 'block' : 'none';
+  const pageNum = clampArtboardIndex(instance.data.activeArtboardIndex) + 1;
+  ui.documentTitle.textContent = hasTitle
+    ? \`\${rawTitle} / page \${pageNum}\`
+    : \`page \${pageNum}\`;
+  ui.documentTitle.style.display = 'block';
   const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : 'select';
   const isDrawMode = toolMode === 'draw';
   const isPanMode = toolMode === 'pan';
@@ -2026,6 +2234,9 @@ function updateTopBarForSelection(instance) {
     ui.radiusInput.disabled = true;
     ui.radiusInput.value = '0';
     ui.radiusInput.style.opacity = '0.55';
+  }
+  } finally {
+    updateArtboardNavVisibility(instance);
   }
 }
 
@@ -2300,11 +2511,12 @@ function isTypingContext(target) {
   const ui = buildShell();
   instance.data.ui = ui;
   instance.data.fabricLib = fabricLib;
-  instance.data.canvasWidth = 1000;
-  instance.data.canvasHeight = 1000;
+  const initialPreset = ARTBOARD_PRESETS[0];
+  instance.data.canvasWidth = initialPreset.width;
+  instance.data.canvasHeight = initialPreset.height;
   instance.data.viewport = {
-    docW: 1000,
-    docH: 1000,
+    docW: initialPreset.width,
+    docH: initialPreset.height,
     scale: 1,
     offsetX: 0,
     offsetY: 0,
@@ -2340,10 +2552,9 @@ function isTypingContext(target) {
   instance.publishState('new_color', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
-  instance.data.marginTop = 0;
-  instance.data.marginRight = 0;
-  instance.data.marginBottom = 0;
-  instance.data.marginLeft = 0;
+  instance.data.activeArtboardIndex = 0;
+  instance.data.pageSnapshots = [null, null, null];
+  instance.data._lastPublishedCanvasJson = null;
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -2447,7 +2658,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(group);
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -2484,7 +2694,6 @@ function isTypingContext(target) {
     }
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -2513,7 +2722,6 @@ function isTypingContext(target) {
       fabricCanvas.setActiveObject(cloned);
       fabricCanvas.requestRenderAll();
       syncGuideLayers(instance);
-      publishCanvasJson(instance);
       updateTopBarForSelection(instance);
     };
 
@@ -2575,9 +2783,15 @@ function isTypingContext(target) {
         duplicateSelection();
         return;
       }
-      if (action === 'group') groupSelection();
-      else if (action === 'ungroup') ungroupSelection();
-      else applyZOrderToSelection(fabricCanvas, action, instance);
+      if (action === 'group') {
+        groupSelection();
+        return;
+      }
+      if (action === 'ungroup') {
+        ungroupSelection();
+        return;
+      }
+      applyZOrderToSelection(fabricCanvas, action, instance);
       publishCanvasJson(instance);
       updateTopBarForSelection(instance);
     });
@@ -2742,7 +2956,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(shape);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   };
 
   const addPhosphorSvg = async (iconName, style = 'regular') => {
@@ -2801,7 +3014,6 @@ function isTypingContext(target) {
       fabricCanvas.setActiveObject(fallback);
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
-      publishCanvasJson(instance);
       return;
     }
 
@@ -2837,12 +3049,36 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(grouped);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   };
 
-  const doc = getDocumentSize(instance);
-  const seed = createRandomSeedObjects(fabricLib, doc.width, doc.height);
-  seed.forEach((obj) => fabricCanvas.add(obj));
+  const snapshots = [];
+  for (let i = 0; i < 3; i++) {
+    instance.data.activeArtboardIndex = i;
+    instance.data.zoomScale = 1;
+    instance.data.panX = 0;
+    instance.data.panY = 0;
+    fabricCanvas.clear();
+    instance.data.artboardRect = null;
+    instance.data.marginGuideLines = null;
+    const p = ARTBOARD_PRESETS[i];
+    instance.data.canvasWidth = p.width;
+    instance.data.canvasHeight = p.height;
+    ensureCanvasSize(instance);
+    snapshots[i] = fabricCanvas.toJSON();
+  }
+  instance.data.pageSnapshots = snapshots;
+  instance.data.activeArtboardIndex = 0;
+  instance.data.zoomScale = 1;
+  instance.data.panX = 0;
+  instance.data.panY = 0;
+  fabricCanvas.clear();
+  instance.data.artboardRect = null;
+  instance.data.marginGuideLines = null;
+  {
+    const p = ARTBOARD_PRESETS[0];
+    instance.data.canvasWidth = p.width;
+    instance.data.canvasHeight = p.height;
+  }
   ensureCanvasSize(instance);
   updateTopBarForSelection(instance);
 
@@ -2857,7 +3093,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(text);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   });
 
   const shapeMenu = document.createElement('div');
@@ -3250,6 +3485,28 @@ function isTypingContext(target) {
     instance.data.panY = 0;
     ensureCanvasSize(instance);
     updateZoomButtons();
+  });
+  ui.artboardPrevBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    setActiveToolButton(null);
+    const i = instance.data.activeArtboardIndex ?? 0;
+    if (i <= 0) return;
+    goToArtboard(instance, i - 1).then(() => {
+      updateTopBarForSelection(instance);
+      publishCanvasJson(instance, { silent: true });
+    });
+  });
+  ui.artboardNextBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    setActiveToolButton(null);
+    const i = instance.data.activeArtboardIndex ?? 0;
+    if (i >= 2) return;
+    goToArtboard(instance, i + 1).then(() => {
+      updateTopBarForSelection(instance);
+      publishCanvasJson(instance, { silent: true });
+    });
   });
   updateZoomButtons();
   fabricCanvas.on('mouse:wheel', (event) => {
@@ -3664,6 +3921,7 @@ function isTypingContext(target) {
 
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
+  instance.data.loadWrappedCanvasJson = (jsonString) => loadWrappedCanvasJson(instance, jsonString);
   setActiveToolButton(null);
   publishCanvasJson(instance);
 }

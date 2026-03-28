@@ -1,4 +1,5 @@
 import { BubbleInstance, BubbleContext } from './lib/bubble-mock.js';
+import fabricViewInitialJsonDefault from './plugins/fabric/fabric-view/initial-json-default.json?raw';
 
 // Global variables for emulator
 let currentInstance = null;
@@ -425,7 +426,21 @@ function setupInputEmulator(config, pluginName, elementName) {
     
     input.id = `input-${key}`;
     input.dataset.key = key;
-    
+
+    if (
+      key === 'initial_json'
+      && pluginName === 'fabric'
+      && elementName === 'fabric-view'
+      && typeof fabricViewInitialJsonDefault === 'string'
+      && fabricViewInitialJsonDefault.trim().length > 0
+    ) {
+      input.value = fabricViewInitialJsonDefault.trim();
+      input.style.minHeight = '220px';
+      input.style.fontFamily = 'ui-monospace, Menlo, monospace';
+      input.style.fontSize = '11px';
+      input.style.lineHeight = '1.35';
+    }
+
     // Ecouteur pour relancer 'update' du plugin
     input.addEventListener('input', async (e) => {
       if (currentInstance) {

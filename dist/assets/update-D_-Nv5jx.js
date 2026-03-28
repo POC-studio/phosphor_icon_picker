@@ -1,4 +1,4 @@
-export default function(instance, properties, context) {
+const n=`export default function(instance, properties, context) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
   const ui = instance && instance.data ? instance.data.ui : null;
   if (!instance || !instance.data || !fabricCanvas || !ui || !ui.board) return;
@@ -48,3 +48,4 @@ export default function(instance, properties, context) {
     }
   }
 }
+`;export{n as default};

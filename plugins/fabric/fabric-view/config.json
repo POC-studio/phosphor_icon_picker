@@ -7,6 +7,11 @@
       "label": "Document title",
       "type": "text",
       "default": "Document title"
+    },
+    "initial_json": {
+      "label": "Initial canvas JSON (sandbox — ignoré si canvas_json est défini)",
+      "type": "long_text",
+      "default": ""
     }
   }
 }
