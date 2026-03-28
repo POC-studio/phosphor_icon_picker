@@ -2011,8 +2011,14 @@ function updateArtboardNavVisibility(instance) {
   const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
   const showNav = !hasSelection;
   ui.artboardNav.style.display = showNav ? 'flex' : 'none';
-  ui.artboardPrevBtn.style.visibility = idx <= 0 ? 'hidden' : 'visible';
-  ui.artboardNextBtn.style.visibility = idx >= 2 ? 'hidden' : 'visible';
+  const prevDisabled = idx <= 0;
+  const nextDisabled = idx >= 2;
+  ui.artboardPrevBtn.disabled = prevDisabled;
+  ui.artboardNextBtn.disabled = nextDisabled;
+  ui.artboardPrevBtn.style.opacity = prevDisabled ? '0.45' : '';
+  ui.artboardNextBtn.style.opacity = nextDisabled ? '0.45' : '';
+  ui.artboardPrevBtn.style.cursor = prevDisabled ? 'not-allowed' : 'pointer';
+  ui.artboardNextBtn.style.cursor = nextDisabled ? 'not-allowed' : 'pointer';
 }
 
 function updateTopBarForSelection(instance) {
@@ -3484,6 +3490,7 @@ function isTypingContext(target) {
     updateZoomButtons();
   });
   ui.artboardPrevBtn.addEventListener('click', () => {
+    if (ui.artboardPrevBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
     setActiveToolButton(null);
@@ -3495,6 +3502,7 @@ function isTypingContext(target) {
     });
   });
   ui.artboardNextBtn.addEventListener('click', () => {
+    if (ui.artboardNextBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
     setActiveToolButton(null);
