@@ -1054,6 +1054,170 @@ function publishCanvasJson(instance, options) {
   }
 }
 
+function getJsPdfConstructor() {
+  const w = typeof window !== 'undefined' ? window : null;
+  const mod = w && w.jspdf;
+  return mod && typeof mod.jsPDF === 'function' ? mod.jsPDF : null;
+}
+
+function dataUrlToImageCanvas(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas 2D indisponible'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      resolve(c);
+    };
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = dataUrl;
+  });
+}
+
+function rotateCanvas90Clockwise(sourceCanvas) {
+  const out = document.createElement('canvas');
+  out.width = sourceCanvas.height;
+  out.height = sourceCanvas.width;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.translate(out.width, 0);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(sourceCanvas, 0, 0);
+  return out;
+}
+
+function compositeSpreadPage3LeftPage1Right(dataUrl3, dataUrl0) {
+  const pL = ARTBOARD_PRESETS[2];
+  const pR = ARTBOARD_PRESETS[0];
+  const cw = pL.width + pR.width;
+  const ch = Math.max(pL.height, pR.height);
+  return Promise.all([dataUrlToImageCanvas(dataUrl3), dataUrlToImageCanvas(dataUrl0)]).then(([cL, cR]) => {
+    const c = document.createElement('canvas');
+    c.width = cw;
+    c.height = ch;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(cL, 0, 0);
+    ctx.drawImage(cR, pL.width, 0);
+    return rotateCanvas90Clockwise(c);
+  });
+}
+
+function renderArtboardSnapshotToDataUrl(fabricLib, presetIndex, snapshot) {
+  const preset = ARTBOARD_PRESETS[clampArtboardIndex(presetIndex)];
+  const w = preset.width;
+  const h = preset.height;
+  const el = document.createElement('canvas');
+  el.width = w;
+  el.height = h;
+  el.setAttribute('aria-hidden', 'true');
+  el.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+  document.body.appendChild(el);
+  const c = new fabricLib.Canvas(el, {
+    preserveObjectStacking: true,
+  });
+  c.setDimensions({ width: w, height: h });
+  c.backgroundColor = '#ffffff';
+  const loadInput = snapshot != null && typeof snapshot === 'object' ? snapshot : { objects: [] };
+  return loadFromJsonPromise(c, loadInput)
+    .then(() => {
+      if (typeof c.requestRenderAll === 'function') {
+        c.requestRenderAll();
+      } else if (typeof c.renderAll === 'function') {
+        c.renderAll();
+      }
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    })
+    .then(() => c.toDataURL({ format: 'png', multiplier: 1 }))
+    .finally(() => {
+      try {
+        c.dispose();
+      } catch (e) {
+        /* ignore */
+      }
+      el.remove();
+    });
+}
+
+function pdfDownloadBaseName(instance) {
+  const raw = typeof instance.data.documentTitle === 'string' ? instance.data.documentTitle.trim() : '';
+  return raw
+    ? raw.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'document'
+    : 'document';
+}
+
+function triggerFoldedA4PdfDownload(instance) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas) {
+    return Promise.resolve();
+  }
+  const JsPDF = getJsPdfConstructor();
+  if (!JsPDF) {
+    console.error('jsPDF introuvable : ajoutez jspdf.umd.min.js dans shared.html (plugin Fabric).');
+    return Promise.resolve();
+  }
+  const fabricLib = instance.data.fabricLib;
+  if (!fabricLib || typeof fabricLib.Canvas !== 'function') {
+    return Promise.resolve();
+  }
+
+  publishCanvasJson(instance, { silent: true });
+
+  if (!Array.isArray(instance.data.pageSnapshots) || instance.data.pageSnapshots.length < 3) {
+    return Promise.resolve();
+  }
+
+  const snaps = instance.data.pageSnapshots;
+  const base = pdfDownloadBaseName(instance);
+
+  const run = async () => {
+    if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.ready !== 'undefined') {
+      try {
+        await document.fonts.ready;
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    const [du3, du0, du1] = await Promise.all([
+      renderArtboardSnapshotToDataUrl(fabricLib, 2, snaps[2]),
+      renderArtboardSnapshotToDataUrl(fabricLib, 0, snaps[0]),
+      renderArtboardSnapshotToDataUrl(fabricLib, 1, snaps[1]),
+    ]);
+
+    const spreadRotated = await compositeSpreadPage3LeftPage1Right(du3, du0);
+    const spreadDataUrl = spreadRotated.toDataURL('image/png');
+
+    const middleCanvas = await dataUrlToImageCanvas(du1).then((can) => rotateCanvas90Clockwise(can));
+    const middleDataUrl = middleCanvas.toDataURL('image/png');
+
+    const doc = new JsPDF({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true,
+    });
+    doc.addImage(spreadDataUrl, 'PNG', 0, 0, 210, 297);
+    doc.addPage();
+    doc.addImage(middleDataUrl, 'PNG', 0, 0, 210, 297);
+    doc.save(`${base}.pdf`);
+  };
+
+  return run().catch((err) => {
+    console.error('Export PDF pli A4 :', err);
+  });
+}
+
 function getDocumentSize(instance) {
   const p = getActivePreset(instance);
   return { width: p.width, height: p.height };
@@ -1623,6 +1787,298 @@ async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
   updateTopBarForSelection(instance);
 }
 
+function looksLikeSvgMarkup(text) {
+  if (typeof text !== 'string') return false;
+  const s = text.trim().replace(/^\uFEFF/, '');
+  if (!s) return false;
+  if (/^<\?xml/i.test(s)) {
+    return /<svg[\s>/]/i.test(s);
+  }
+  return /^<svg[\s>/]/i.test(s);
+}
+
+function isWrappedArtboardsJson(parsed) {
+  return parsed && typeof parsed === 'object'
+    && parsed.version === 1
+    && Array.isArray(parsed.artboards)
+    && parsed.artboards.length === 3;
+}
+
+async function addPastedSvgFromString(instance, fabricLib, svgString) {
+  const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  if (!fabricCanvas || !fabricLib || typeof fabricLib.loadSVGFromString !== 'function') return;
+  let objects = null;
+  let options = null;
+  try {
+    const result = await fabricLib.loadSVGFromString(svgString);
+    if (Array.isArray(result)) {
+      objects = result[0];
+      options = result[1];
+    } else if (result && typeof result === 'object') {
+      objects = result.objects;
+      options = result.options;
+    }
+  } catch (e) {
+    return;
+  }
+  if (!Array.isArray(objects) || objects.length === 0) return;
+
+  const grouped = fabricLib.util.groupSVGElements(objects, options || {});
+  const initialScale = 0.16;
+  grouped.set({
+    scaleX: initialScale,
+    scaleY: initialScale,
+  });
+  grouped.set({
+    originX: 'center',
+    originY: 'center',
+    centeredScaling: true,
+    centeredRotation: true,
+    objectCaching: false,
+    strokeUniform: true,
+  });
+  const center = getDocumentCenter(instance);
+  grouped.set({
+    left: Math.round(center.x),
+    top: Math.round(center.y),
+  });
+  applyStrokeUniformDeep(grouped);
+  fabricCanvas.add(grouped);
+  fabricCanvas.setActiveObject(grouped);
+  fabricCanvas.requestRenderAll();
+  updateTopBarForSelection(instance);
+}
+
+async function tryPasteFabricObjectsFromJson(instance, fabricLib, parsed) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas || !fabricLib) return false;
+  if (isWrappedArtboardsJson(parsed)) return false;
+  const fabricCanvas = instance.data.fabricCanvas;
+  const util = fabricLib.util;
+  if (!util || typeof util.enlivenObjects !== 'function') return false;
+
+  let specs = null;
+  if (Array.isArray(parsed.objects) && parsed.objects.length > 0) {
+    specs = parsed.objects;
+  } else if (typeof parsed.type === 'string' && parsed.type.length > 0) {
+    specs = [parsed];
+  }
+  if (!specs || specs.length === 0) return false;
+
+  try {
+    const enlivened = await util.enlivenObjects(specs);
+    if (!Array.isArray(enlivened) || enlivened.length === 0) return false;
+    enlivened.forEach((o) => {
+      if (o && typeof o.set === 'function') o.set({ strokeUniform: true });
+    });
+    const center = getDocumentCenter(instance);
+    fabricCanvas.discardActiveObject();
+    enlivened.forEach((o) => {
+      applyStrokeUniformDeep(o);
+      fabricCanvas.add(o);
+    });
+    if (enlivened.length === 1) {
+      const o = enlivened[0];
+      o.set({ originX: 'center', originY: 'center', left: center.x, top: center.y });
+      if (typeof o.setCoords === 'function') o.setCoords();
+      fabricCanvas.setActiveObject(o);
+    } else if (typeof fabricLib.ActiveSelection === 'function') {
+      const sel = new fabricLib.ActiveSelection(enlivened, { canvas: fabricCanvas });
+      fabricCanvas.setActiveObject(sel);
+      sel.set({ originX: 'center', originY: 'center', left: center.x, top: center.y });
+      if (typeof sel.setCoords === 'function') sel.setCoords();
+    } else {
+      fabricCanvas.setActiveObject(enlivened[enlivened.length - 1]);
+    }
+    fabricCanvas.requestRenderAll();
+    updateTopBarForSelection(instance);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function addPastedPlainText(instance, fabricLib, text) {
+  const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
+  if (!fabricCanvas || !fabricLib) return;
+  const doc = getDocumentSize(instance);
+  const center = getDocumentCenter(instance);
+  const box = new fabricLib.Textbox(text, {
+    left: Math.round(center.x),
+    top: Math.round(center.y),
+    originX: 'center',
+    originY: 'center',
+    width: Math.min(560, Math.max(120, doc.width * 0.6)),
+    fontFamily: DEFAULT_TEXT_FONT_FAMILY,
+    fontSize: 24,
+    fill: '#0f172a',
+    strokeUniform: true,
+  });
+  fabricCanvas.add(box);
+  fabricCanvas.setActiveObject(box);
+  fabricCanvas.requestRenderAll();
+  updateTopBarForSelection(instance);
+}
+
+async function runCanvasPasteFromClipboardData(instance, fabricLib, context, cd) {
+  if (!instance || !instance.data || !fabricLib || !cd) return false;
+
+  const files = cd.files && cd.files.length ? Array.from(cd.files) : [];
+  if (files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const t = String(file.type || '').toLowerCase();
+      const name = String(file.name || '');
+      if (t === 'image/svg+xml' || /\.svg$/i.test(name)) {
+        try {
+          const svgText = await file.text();
+          await addPastedSvgFromString(instance, fabricLib, svgText);
+        } catch (e) {
+          /* ignore */
+        }
+        return true;
+      }
+      if (t.startsWith('image/')) {
+        try {
+          const dataUrl = await readFileAsDataUrl(file);
+          const base64 = dataUrlToBase64(dataUrl);
+          const ext = guessImageFileExtension(file);
+          const rawName = name.trim() ? name.trim() : `paste${ext}`;
+          const safeName = rawName.replace(/[^\w.-]/g, '_') || `paste${ext}`;
+          let imageUrl = dataUrl;
+          if (context && typeof context.uploadContent === 'function' && base64) {
+            imageUrl = await new Promise((resolve, reject) => {
+              context.uploadContent(safeName, base64, (err, url) => {
+                if (err) reject(err);
+                else resolve(url || dataUrl);
+              });
+            });
+          }
+          await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
+        } catch (e) {
+          /* ignore */
+        }
+        return true;
+      }
+    }
+  }
+
+  const plain = cd.getData('text/plain');
+  if (typeof plain !== 'string') return false;
+  const trimmed = plain.trim();
+  if (!trimmed) return false;
+
+  if (looksLikeSvgMarkup(trimmed)) {
+    await addPastedSvgFromString(instance, fabricLib, trimmed);
+    return true;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (isWrappedArtboardsJson(parsed)) {
+      return false;
+    }
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.objects) && parsed.objects.length === 0) {
+      return true;
+    }
+    const ok = await tryPasteFabricObjectsFromJson(instance, fabricLib, parsed);
+    if (ok) return true;
+  } catch (e) {
+    /* not JSON */
+  }
+
+  addPastedPlainText(instance, fabricLib, trimmed);
+  return true;
+}
+
+async function buildClipboardDataFromNavigatorRead() {
+  const files = [];
+  let textPlain = '';
+  if (navigator.clipboard && navigator.clipboard.read) {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            let ext = 'png';
+            if (type === 'image/svg+xml') ext = 'svg';
+            else if (type === 'image/jpeg') ext = 'jpg';
+            else if (type === 'image/gif') ext = 'gif';
+            else if (type === 'image/webp') ext = 'webp';
+            else {
+              const m = type.match(/image\/([^+;\s]+)/);
+              if (m) ext = m[1];
+            }
+            files.push(new File([blob], `clipboard.${ext}`, { type }));
+          }
+          if (type === 'text/plain' && textPlain === '') {
+            const blob = await item.getType(type);
+            textPlain = await blob.text();
+          }
+        }
+      }
+    } catch (e) {
+      /* permission or empty */
+    }
+  }
+  if (!textPlain && navigator.clipboard && navigator.clipboard.readText) {
+    try {
+      textPlain = await navigator.clipboard.readText();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  return {
+    files: {
+      length: files.length,
+      item: (idx) => files[idx],
+      [Symbol.iterator]: function* () {
+        for (let i = 0; i < files.length; i++) yield files[i];
+      },
+    },
+    getData(type) {
+      return type === 'text/plain' ? textPlain : '';
+    },
+  };
+}
+
+async function clipboardHasPastableContent() {
+  if (!navigator.clipboard) return false;
+  try {
+    if (navigator.clipboard.readText) {
+      const t = await navigator.clipboard.readText();
+      if (t && String(t).trim()) return true;
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  try {
+    if (navigator.clipboard.read) {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        for (const type of item.types) {
+          if (String(type || '').startsWith('image/')) return true;
+        }
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+  return false;
+}
+
+async function handleClipboardPasteEvent(event, instance, fabricLib, context) {
+  if (!event || !instance || !instance.data || !fabricLib) return;
+  const fabricCanvas = instance.data.fabricCanvas;
+  if (shouldIgnorePaste(event.target, fabricCanvas)) return;
+
+  const cd = event.clipboardData;
+  if (!cd) return;
+
+  const consumed = await runCanvasPasteFromClipboardData(instance, fabricLib, context, cd);
+  if (consumed) event.preventDefault();
+}
+
 function normalizeObjectScale(target) {
   if (!target || typeof target.set !== 'function') return;
   if (target.type === 'activeSelection') return;
@@ -1866,8 +2322,10 @@ function buildShell() {
   artboardNav.style.flexShrink = '0';
   const artboardPrevBtn = mkBtn('ph ph-caret-left', 'Page précédente');
   const artboardNextBtn = mkBtn('ph ph-caret-right', 'Page suivante');
+  const artboardDownloadBtn = mkBtn('ph ph-download-simple', 'Télécharger PDF (pli A4)');
   artboardNav.appendChild(artboardPrevBtn);
   artboardNav.appendChild(artboardNextBtn);
+  artboardNav.appendChild(artboardDownloadBtn);
 
   topBar.appendChild(documentTitle);
   topControls.appendChild(artboardNav);
@@ -1975,6 +2433,7 @@ function buildShell() {
     artboardNav,
     artboardPrevBtn,
     artboardNextBtn,
+    artboardDownloadBtn,
     topControls,
     fillControl,
     strokeControl,
@@ -2005,7 +2464,7 @@ function buildShell() {
 
 function updateArtboardNavVisibility(instance) {
   const ui = instance && instance.data ? instance.data.ui : null;
-  if (!ui || !ui.artboardNav || !ui.artboardPrevBtn || !ui.artboardNextBtn) return;
+  if (!ui || !ui.artboardNav || !ui.artboardPrevBtn || !ui.artboardNextBtn || !ui.artboardDownloadBtn) return;
   const canvas = instance.data.fabricCanvas;
   const hasSelection = !!(canvas && canvas.getActiveObject());
   const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
@@ -2512,6 +2971,55 @@ function isTypingContext(target) {
   return false;
 }
 
+function shouldIgnorePaste(target, fabricCanvas) {
+  if (isTypingContext(target)) return true;
+  if (!fabricCanvas) return false;
+  const active = fabricCanvas.getActiveObject();
+  if (active && active.isEditing === true) return true;
+  return false;
+}
+
+function isFabricHiddenTextarea(target) {
+  if (!target || typeof target.getAttribute !== 'function') return false;
+  return target.getAttribute('data-fabric') === 'textarea';
+}
+
+/** Ne pas voler Ctrl+C hors canvas : champs HTML + édition iText / Textbox. La textarea cachée Fabric hors édition ne bloque pas. */
+function shouldBlockFabricCopyShortcut(target, fabricCanvas) {
+  if (isFabricHiddenTextarea(target)) {
+    const active = fabricCanvas ? fabricCanvas.getActiveObject() : null;
+    return !!(active && active.isEditing);
+  }
+  if (isTypingContext(target)) return true;
+  if (!fabricCanvas) return true;
+  const active = fabricCanvas.getActiveObject();
+  if (active && active.isEditing) return true;
+  return false;
+}
+
+const FABRIC_CLIPBOARD_EXTRA_KEYS = [
+  'iconKind',
+  'iconName',
+  'iconStyle',
+  'shapeKind',
+  'shapePoints',
+  'cornerRadiusPx',
+  'cornerRadius',
+];
+
+function buildFabricClipboardJsonString(targets) {
+  if (!Array.isArray(targets) || targets.length === 0) return '';
+  try {
+    const objectsPayload = targets.map((o) => (
+      typeof o.toObject === 'function' ? o.toObject(FABRIC_CLIPBOARD_EXTRA_KEYS) : null
+    )).filter(Boolean);
+    if (objectsPayload.length === 0) return '';
+    const payload = objectsPayload.length === 1 ? objectsPayload[0] : { objects: objectsPayload };
+    return JSON.stringify(payload);
+  } catch (e) {
+    return '';
+  }
+}
 
   const fabricLib = resolveFabric();
   const ui = buildShell();
@@ -2785,6 +3293,27 @@ function isTypingContext(target) {
     });
     btn.addEventListener('click', () => {
       closeContextMenu();
+      if (action === 'paste') {
+        void (async () => {
+          try {
+            const cd = await buildClipboardDataFromNavigatorRead();
+            await runCanvasPasteFromClipboardData(instance, fabricLib, context, cd);
+          } catch (e) {
+            /* ignore */
+          }
+        })();
+        return;
+      }
+      if (action === 'copy') {
+        const targets = getActiveSelectionTargets(fabricCanvas).filter(
+          (o) => o && !o.isArtboard && !o.isSafeZone,
+        );
+        const json = buildFabricClipboardJsonString(targets);
+        if (json && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          void navigator.clipboard.writeText(json);
+        }
+        return;
+      }
       if (action === 'duplicate') {
         duplicateSelection();
         return;
@@ -2812,6 +3341,7 @@ function isTypingContext(target) {
     } else if (isGroupObject(active)) {
       addContextItem('Ungroup', 'ungroup');
     }
+    addContextItem('Copy', 'copy');
     addContextItem('Duplicate', 'duplicate');
     addContextItem('Bring to Front', 'to-front');
     addContextItem('Bring Forward', 'forward');
@@ -2843,31 +3373,7 @@ function isTypingContext(target) {
   document.addEventListener('keydown', onKeyDown);
   instance.data.onKeyDown = onKeyDown;
 
-  ui.board.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!fabricCanvas) return;
-
-    if (typeof fabricCanvas.findTarget === 'function') {
-      const found = fabricCanvas.findTarget(event);
-      let nextActive = found;
-      // If right-click hits an object inside a group, target the parent group
-      // so Ungroup can appear and act on the correct container.
-      if (nextActive && nextActive.group && isGroupObject(nextActive.group)) {
-        nextActive = nextActive.group;
-      }
-      if (nextActive && fabricCanvas.getActiveObject() !== nextActive) {
-        fabricCanvas.setActiveObject(nextActive);
-      }
-    }
-    const hasSelection = getActiveSelectionTargets(fabricCanvas).length > 0;
-    if (!hasSelection) {
-      closeContextMenu();
-      return;
-    }
-
-    renderContextMenuItems();
-    contextMenu.style.display = 'block';
+  const positionContextMenuAtEvent = (event) => {
     const rect = contextMenu.getBoundingClientRect();
     const menuWidth = Math.max(1, rect.width || 1);
     const menuHeight = Math.max(1, rect.height || 1);
@@ -2875,6 +3381,48 @@ function isTypingContext(target) {
     const top = Math.max(8, Math.min(window.innerHeight - menuHeight - 8, event.clientY));
     contextMenu.style.left = `${left}px`;
     contextMenu.style.top = `${top}px`;
+  };
+
+  ui.board.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!fabricCanvas) return;
+
+    void (async () => {
+      if (typeof fabricCanvas.findTarget === 'function') {
+        const found = fabricCanvas.findTarget(event);
+        let nextActive = found;
+        if (nextActive && nextActive.group && isGroupObject(nextActive.group)) {
+          nextActive = nextActive.group;
+        }
+        if (nextActive && fabricCanvas.getActiveObject() !== nextActive) {
+          fabricCanvas.setActiveObject(nextActive);
+        }
+      }
+
+      const hasSelection = getActiveSelectionTargets(fabricCanvas).length > 0;
+      if (!hasSelection) {
+        let canPaste = false;
+        try {
+          canPaste = await clipboardHasPastableContent();
+        } catch (e) {
+          canPaste = false;
+        }
+        if (!canPaste) {
+          closeContextMenu();
+          return;
+        }
+        contextMenu.innerHTML = '';
+        addContextItem('Paste', 'paste');
+        contextMenu.style.display = 'block';
+        requestAnimationFrame(() => positionContextMenuAtEvent(event));
+        return;
+      }
+
+      renderContextMenuItems();
+      contextMenu.style.display = 'block';
+      requestAnimationFrame(() => positionContextMenuAtEvent(event));
+    })();
   }, true);
 
   document.addEventListener('click', (event) => {
@@ -3513,6 +4061,12 @@ function isTypingContext(target) {
       publishCanvasJson(instance, { silent: true });
     });
   });
+  ui.artboardDownloadBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    setActiveToolButton(null);
+    triggerFoldedA4PdfDownload(instance).catch(() => {});
+  });
   updateZoomButtons();
   fabricCanvas.on('mouse:wheel', (event) => {
     const e = event && event.e ? event.e : null;
@@ -3925,6 +4479,27 @@ function isTypingContext(target) {
     observer.observe(ui.board);
     instance.data.resizeObserver = observer;
   }
+
+  const onDocumentPaste = (e) => {
+    void handleClipboardPasteEvent(e, instance, fabricLib, context);
+  };
+  document.addEventListener('paste', onDocumentPaste, true);
+  instance.data.documentPasteHandler = onDocumentPaste;
+
+  const onDocumentCopy = (e) => {
+    if (!e || !fabricCanvas) return;
+    if (shouldBlockFabricCopyShortcut(e.target, fabricCanvas)) return;
+    if (!fabricCanvas.getActiveObject()) return;
+    const targets = getActiveSelectionTargets(fabricCanvas).filter(
+      (o) => o && !o.isArtboard && !o.isSafeZone,
+    );
+    const json = buildFabricClipboardJsonString(targets);
+    if (!json || !e.clipboardData) return;
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', json);
+  };
+  document.addEventListener('copy', onDocumentCopy, true);
+  instance.data.documentCopyHandler = onDocumentCopy;
 
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
