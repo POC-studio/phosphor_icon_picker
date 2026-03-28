@@ -1157,6 +1157,36 @@ function pdfDownloadBaseName(instance) {
     : 'document';
 }
 
+let _fabricViewPdfSpinStyleInjected = false;
+function ensureFabricViewPdfSpinStyle() {
+  if (_fabricViewPdfSpinStyleInjected || typeof document === 'undefined') return;
+  _fabricViewPdfSpinStyleInjected = true;
+  const s = document.createElement('style');
+  s.setAttribute('data-fabric-view', 'pdf-spin');
+  s.textContent = '@keyframes fabric-view-spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(s);
+}
+
+function setPdfDownloadButtonLoading(btn, loading) {
+  if (!btn) return;
+  ensureFabricViewPdfSpinStyle();
+  const icon = btn.querySelector('i');
+  btn.disabled = !!loading;
+  btn.style.pointerEvents = loading ? 'none' : '';
+  btn.title = loading ? 'Génération du PDF…' : 'Télécharger PDF (pli A4)';
+  if (icon) {
+    if (loading) {
+      icon.className = 'ph ph-circle-notch';
+      icon.style.display = 'inline-block';
+      icon.style.animation = 'fabric-view-spin 0.7s linear infinite';
+    } else {
+      icon.className = 'ph ph-download-simple';
+      icon.style.animation = '';
+      icon.style.display = '';
+    }
+  }
+}
+
 function triggerFoldedA4PdfDownload(instance) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) {
     return Promise.resolve();
@@ -1176,6 +1206,9 @@ function triggerFoldedA4PdfDownload(instance) {
   if (!Array.isArray(instance.data.pageSnapshots) || instance.data.pageSnapshots.length < 3) {
     return Promise.resolve();
   }
+
+  const downloadBtn = instance.data.ui && instance.data.ui.artboardDownloadBtn;
+  setPdfDownloadButtonLoading(downloadBtn, true);
 
   const snaps = instance.data.pageSnapshots;
   const base = pdfDownloadBaseName(instance);
@@ -1233,9 +1266,13 @@ function triggerFoldedA4PdfDownload(instance) {
     doc.save(`${base}.pdf`);
   };
 
-  return run().catch((err) => {
-    console.error('Export PDF pli A4 :', err);
-  });
+  return run()
+    .catch((err) => {
+      console.error('Export PDF pli A4 :', err);
+    })
+    .finally(() => {
+      setPdfDownloadButtonLoading(downloadBtn, false);
+    });
 }
 
 function getDocumentSize(instance) {
@@ -1363,9 +1400,49 @@ function goToArtboard(instance, targetIndex, opts) {
     });
 }
 
+/**
+ * Marque les Image du JSON Fabric avec crossOrigin: 'anonymous' avant enliven,
+ * pour que toDataURL (export PDF) ne tombe pas en SecurityError (canvas tainted).
+ */
+function ensureFabricSnapshotCrossOrigin(snap) {
+  if (!snap || typeof snap !== 'object') return;
+
+  const tagImage = (o) => {
+    if (!o || o.type !== 'Image') return;
+    const src = o.src;
+    if (typeof src === 'string' && /^https?:\/\//i.test(src)) {
+      o.crossOrigin = 'anonymous';
+    }
+  };
+
+  const walk = (objs) => {
+    if (!Array.isArray(objs)) return;
+    objs.forEach((o) => {
+      if (!o || typeof o !== 'object') return;
+      tagImage(o);
+      if (Array.isArray(o.objects)) walk(o.objects);
+    });
+  };
+
+  walk(snap.objects);
+  tagImage(snap.backgroundImage);
+  tagImage(snap.overlayImage);
+}
+
 function loadFromJsonPromise(fabricCanvas, json) {
   if (!fabricCanvas) return Promise.resolve();
-  const maybe = fabricCanvas.loadFromJSON(json);
+  let data = json;
+  if (typeof json === 'string') {
+    try {
+      data = JSON.parse(json);
+    } catch (e) {
+      const maybe = fabricCanvas.loadFromJSON(json);
+      if (maybe && typeof maybe.then === 'function') return maybe;
+      return Promise.resolve();
+    }
+  }
+  ensureFabricSnapshotCrossOrigin(data);
+  const maybe = fabricCanvas.loadFromJSON(data);
   if (maybe && typeof maybe.then === 'function') return maybe;
   return Promise.resolve();
 }
@@ -4086,7 +4163,7 @@ function buildFabricClipboardJsonString(targets) {
     exitPanMode();
     setToolMode('select');
     setActiveToolButton(null);
-    triggerFoldedA4PdfDownload(instance).catch(() => {});
+    void triggerFoldedA4PdfDownload(instance);
   });
   updateZoomButtons();
   fabricCanvas.on('mouse:wheel', (event) => {
