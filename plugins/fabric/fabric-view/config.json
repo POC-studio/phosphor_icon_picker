@@ -3,40 +3,10 @@
   "use_bubble_size": false,
   "events": ["new_color_selected", "json_changed"],
   "properties": {
-    "canvas_width": {
-      "label": "Canvas width (px)",
-      "type": "text",
-      "default": "1000"
-    },
-    "canvas_height": {
-      "label": "Canvas height (px)",
-      "type": "text",
-      "default": "1000"
-    },
     "document_title": {
       "label": "Document title",
       "type": "text",
       "default": "Document title"
-    },
-    "margin_top": {
-      "label": "Margin top (px)",
-      "type": "text",
-      "default": "0"
-    },
-    "margin_right": {
-      "label": "Margin right (px)",
-      "type": "text",
-      "default": "0"
-    },
-    "margin_bottom": {
-      "label": "Margin bottom (px)",
-      "type": "text",
-      "default": "0"
-    },
-    "margin_left": {
-      "label": "Margin left (px)",
-      "type": "text",
-      "default": "0"
     }
   }
 }
