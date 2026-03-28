@@ -348,6 +348,14 @@ async function loadPlugin(pluginName, elementName) {
         updateModule.default(currentInstance, properties, currentContext);
       }
     }
+
+    // États déclarés dans config.states : afficher dans le State Monitor même avant le 1er publishState explicite
+    if (config.states && typeof config.states === 'object') {
+      for (const stateKey of Object.keys(config.states)) {
+        if (document.getElementById(`state-${stateKey}`)) continue;
+        currentInstance.publishState(stateKey, '');
+      }
+    }
     
   } catch (error) {
     console.error("Erreur lors du chargement du plugin :", error);

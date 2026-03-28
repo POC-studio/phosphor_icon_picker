@@ -1,7 +1,13 @@
 {
   "name": "Fabric View",
   "use_bubble_size": false,
-  "events": ["new_color_selected", "json_changed"],
+  "events": ["new_color_selected", "json_changed", "pdf_ready"],
+  "states": {
+    "pdf_url": {
+      "label": "URL du PDF (Bubble, après upload)",
+      "type": "text"
+    }
+  },
   "properties": {
     "document_title": {
       "label": "Document title",

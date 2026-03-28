@@ -1210,6 +1210,26 @@ function triggerFoldedA4PdfDownload(instance) {
     doc.addImage(spreadDataUrl, 'PNG', 0, 0, 210, 297);
     doc.addPage();
     doc.addImage(middleDataUrl, 'PNG', 0, 0, 210, 297);
+
+    const dataUri = typeof doc.output === 'function' ? doc.output('datauristring') : '';
+    const base64 = dataUri ? dataUrlToBase64(dataUri) : '';
+    const safePdfName = `${base}.pdf`.replace(/[^\w.-]/g, '_') || 'document.pdf';
+
+    if (context && typeof context.uploadContent === 'function' && base64) {
+      try {
+        const url = await new Promise((resolve, reject) => {
+          context.uploadContent(safePdfName, base64, (err, url) => {
+            if (err) reject(err);
+            else resolve(url);
+          });
+        });
+        instance.publishState('pdf_url', typeof url === 'string' ? url : '');
+        instance.triggerEvent('pdf_ready');
+      } catch (uploadErr) {
+        console.error('Upload PDF Bubble :', uploadErr);
+      }
+    }
+
     doc.save(`${base}.pdf`);
   };
 
@@ -3064,6 +3084,7 @@ function buildFabricClipboardJsonString(targets) {
   });
   instance.data.fabricCanvas = fabricCanvas;
   instance.publishState('new_color', '');
+  instance.publishState('pdf_url', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
   instance.data.activeArtboardIndex = 0;
