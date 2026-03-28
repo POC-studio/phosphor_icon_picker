@@ -883,7 +883,6 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
     }
     fabricCanvas.requestRenderAll();
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -1111,7 +1110,9 @@ function stripSafeZoneObjects(instance) {
       /* ignore */
     }
   });
-  instance.data.marginGuideLines = { top: null, right: null, bottom: null, left: null };
+  instance.data.marginGuideLines = {
+    top: null, right: null, bottom: null, left: null, fold: null,
+  };
 }
 
 function finalizeAfterArtboardLoad(instance, fabricLib) {
@@ -1214,7 +1215,7 @@ function ensureMarginGuidesAtFront(instance) {
   const canvas = instance.data.fabricCanvas;
   const guides = instance.data.marginGuideLines;
   if (!canvas || !guides) return;
-  ['top', 'right', 'bottom', 'left'].forEach((key) => {
+  ['top', 'right', 'bottom', 'left', 'fold'].forEach((key) => {
     const line = guides[key];
     if (!line) return;
     if (typeof canvas.bringObjectToFront === 'function') {
@@ -1247,7 +1248,9 @@ function ensureMarginGuideLines(instance, fabricLib) {
   }
 
   if (!instance.data.marginGuideLines) {
-    instance.data.marginGuideLines = { top: null, right: null, bottom: null, left: null };
+    instance.data.marginGuideLines = {
+      top: null, right: null, bottom: null, left: null, fold: null,
+    };
   }
   const guides = instance.data.marginGuideLines;
 
@@ -1263,7 +1266,8 @@ function ensureMarginGuideLines(instance, fabricLib) {
     isSafeZone: true,
   };
 
-  const upsertLine = (key, show, x1, y1, x2, y2) => {
+  const upsertLine = (key, show, x1, y1, x2, y2, stylePatch) => {
+    const lineOpts = { ...baseOpts, ...(stylePatch || {}) };
     if (!show) {
       if (guides[key]) {
         try {
@@ -1276,7 +1280,7 @@ function ensureMarginGuideLines(instance, fabricLib) {
       return;
     }
     if (!guides[key]) {
-      guides[key] = new LineCtor([x1, y1, x2, y2], { ...baseOpts });
+      guides[key] = new LineCtor([x1, y1, x2, y2], { ...lineOpts });
       canvas.add(guides[key]);
     } else {
       guides[key].set({
@@ -1286,8 +1290,11 @@ function ensureMarginGuideLines(instance, fabricLib) {
         y2,
         strokeWidth: strokeDoc,
         visible: true,
-        stroke: baseOpts.stroke,
-        strokeUniform: baseOpts.strokeUniform,
+        stroke: lineOpts.stroke,
+        strokeUniform: lineOpts.strokeUniform,
+        ...(stylePatch && stylePatch.strokeDashArray != null
+          ? { strokeDashArray: stylePatch.strokeDashArray }
+          : {}),
       });
       if (typeof guides[key].setCoords === 'function') guides[key].setCoords();
     }
@@ -1297,6 +1304,21 @@ function ensureMarginGuideLines(instance, fabricLib) {
   upsertLine('bottom', m.bottom > 0 && m.bottom < dh, 0, dh - m.bottom, dw, dh - m.bottom);
   upsertLine('left', m.left > 0 && m.left < dw, m.left, 0, m.left, dh);
   upsertLine('right', m.right > 0 && m.right < dw, dw - m.right, 0, dw - m.right, dh);
+
+  const isMiddleSpread = clampArtboardIndex(instance.data.activeArtboardIndex) === 1;
+  const midX = dw / 2;
+  upsertLine(
+    'fold',
+    isMiddleSpread && midX > 0.5 && midX < dw - 0.5,
+    midX,
+    0,
+    midX,
+    dh,
+    {
+      stroke: '#cbd5e1',
+      strokeDashArray: [8, 6],
+    },
+  );
 }
 
 function syncGuideLayers(instance) {
@@ -1599,7 +1621,6 @@ async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
   fabricCanvas.setActiveObject(img);
   fabricCanvas.requestRenderAll();
   updateTopBarForSelection(instance);
-  publishCanvasJson(instance);
 }
 
 function normalizeObjectScale(target) {
@@ -2005,8 +2026,11 @@ function updateTopBarForSelection(instance) {
     ? instance.data.documentTitle.trim()
     : '';
   const hasTitle = rawTitle.length > 0;
-  ui.documentTitle.textContent = hasTitle ? rawTitle : '';
-  ui.documentTitle.style.display = hasTitle ? 'block' : 'none';
+  const pageNum = clampArtboardIndex(instance.data.activeArtboardIndex) + 1;
+  ui.documentTitle.textContent = hasTitle
+    ? `${rawTitle} / page ${pageNum}`
+    : `page ${pageNum}`;
+  ui.documentTitle.style.display = 'block';
   const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : 'select';
   const isDrawMode = toolMode === 'draw';
   const isPanMode = toolMode === 'pan';
@@ -2634,7 +2658,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(group);
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -2671,7 +2694,6 @@ function isTypingContext(target) {
     }
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
     updateTopBarForSelection(instance);
   };
 
@@ -2700,7 +2722,6 @@ function isTypingContext(target) {
       fabricCanvas.setActiveObject(cloned);
       fabricCanvas.requestRenderAll();
       syncGuideLayers(instance);
-      publishCanvasJson(instance);
       updateTopBarForSelection(instance);
     };
 
@@ -2762,9 +2783,15 @@ function isTypingContext(target) {
         duplicateSelection();
         return;
       }
-      if (action === 'group') groupSelection();
-      else if (action === 'ungroup') ungroupSelection();
-      else applyZOrderToSelection(fabricCanvas, action, instance);
+      if (action === 'group') {
+        groupSelection();
+        return;
+      }
+      if (action === 'ungroup') {
+        ungroupSelection();
+        return;
+      }
+      applyZOrderToSelection(fabricCanvas, action, instance);
       publishCanvasJson(instance);
       updateTopBarForSelection(instance);
     });
@@ -2929,7 +2956,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(shape);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   };
 
   const addPhosphorSvg = async (iconName, style = 'regular') => {
@@ -2988,7 +3014,6 @@ function isTypingContext(target) {
       fabricCanvas.setActiveObject(fallback);
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
-      publishCanvasJson(instance);
       return;
     }
 
@@ -3024,7 +3049,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(grouped);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   };
 
   const snapshots = [];
@@ -3069,7 +3093,6 @@ function isTypingContext(target) {
     fabricCanvas.setActiveObject(text);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
-    publishCanvasJson(instance);
   });
 
   const shapeMenu = document.createElement('div');
