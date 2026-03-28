@@ -1,6 +1,14 @@
-const n=`// Bubble: paste removes "export default"; all helpers live inside the default function.
-export default function(instance, context) {
+const n=`export default function(instance, context) {
 const RANDOM_COLORS = ['#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ef4444', '#0ea5e9', '#f59e0b'];
+
+const FONT_PRESETS = [
+  { label: 'Special Elite', fontFamily: "'Special Elite', cursive" },
+  { label: 'Fraunces', fontFamily: "'Fraunces', serif" },
+  { label: 'Syne', fontFamily: "'Syne', sans-serif" },
+  { label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
+  { label: 'Archivo Black', fontFamily: "'Archivo Black', sans-serif" },
+];
+const DEFAULT_TEXT_FONT_FAMILY = FONT_PRESETS[0].fontFamily;
 
 function randomFrom(list) {
   return list[Math.floor(Math.random() * list.length)];
@@ -45,6 +53,7 @@ function createRandomSeedObjects(fabricLib, canvasWidth, canvasHeight) {
     left: randomInt(Math.floor(maxW * 0.2), Math.floor(maxW * 0.6)),
     top: randomInt(Math.floor(maxH * 0.45), Math.floor(maxH * 0.75)),
     width: 180,
+    fontFamily: DEFAULT_TEXT_FONT_FAMILY,
     fontSize: 34,
     fontWeight: 700,
     fill: '#111827',
@@ -84,6 +93,7 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
     left: Math.round(maxW * 0.5 - 90),
     top: Math.round(maxH * 0.5 - 20),
     width: 180,
+    fontFamily: DEFAULT_TEXT_FONT_FAMILY,
     fontSize: 30,
     fontWeight: 600,
     fill: '#111827',
@@ -675,6 +685,47 @@ function getSharedValue(items, getter) {
     if (getter(items[i]) !== first) return { mixed: true, value: null };
   }
   return { mixed: false, value: first };
+}
+
+function normalizeFontFamily(value) {
+  if (value == null || typeof value !== 'string') return '';
+  return value.trim().replace(/\\s+/g, ' ').replace(/['"]/g, '').toLowerCase();
+}
+
+function syncFontFamilySelect(ui, rawFontFamily, mixed) {
+  const sel = ui.fontFamilySelect;
+  if (!sel) return;
+  while (sel.options.length > FONT_PRESETS.length) {
+    sel.remove(sel.options.length - 1);
+  }
+  if (mixed) {
+    sel.selectedIndex = -1;
+    sel.style.background = '#f1f5f9';
+    sel.style.color = '#64748b';
+    sel.style.borderColor = '#cbd5e1';
+    return;
+  }
+  sel.style.background = '#ffffff';
+  sel.style.color = '#0f172a';
+  sel.style.borderColor = '#cbd5e1';
+  const n = normalizeFontFamily(rawFontFamily);
+  let matched = false;
+  for (let i = 0; i < FONT_PRESETS.length; i += 1) {
+    if (normalizeFontFamily(FONT_PRESETS[i].fontFamily) === n) {
+      sel.value = FONT_PRESETS[i].fontFamily;
+      matched = true;
+      break;
+    }
+  }
+  if (!matched && rawFontFamily && typeof rawFontFamily === 'string' && rawFontFamily.trim()) {
+    const opt = document.createElement('option');
+    opt.value = rawFontFamily;
+    opt.textContent = 'Autre';
+    sel.appendChild(opt);
+    sel.value = rawFontFamily;
+  } else if (!matched) {
+    sel.value = FONT_PRESETS[0].fontFamily;
+  }
 }
 
 function getRectCornerRadiusPx(target) {
@@ -1549,6 +1600,29 @@ function buildShell() {
   fontSizeInput.value = '16';
   styleTopNumberInput(fontSizeInput);
 
+  const fontFamilySelect = document.createElement('select');
+  fontFamilySelect.setAttribute('aria-label', 'Font family');
+  fontFamilySelect.style.width = '148px';
+  fontFamilySelect.style.height = '28px';
+  fontFamilySelect.style.border = '1px solid #cbd5e1';
+  fontFamilySelect.style.borderRadius = '8px';
+  fontFamilySelect.style.padding = '0 8px';
+  fontFamilySelect.style.background = '#ffffff';
+  fontFamilySelect.style.color = '#0f172a';
+  fontFamilySelect.style.fontSize = '12px';
+  fontFamilySelect.style.fontWeight = '500';
+  fontFamilySelect.style.cursor = 'pointer';
+  fontFamilySelect.style.outline = 'none';
+  fontFamilySelect.style.boxSizing = 'border-box';
+  fontFamilySelect.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
+  FONT_PRESETS.forEach((p) => {
+    const o = document.createElement('option');
+    o.value = p.fontFamily;
+    o.textContent = p.label;
+    fontFamilySelect.appendChild(o);
+  });
+  fontFamilySelect.value = DEFAULT_TEXT_FONT_FAMILY;
+
   const topFill = fillControl.root;
   const topStroke = strokeControl.root;
 
@@ -1570,6 +1644,11 @@ function buildShell() {
   topRadius.style.color = '#334155';
   topRadius.appendChild(radiusInput);
 
+  const topFontFamily = document.createElement('div');
+  topFontFamily.style.display = 'inline-flex';
+  topFontFamily.style.alignItems = 'center';
+  topFontFamily.appendChild(fontFamilySelect);
+
   const topFontSize = document.createElement('label');
   topFontSize.textContent = 'Size';
   topFontSize.style.display = 'inline-flex';
@@ -1585,6 +1664,7 @@ function buildShell() {
   topControls.appendChild(topStroke);
   topControls.appendChild(topStrokeWidth);
   topControls.appendChild(topRadius);
+  topControls.appendChild(topFontFamily);
   topControls.appendChild(topFontSize);
   topBar.appendChild(topControls);
 
@@ -1602,7 +1682,7 @@ function buildShell() {
   leftBar.style.alignItems = 'center';
   leftBar.style.paddingTop = '12px';
   leftBar.style.paddingBottom = '12px';
-  leftBar.style.gap = '10px';
+  leftBar.style.gap = '4px';
   leftBar.style.flexShrink = '0';
 
   const board = document.createElement('div');
@@ -1679,6 +1759,7 @@ function buildShell() {
   const penBtn = mkBtn('ph ph-pen', 'Pen');
   const panBtn = mkBtn('ph ph-hand', 'Pan');
   const imageBtn = mkBtn('ph ph-image', 'Image');
+  const bookmarkBtn = mkBtn('ph ph-bookmark-simple', 'Bookmark');
   const zoomOutBtn = mkBtn('ph ph-minus', 'Zoom out');
   const zoomInBtn = mkBtn('ph ph-plus', 'Zoom in');
   const fitBtn = mkBtn('ph ph-corners-in', 'Fit');
@@ -1688,6 +1769,7 @@ function buildShell() {
   leftBar.appendChild(iconBtn);
   leftBar.appendChild(penBtn);
   leftBar.appendChild(imageBtn);
+  leftBar.appendChild(bookmarkBtn);
   const leftSpacer = document.createElement('div');
   leftSpacer.style.flex = '1';
   leftBar.appendChild(leftSpacer);
@@ -1706,11 +1788,13 @@ function buildShell() {
     strokeControl,
     strokeWidthInput,
     radiusInput,
+    fontFamilySelect,
     fontSizeInput,
     topFill,
     topStroke,
     topStrokeWidth,
     topRadius,
+    topFontFamily,
     topFontSize,
     canvasEl,
     textBtn,
@@ -1718,6 +1802,7 @@ function buildShell() {
     penBtn,
     panBtn,
     imageBtn,
+    bookmarkBtn,
     zoomOutBtn,
     zoomInBtn,
     fitBtn,
@@ -1754,13 +1839,16 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.disabled = true;
     ui.radiusInput.disabled = true;
     ui.fontSizeInput.disabled = true;
+    ui.fontFamilySelect.disabled = true;
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
+    ui.fontFamilySelect.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
+    ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
     return;
   }
@@ -1773,13 +1861,16 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.disabled = true;
     ui.radiusInput.disabled = true;
     ui.fontSizeInput.disabled = true;
+    ui.fontFamilySelect.disabled = true;
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
+    ui.fontFamilySelect.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
+    ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
     return;
   }
@@ -1797,6 +1888,7 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.style.opacity = '1';
     ui.strokeWidthInput.value = String(Math.max(1, Math.round(instance.data.penWidth || 3)));
     ui.topRadius.style.display = 'none';
+    ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
     return;
   }
@@ -1811,6 +1903,7 @@ function updateTopBarForSelection(instance) {
   ui.strokeControl.setVisible(visibility.stroke);
   ui.topStrokeWidth.style.display = visibility.strokeWidth ? 'inline-flex' : 'none';
   ui.topRadius.style.display = visibility.radius ? 'inline-flex' : 'none';
+  ui.topFontFamily.style.display = visibility.fontSize ? 'inline-flex' : 'none';
   ui.topFontSize.style.display = visibility.fontSize ? 'inline-flex' : 'none';
 
   const style = getObjectStyle(target || targets[0]);
@@ -1818,8 +1911,10 @@ function updateTopBarForSelection(instance) {
   ui.strokeControl.setDisabled(false);
   ui.strokeWidthInput.disabled = false;
   ui.fontSizeInput.disabled = !visibility.fontSize;
+  ui.fontFamilySelect.disabled = !visibility.fontSize;
   ui.strokeWidthInput.style.opacity = '1';
   ui.fontSizeInput.style.opacity = visibility.fontSize ? '1' : '0.55';
+  ui.fontFamilySelect.style.opacity = visibility.fontSize ? '1' : '0.55';
   ui.strokeWidthInput.style.background = '#ffffff';
   ui.strokeWidthInput.style.color = '#0f172a';
   ui.strokeWidthInput.style.borderColor = '#cbd5e1';
@@ -1828,6 +1923,9 @@ function updateTopBarForSelection(instance) {
   ui.fontSizeInput.style.color = '#0f172a';
   ui.fontSizeInput.style.borderColor = '#cbd5e1';
   ui.fontSizeInput.placeholder = '';
+  ui.fontFamilySelect.style.background = '#ffffff';
+  ui.fontFamilySelect.style.color = '#0f172a';
+  ui.fontFamilySelect.style.borderColor = '#cbd5e1';
   ui.radiusInput.style.background = '#ffffff';
   ui.radiusInput.style.color = '#0f172a';
   ui.radiusInput.style.borderColor = '#cbd5e1';
@@ -1842,6 +1940,8 @@ function updateTopBarForSelection(instance) {
     if (visibility.fontSize) {
       const size = Number.isFinite(Number(target.fontSize)) ? Math.round(Number(target.fontSize)) : 16;
       ui.fontSizeInput.value = String(Math.max(1, Math.min(400, size)));
+      const rawFf = typeof target.fontFamily === 'string' ? target.fontFamily : DEFAULT_TEXT_FONT_FAMILY;
+      syncFontFamilySelect(ui, rawFf, false);
     }
     const supportsRadius = visibility.radius
       && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target));
@@ -1862,6 +1962,8 @@ function updateTopBarForSelection(instance) {
     const size = Number.isFinite(Number(item.fontSize)) ? Math.round(Number(item.fontSize)) : 16;
     return Math.max(1, Math.min(400, size));
   });
+  const textTargets = targets.filter((item) => isTextLikeObject(item));
+  const fontFamilyShared = getSharedValue(textTargets, (item) => normalizeFontFamily(item.fontFamily));
   const radiusShared = getSharedValue(targets, (item) => {
     if (isRoundedPolygonShape(item)) return Number.isFinite(Number(item.cornerRadius)) ? Number(item.cornerRadius) : 0;
     if (item.type === 'rect') return getRectCornerRadiusPx(item);
@@ -1888,6 +1990,7 @@ function updateTopBarForSelection(instance) {
 
   if (visibility.fontSize) {
     ui.fontSizeInput.disabled = false;
+    ui.fontFamilySelect.disabled = false;
     if (fontSizeShared.mixed) {
       ui.fontSizeInput.value = '';
       ui.fontSizeInput.placeholder = 'mix';
@@ -1896,6 +1999,14 @@ function updateTopBarForSelection(instance) {
       ui.fontSizeInput.style.borderColor = '#cbd5e1';
     } else {
       ui.fontSizeInput.value = String(fontSizeShared.value);
+    }
+    if (fontFamilyShared.mixed) {
+      syncFontFamilySelect(ui, '', true);
+    } else if (textTargets.length > 0) {
+      const rawFf = typeof textTargets[0].fontFamily === 'string'
+        ? textTargets[0].fontFamily
+        : DEFAULT_TEXT_FONT_FAMILY;
+      syncFontFamilySelect(ui, rawFf, false);
     }
   }
 
@@ -2281,7 +2392,7 @@ function isTypingContext(target) {
   };
 
   const setActiveToolButton = (activeBtn) => {
-    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn].forEach((btn) => {
+    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
       if (!btn) return;
       btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
       btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
@@ -2681,6 +2792,7 @@ function isTypingContext(target) {
         top: Math.round(center.y),
         originX: 'center',
         originY: 'center',
+        fontFamily: DEFAULT_TEXT_FONT_FAMILY,
         fontSize: 28,
         fontWeight: 700,
         fill: '#0f172a',
@@ -3057,6 +3169,14 @@ function isTypingContext(target) {
     imageFileInput.click();
   });
 
+  ui.bookmarkBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    setActiveToolButton(ui.bookmarkBtn);
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+  });
+
   if (ui.alignToolbar) {
     ui.alignToolbar.querySelectorAll('button[data-align-mode]').forEach((btn) => {
       btn.addEventListener('click', (event) => {
@@ -3269,6 +3389,21 @@ function isTypingContext(target) {
     const fontSize = Math.max(1, Math.min(400, Number(ui.fontSizeInput.value || 16)));
     targets.forEach((target) => {
       target.set({ fontSize });
+      target.dirty = true;
+      if (typeof target.initDimensions === 'function') target.initDimensions();
+      if (typeof target.setCoords === 'function') target.setCoords();
+    });
+    fabricCanvas.requestRenderAll();
+    publishCanvasJson(instance);
+    updateTopBarForSelection(instance);
+  });
+  ui.fontFamilySelect.addEventListener('change', () => {
+    const nextFamily = ui.fontFamilySelect.value;
+    if (!nextFamily) return;
+    const targets = getToolbarStyleTargets(fabricCanvas).filter((item) => isTextLikeObject(item));
+    if (targets.length === 0) return;
+    targets.forEach((target) => {
+      target.set({ fontFamily: nextFamily });
       target.dirty = true;
       if (typeof target.initDimensions === 'function') target.initDimensions();
       if (typeof target.setCoords === 'function') target.setCoords();
