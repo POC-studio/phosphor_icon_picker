@@ -1678,6 +1678,7 @@ function buildShell() {
   const penBtn = mkBtn('ph ph-pen', 'Pen');
   const panBtn = mkBtn('ph ph-hand', 'Pan');
   const imageBtn = mkBtn('ph ph-image', 'Image');
+  const bookmarkBtn = mkBtn('ph ph-bookmark-simple', 'Bookmark');
   const zoomOutBtn = mkBtn('ph ph-minus', 'Zoom out');
   const zoomInBtn = mkBtn('ph ph-plus', 'Zoom in');
   const fitBtn = mkBtn('ph ph-corners-in', 'Fit');
@@ -1687,6 +1688,7 @@ function buildShell() {
   leftBar.appendChild(iconBtn);
   leftBar.appendChild(penBtn);
   leftBar.appendChild(imageBtn);
+  leftBar.appendChild(bookmarkBtn);
   const leftSpacer = document.createElement('div');
   leftSpacer.style.flex = '1';
   leftBar.appendChild(leftSpacer);
@@ -1717,6 +1719,7 @@ function buildShell() {
     penBtn,
     panBtn,
     imageBtn,
+    bookmarkBtn,
     zoomOutBtn,
     zoomInBtn,
     fitBtn,
@@ -2280,7 +2283,7 @@ function isTypingContext(target) {
   };
 
   const setActiveToolButton = (activeBtn) => {
-    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn].forEach((btn) => {
+    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
       if (!btn) return;
       btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
       btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
@@ -3054,6 +3057,14 @@ function isTypingContext(target) {
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
     imageFileInput.click();
+  });
+
+  ui.bookmarkBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    setActiveToolButton(ui.bookmarkBtn);
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
   });
 
   if (ui.alignToolbar) {
