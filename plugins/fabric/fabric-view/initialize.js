@@ -545,6 +545,8 @@ const TOOLBAR_VISIBILITY_BY_TYPE = {
   default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
   rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false },
   circle: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
+  /** Raster fabric.Image : type sérialisé `'image'`, pas de fill (bitmap), stroke possible pour un cadre. */
+  image: { fill: false, stroke: true, strokeWidth: true, radius: false, fontSize: false },
   textbox: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
   text: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
   iText: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
@@ -615,6 +617,11 @@ function getStyleAssetFileName(iconName, style) {
   if (!safeName) return '';
   if (style === 'regular') return `${safeName}.svg`;
   return `${safeName}-${style}.svg`;
+}
+
+function isFabricRasterImage(target) {
+  if (!target) return false;
+  return String(target.type || '').toLowerCase() === 'image';
 }
 
 function getToolbarVisibilityForTarget(target) {
@@ -1028,10 +1035,31 @@ function oppositeOriginForCorner(corner) {
   return null;
 }
 
+/**
+ * Met à jour uniquement pageSnapshots depuis le canvas courant — sans publishState.
+ * À utiliser quand on a besoin d’un snapshot à jour (ex. export PDF) sans pousser canvas_json
+ * vers Bubble (sinon des workflows peuvent réécraser le champ qui alimente initial_json).
+ */
+function syncCurrentCanvasToPageSnapshots(instance) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas) return;
+  const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
+  instance.data.activeArtboardIndex = idx;
+  if (!Array.isArray(instance.data.pageSnapshots)) {
+    instance.data.pageSnapshots = [null, null, null];
+  }
+  try {
+    instance.data.pageSnapshots[idx] = instance.data.fabricCanvas.toJSON();
+  } catch (e) {
+    /* ignore */
+  }
+}
+
 function publishCanvasJson(instance, options) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) return;
   const silent = (options && options.silent)
     || (instance.data._artboardSwapInProgress === true);
+  const forceBubble = options && options.forcePublishToBubble === true;
+  const suppressBubble = instance.data._suppressCanvasJsonPublish === true && !forceBubble;
   const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
   instance.data.activeArtboardIndex = idx;
   if (!Array.isArray(instance.data.pageSnapshots)) {
@@ -1044,14 +1072,30 @@ function publishCanvasJson(instance, options) {
       activeArtboardIndex: idx,
       artboards: instance.data.pageSnapshots.slice(),
     });
-    instance.data._lastPublishedCanvasJson = payload;
-    instance.publishState('canvas_json', payload);
+    if (!suppressBubble) {
+      instance.data._lastPublishedCanvasJson = payload;
+      instance.publishState('canvas_json', payload);
+    }
   } catch (e) {
-    instance.publishState('canvas_json', '{}');
+    /* Ne jamais publier '{}' : un workflow Bubble qui écrit canvas_json en base effacerait la donnée (ex. collage image + toJSON échoue). */
+    console.warn('Fabric View: publishCanvasJson ignoré (toJSON / stringify)', e);
   }
-  if (!silent) {
+  if (!silent && !suppressBubble) {
     instance.triggerEvent('json_changed');
   }
+}
+
+/** Regroupe les publications déclenchées par les events Fabric (collage, guides, etc.) pour limiter les rafales vers Bubble. */
+function schedulePublishCanvasJson(instance) {
+  if (!instance || !instance.data) return;
+  const d = instance.data;
+  if (d._schedulePublishCanvasJsonTimer) {
+    clearTimeout(d._schedulePublishCanvasJsonTimer);
+  }
+  d._schedulePublishCanvasJsonTimer = setTimeout(() => {
+    d._schedulePublishCanvasJsonTimer = null;
+    publishCanvasJson(instance);
+  }, 120);
 }
 
 function getJsPdfConstructor() {
@@ -1201,7 +1245,7 @@ function triggerFoldedA4PdfDownload(instance) {
     return Promise.resolve();
   }
 
-  publishCanvasJson(instance, { silent: true });
+  syncCurrentCanvasToPageSnapshots(instance);
 
   if (!Array.isArray(instance.data.pageSnapshots) || instance.data.pageSnapshots.length < 3) {
     return Promise.resolve();
@@ -1465,10 +1509,15 @@ function loadWrappedCanvasJson(instance, jsonString) {
   ];
   const idx = clampArtboardIndex(parsed.activeArtboardIndex);
   instance.data.activeArtboardIndex = idx;
-  goToArtboard(instance, idx, { skipSave: true }).then(() => {
-    publishCanvasJson(instance);
-    updateTopBarForSelection(instance);
-  });
+  goToArtboard(instance, idx, { skipSave: true })
+    .then(() => {
+      instance.data._suppressCanvasJsonPublish = false;
+      publishCanvasJson(instance);
+      updateTopBarForSelection(instance);
+    })
+    .catch(() => {
+      instance.data._suppressCanvasJsonPublish = false;
+    });
 }
 
 function ensureMarginGuidesAtFront(instance) {
@@ -2840,6 +2889,9 @@ function applyStyleToSelection(instance, patch) {
       nextPatch.paintFirst = 'stroke';
       nextPatch.strokeLineJoin = 'round';
     }
+    if (isFabricRasterImage(target) && nextPatch.fill != null) {
+      delete nextPatch.fill;
+    }
     target.set(nextPatch);
     target.dirty = true;
     target.setCoords();
@@ -3167,6 +3219,8 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.activeArtboardIndex = 0;
   instance.data.pageSnapshots = [null, null, null];
   instance.data._lastPublishedCanvasJson = null;
+  /** Tant que true : pas de publishState(canvas_json) — Bubble reçoit le doc seulement après loadWrappedCanvasJson (ton initial_json, vide ou non). */
+  instance.data._suppressCanvasJsonPublish = true;
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -4485,7 +4539,7 @@ function buildFabricClipboardJsonString(targets) {
       target.set({ strokeUniform: true });
     }
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
   });
   fabricCanvas.on('object:modified', (event) => {
     let target = event && event.target ? event.target : null;
@@ -4512,12 +4566,12 @@ function buildFabricClipboardJsonString(targets) {
     }
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
   fabricCanvas.on('object:removed', () => {
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
   });
   fabricCanvas.on('path:created', () => {
     const path = fabricCanvas.getActiveObject();
@@ -4556,7 +4610,7 @@ function buildFabricClipboardJsonString(targets) {
       }
     }
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
 
@@ -4603,5 +4657,5 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
   instance.data.loadWrappedCanvasJson = (jsonString) => loadWrappedCanvasJson(instance, jsonString);
   setActiveToolButton(null);
-  publishCanvasJson(instance);
+  /* Pas de publishCanvasJson ici : update() charge initial_json → loadWrappedCanvasJson lève _suppress puis publie (évite d’écraser Bubble avec les 3 pages vides du bootstrap). */
 }
