@@ -1898,15 +1898,37 @@ async function loadFabricImageFromUrl(ImageApi, url) {
   }
 }
 
-async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
+/**
+ * @param {string} primaryUrl - URL Bubble (https) ou data URL (sandbox sans uploadContent)
+ * @param {{ fallbackDataUrl?: string, forbidDataUrlFallback?: boolean }} options
+ *   - forbidDataUrlFallback: true après upload Bubble réussi → pas de src data: sur le canvas
+ */
+async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-  if (!fabricCanvas || !fabricLib || !url) return;
-  const ImageApi = fabricLib.Image;
-  let img = await loadFabricImageFromUrl(ImageApi, url);
-  if (!img && fallbackUrl && fallbackUrl !== url) {
-    img = await loadFabricImageFromUrl(ImageApi, fallbackUrl);
+  const log = '[FabricView image]';
+  if (!fabricCanvas || !fabricLib || !primaryUrl) {
+    console.warn(log, 'canvas, fabric ou primaryUrl manquant');
+    return;
   }
-  if (!img) return;
+  const opts = options || {};
+  const fallbackDataUrl = opts.fallbackDataUrl;
+  const forbidFallback = opts.forbidDataUrlFallback === true;
+
+  const ImageApi = fabricLib.Image;
+  let img = await loadFabricImageFromUrl(ImageApi, primaryUrl);
+  if (!img && forbidFallback) {
+    console.error(log, 'Échec chargement depuis l’URL Bubble (repli data URL désactivé en prod Bubble)', primaryUrl);
+  }
+  if (!img && !forbidFallback && fallbackDataUrl && fallbackDataUrl !== primaryUrl) {
+    console.warn(log, 'Repli data URL après échec URL primaire (sandbox ou secours)');
+    img = await loadFabricImageFromUrl(ImageApi, fallbackDataUrl);
+  }
+  if (!img) {
+    if (!forbidFallback) {
+      console.error(log, 'Impossible de charger l’image (URL primaire et repli échoués)');
+    }
+    return;
+  }
   const doc = getDocumentSize(instance);
   const center = getDocumentCenter(instance);
   const el = img._element || (typeof img.getElement === 'function' ? img.getElement() : null);
@@ -2090,18 +2112,36 @@ async function runCanvasPasteFromClipboardData(instance, fabricLib, context, cd)
           const ext = guessImageFileExtension(file);
           const rawName = name.trim() ? name.trim() : `paste${ext}`;
           const safeName = rawName.replace(/[^\w.-]/g, '_') || `paste${ext}`;
-          let imageUrl = dataUrl;
           if (context && typeof context.uploadContent === 'function' && base64) {
-            imageUrl = await new Promise((resolve, reject) => {
-              context.uploadContent(safeName, base64, (err, url) => {
-                if (err) reject(err);
-                else resolve(url || dataUrl);
+            try {
+              const uploadedUrl = await new Promise((resolve, reject) => {
+                context.uploadContent(safeName, base64, (err, url) => {
+                  if (err) reject(err);
+                  else resolve(typeof url === 'string' ? url : '');
+                });
               });
-            });
+              const trimmed = String(uploadedUrl || '').trim();
+              const isHttpBubble = /^https?:\/\//i.test(trimmed);
+              if (isHttpBubble) {
+                await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+                  forbidDataUrlFallback: true,
+                  fallbackDataUrl: dataUrl,
+                });
+              } else {
+                console.warn('[FabricView paste] uploadContent sans URL http(s) — utilisation data URL', trimmed || '(vide)');
+                await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+              }
+            } catch (uploadErr) {
+              console.error('[FabricView paste] uploadContent erreur', uploadErr);
+              console.warn('[FabricView paste] Repli data URL après échec upload');
+              await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+            }
+          } else {
+            console.log('[FabricView paste] Pas de context.uploadContent — data URL (local / sandbox)');
+            await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
           }
-          await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
         } catch (e) {
-          /* ignore */
+          console.error('[FabricView paste] chargement image', e);
         }
         return true;
       }
@@ -4082,19 +4122,36 @@ function buildFabricClipboardJsonString(targets) {
       const rawName = typeof file.name === 'string' && file.name.trim() ? file.name.trim() : `image${ext}`;
       const safeName = rawName.replace(/[^\w.-]/g, '_') || `image${ext}`;
 
-      let imageUrl = dataUrl;
       if (context && typeof context.uploadContent === 'function' && base64) {
-        imageUrl = await new Promise((resolve, reject) => {
-          context.uploadContent(safeName, base64, (err, url) => {
-            if (err) reject(err);
-            else resolve(url || dataUrl);
+        try {
+          const uploadedUrl = await new Promise((resolve, reject) => {
+            context.uploadContent(safeName, base64, (err, url) => {
+              if (err) reject(err);
+              else resolve(typeof url === 'string' ? url : '');
+            });
           });
-        });
+          const trimmed = String(uploadedUrl || '').trim();
+          const isHttpBubble = /^https?:\/\//i.test(trimmed);
+          if (isHttpBubble) {
+            await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+              forbidDataUrlFallback: true,
+              fallbackDataUrl: dataUrl,
+            });
+          } else {
+            console.warn('[FabricView image picker] uploadContent sans URL http(s) — data URL', trimmed || '(vide)');
+            await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+          }
+        } catch (uploadErr) {
+          console.error('[FabricView image picker] uploadContent erreur', uploadErr);
+          console.warn('[FabricView image picker] Repli data URL après échec upload');
+          await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+        }
+      } else {
+        console.log('[FabricView image picker] Pas de context.uploadContent — data URL (local / sandbox)');
+        await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
       }
-
-      await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
     } catch (e) {
-      // Upload ou chargement refusé — pas d'état partiel à nettoyer.
+      console.error('[FabricView image picker] chargement image', e);
     }
   });
 
