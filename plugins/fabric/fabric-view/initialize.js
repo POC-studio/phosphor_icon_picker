@@ -2,7 +2,7 @@ export default function(instance, context) {
 const RANDOM_COLORS = ['#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ef4444', '#0ea5e9', '#f59e0b'];
 
 const FONT_PRESETS = [
-  { label: 'Special Elite', fontFamily: "'Special Elite'" },
+  { label: 'JetBrains Mono', fontFamily: "'JetBrains Mono'" },
   { label: 'Fraunces', fontFamily: "'Fraunces'" },
   { label: 'Schoolbell', fontFamily: "'Schoolbell'" },
   { label: 'Space Grotesk', fontFamily: "'Space Grotesk'" },
