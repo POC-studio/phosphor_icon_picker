@@ -541,6 +541,21 @@ function resolveFabric() {
   return null;
 }
 
+/** Identifiant stable pour chaque image raster (sérialisé via FabricObject.customProperties). */
+function newFabricImageId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `img_${Math.random().toString(36).slice(2, 12)}_${Date.now().toString(36)}`;
+}
+
+function ensureFabricImageIdSerialization(fabricLib) {
+  if (!fabricLib || !fabricLib.FabricObject || !Array.isArray(fabricLib.FabricObject.customProperties)) return;
+  if (fabricLib.FabricObject.customProperties.indexOf('id') === -1) {
+    fabricLib.FabricObject.customProperties.push('id');
+  }
+}
+
 const TOOLBAR_VISIBILITY_BY_TYPE = {
   default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
   rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false },
@@ -1948,13 +1963,14 @@ async function loadFabricImageFromUrl(ImageApi, url) {
  * @param {string} primaryUrl - URL Bubble (https) ou data URL (sandbox sans uploadContent)
  * @param {{ fallbackDataUrl?: string, forbidDataUrlFallback?: boolean }} options
  *   - forbidDataUrlFallback: true après upload Bubble réussi → pas de src data: sur le canvas
+ * @returns {Promise<string|undefined>} `id` de l’image Fabric ajoutée, ou undefined si échec
  */
 async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
   const log = '[FabricView image]';
   if (!fabricCanvas || !fabricLib || !primaryUrl) {
     console.warn(log, 'canvas, fabric ou primaryUrl manquant');
-    return;
+    return undefined;
   }
   const opts = options || {};
   const fallbackDataUrl = opts.fallbackDataUrl;
@@ -1973,8 +1989,9 @@ async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
     if (!forbidFallback) {
       console.error(log, 'Impossible de charger l’image (URL primaire et repli échoués)');
     }
-    return;
+    return undefined;
   }
+  const imageId = newFabricImageId();
   const doc = getDocumentSize(instance);
   const center = getDocumentCenter(instance);
   const el = img._element || (typeof img.getElement === 'function' ? img.getElement() : null);
@@ -1987,6 +2004,7 @@ async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
     scale = Math.min(maxW / iw, maxH / ih, 1);
   }
   img.set({
+    id: imageId,
     left: Math.round(center.x),
     top: Math.round(center.y),
     originX: 'center',
@@ -1999,6 +2017,7 @@ async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
   fabricCanvas.setActiveObject(img);
   fabricCanvas.requestRenderAll();
   updateTopBarForSelection(instance);
+  return imageId;
 }
 
 function looksLikeSvgMarkup(text) {
@@ -3233,6 +3252,7 @@ function shouldBlockFabricCopyShortcut(target, fabricCanvas) {
 }
 
 const FABRIC_CLIPBOARD_EXTRA_KEYS = [
+  'id',
   'iconKind',
   'iconName',
   'iconStyle',
@@ -3257,6 +3277,7 @@ function buildFabricClipboardJsonString(targets) {
 }
 
   const fabricLib = resolveFabric();
+  ensureFabricImageIdSerialization(fabricLib);
   const ui = buildShell();
   instance.data.ui = ui;
   instance.data.fabricLib = fabricLib;
@@ -3299,6 +3320,7 @@ function buildFabricClipboardJsonString(targets) {
   });
   instance.data.fabricCanvas = fabricCanvas;
   instance.publishState('new_color', '');
+  instance.publishState('contribution_id', '');
   instance.publishState('pdf_url', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
@@ -3321,6 +3343,7 @@ function buildFabricClipboardJsonString(targets) {
   instance.data._altDupClonedGestureId = null;
   instance.data._altDupDownClientX = null;
   instance.data._altDupDownClientY = null;
+  instance.data.bookmarksList = [];
 
   const applyPenBrush = () => {
     if (!fabricCanvas.freeDrawingBrush && typeof fabricLib.PencilBrush === 'function') {
@@ -3894,6 +3917,7 @@ function buildFabricClipboardJsonString(targets) {
   ui.textBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
+    if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     const docSize = getDocumentSize(instance);
     const text = createDefaultTextbox(fabricLib, docSize.width, docSize.height);
     if (!text) return;
@@ -3940,6 +3964,7 @@ function buildFabricClipboardJsonString(targets) {
     btn.addEventListener('click', () => {
       addShapeByType(type);
       shapeMenu.style.display = 'none';
+      if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     });
     btn.addEventListener('mouseenter', () => {
       btn.style.background = '#f8fafc';
@@ -4075,6 +4100,7 @@ function buildFabricClipboardJsonString(targets) {
     btn.addEventListener('click', () => {
       addPhosphorSvg(iconName, currentIconStyle);
       iconMenu.style.display = 'none';
+      if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     });
     return btn;
   };
@@ -4121,16 +4147,145 @@ function buildFabricClipboardJsonString(targets) {
   ui.root.appendChild(iconMenu);
   instance.data.iconMenu = iconMenu;
 
+  const BOOKMARK_PANEL_EDGE = 12;
+
+  const bookmarkMenu = document.createElement('div');
+  bookmarkMenu.style.position = 'absolute';
+  bookmarkMenu.style.left = '62px';
+  bookmarkMenu.style.display = 'none';
+  bookmarkMenu.style.flexDirection = 'column';
+  bookmarkMenu.style.alignItems = 'stretch';
+  bookmarkMenu.style.padding = '10px';
+  bookmarkMenu.style.background = '#ffffff';
+  bookmarkMenu.style.border = '1px solid #e2e8f0';
+  bookmarkMenu.style.borderRadius = '12px';
+  bookmarkMenu.style.boxShadow = '0 10px 25px rgba(15, 23, 42, 0.16)';
+  bookmarkMenu.style.zIndex = '25';
+  bookmarkMenu.style.width = '198px';
+  bookmarkMenu.style.boxSizing = 'border-box';
+  bookmarkMenu.style.overflow = 'hidden';
+
+  const bookmarkScroll = document.createElement('div');
+  bookmarkScroll.style.flex = '1';
+  bookmarkScroll.style.minHeight = '0';
+  bookmarkScroll.style.overflowY = 'auto';
+  bookmarkScroll.style.overflowX = 'hidden';
+  bookmarkScroll.style.display = 'flex';
+  bookmarkScroll.style.flexDirection = 'column';
+  bookmarkScroll.style.gap = '12px';
+  bookmarkScroll.style.paddingRight = '4px';
+  bookmarkMenu.appendChild(bookmarkScroll);
+
+  const syncBookmarkMenuPosition = () => {
+    const topBarH = ui.topBar ? ui.topBar.offsetHeight : 52;
+    bookmarkMenu.style.top = `${topBarH + BOOKMARK_PANEL_EDGE}px`;
+    bookmarkMenu.style.bottom = `${BOOKMARK_PANEL_EDGE}px`;
+    bookmarkMenu.style.left = '62px';
+  };
+
+  const renderBookmarksPanel = () => {
+    bookmarkScroll.innerHTML = '';
+    const list = Array.isArray(instance.data.bookmarksList) ? instance.data.bookmarksList : [];
+    if (list.length === 0) {
+      const empty = document.createElement('div');
+      empty.textContent = 'Aucun bookmark';
+      empty.style.fontSize = '12px';
+      empty.style.color = '#64748b';
+      empty.style.padding = '8px 4px';
+      empty.style.textAlign = 'center';
+      bookmarkScroll.appendChild(empty);
+      return;
+    }
+    list.forEach((item) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.style.display = 'flex';
+      row.style.flexDirection = 'column';
+      row.style.alignItems = 'stretch';
+      row.style.width = '100%';
+      row.style.flexShrink = '0';
+      row.style.padding = '0';
+      row.style.border = '1px solid #e2e8f0';
+      row.style.borderRadius = '10px';
+      row.style.background = '#ffffff';
+      row.style.cursor = 'pointer';
+      row.style.boxSizing = 'border-box';
+      row.style.overflow = 'hidden';
+
+      const img = document.createElement('img');
+      img.alt = item.contributor || '';
+      img.loading = 'lazy';
+      img.style.width = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.flexShrink = '0';
+      img.style.objectFit = 'cover';
+      img.style.background = '#f1f5f9';
+      img.src = item.image_url;
+
+      const footer = document.createElement('div');
+      footer.textContent = item.contributor || '—';
+      footer.style.flexShrink = '0';
+      footer.style.width = '100%';
+      footer.style.boxSizing = 'border-box';
+      footer.style.borderTop = '1px solid #e2e8f0';
+      footer.style.background = '#f8fafc';
+      footer.style.padding = '8px 10px';
+      footer.style.fontSize = '11px';
+      footer.style.fontWeight = '500';
+      footer.style.color = '#334155';
+      footer.style.textAlign = 'center';
+      footer.style.lineHeight = '1.35';
+      footer.style.overflow = 'hidden';
+      footer.style.textOverflow = 'ellipsis';
+      footer.style.display = '-webkit-box';
+      footer.style.webkitLineClamp = '2';
+      footer.style.webkitBoxOrient = 'vertical';
+
+      row.appendChild(img);
+      row.appendChild(footer);
+      row.addEventListener('click', async () => {
+        bookmarkMenu.style.display = 'none';
+        const imageId = await addRasterImageFromUrl(instance, fabricLib, item.image_url, {});
+        if (typeof imageId === 'string' && imageId.length > 0) {
+          instance.publishState('contribution_id', imageId);
+          instance.triggerEvent('contribution_added');
+        }
+      });
+      row.addEventListener('mouseenter', () => {
+        row.style.background = '#f1f5f9';
+        footer.style.background = '#eef2f6';
+      });
+      row.addEventListener('mouseleave', () => {
+        row.style.background = '#ffffff';
+        footer.style.background = '#f8fafc';
+      });
+      bookmarkScroll.appendChild(row);
+    });
+  };
+
+  instance.data.refreshBookmarksPanel = renderBookmarksPanel;
+  ui.root.appendChild(bookmarkMenu);
+  instance.data.bookmarkMenu = bookmarkMenu;
+
+  const closeFloatingMenus = () => {
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
+  };
+
   ui.shapeBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     shapeMenu.style.display = shapeMenu.style.display === 'none' ? 'flex' : 'none';
   });
   ui.iconBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
     shapeMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const willOpen = iconMenu.style.display === 'none';
     iconMenu.style.display = willOpen ? 'flex' : 'none';
     if (willOpen) {
@@ -4146,6 +4301,7 @@ function buildFabricClipboardJsonString(targets) {
     exitPanMode();
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'draw' ? 'select' : 'draw';
     setToolMode(nextMode);
   });
@@ -4156,6 +4312,7 @@ function buildFabricClipboardJsonString(targets) {
     }
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'pan' ? 'select' : 'pan';
     setToolMode(nextMode);
   });
@@ -4223,6 +4380,7 @@ function buildFabricClipboardJsonString(targets) {
     setToolMode('select');
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     imageFileInput.click();
   });
 
@@ -4231,6 +4389,14 @@ function buildFabricClipboardJsonString(targets) {
     setToolMode('select');
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    const willOpen = bookmarkMenu.style.display === 'none';
+    if (willOpen) {
+      syncBookmarkMenuPosition();
+      renderBookmarksPanel();
+      bookmarkMenu.style.display = 'flex';
+    } else {
+      bookmarkMenu.style.display = 'none';
+    }
   });
 
   if (ui.alignToolbar) {
@@ -4293,14 +4459,17 @@ function buildFabricClipboardJsonString(targets) {
   };
   ui.zoomOutBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     applyZoomDelta(-0.1);
   });
   ui.zoomInBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     applyZoomDelta(0.1);
   });
   ui.fitBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     instance.data.zoomScale = 1;
     instance.data.panX = 0;
     instance.data.panY = 0;
@@ -4311,6 +4480,7 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardPrevBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
+    closeFloatingMenus();
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i <= 0) return;
     goToArtboard(instance, i - 1).then(() => {
@@ -4322,6 +4492,7 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardNextBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
+    closeFloatingMenus();
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i >= 2) return;
     goToArtboard(instance, i + 1).then(() => {
@@ -4332,6 +4503,7 @@ function buildFabricClipboardJsonString(targets) {
   ui.artboardDownloadBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
+    closeFloatingMenus();
     void triggerFoldedA4PdfDownload(instance);
   });
   updateZoomButtons();
@@ -4756,9 +4928,13 @@ function buildFabricClipboardJsonString(targets) {
     const clickedMenu = shapeMenu.contains(target);
     const clickedIconTrigger = ui.iconBtn.contains(target);
     const clickedIconMenu = iconMenu.contains(target);
-    if (clickedShapeTrigger || clickedMenu || clickedIconTrigger || clickedIconMenu) return;
+    const clickedBookmarkTrigger = ui.bookmarkBtn.contains(target);
+    const clickedBookmarkMenu = bookmarkMenu.contains(target);
+    if (clickedShapeTrigger || clickedMenu || clickedIconTrigger || clickedIconMenu
+        || clickedBookmarkTrigger || clickedBookmarkMenu) return;
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
   }, true);
 
   if (window.ResizeObserver) {
