@@ -151,7 +151,7 @@ function isTransparentColor(value) {
 
 function getObjectStyle(target) {
   if (!target) {
-    return { fill: 'transparent', stroke: 'transparent', strokeWidth: 1, radius: 0 };
+    return { fill: 'transparent', stroke: 'transparent', strokeWidth: 1, radius: 0, opacity: 1 };
   }
   const fill = typeof target.fill === 'string'
     ? target.fill
@@ -172,11 +172,14 @@ function getObjectStyle(target) {
   if (normalizedStroke !== 'transparent' && strokeWidth <= 0) {
     strokeWidth = 1;
   }
+  const rawOpacity = Number.isFinite(Number(target.opacity)) ? Number(target.opacity) : 1;
+  const opacity = Math.max(0, Math.min(1, rawOpacity));
   return {
     fill: normalizedFill,
     stroke: normalizedStroke,
     strokeWidth: Math.max(0, Math.min(50, strokeWidth)),
     radius: Math.max(0, Math.min(200, visualRadius)),
+    opacity,
   };
 }
 
@@ -554,17 +557,20 @@ function ensureFabricImageIdSerialization(fabricLib) {
   if (fabricLib.FabricObject.customProperties.indexOf('id') === -1) {
     fabricLib.FabricObject.customProperties.push('id');
   }
+  if (fabricLib.FabricObject.customProperties.indexOf('cornerRadiusPx') === -1) {
+    fabricLib.FabricObject.customProperties.push('cornerRadiusPx');
+  }
 }
 
 const TOOLBAR_VISIBILITY_BY_TYPE = {
-  default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
-  rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false },
-  circle: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
+  default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false, opacity: true },
+  rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false, opacity: true },
+  circle: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false, opacity: true },
   /** Raster fabric.Image : type sérialisé `'image'`, pas de fill (bitmap), stroke possible pour un cadre. */
-  image: { fill: false, stroke: true, strokeWidth: true, radius: false, fontSize: false },
-  textbox: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
-  text: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
-  iText: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
+  image: { fill: false, stroke: true, strokeWidth: true, radius: true, fontSize: false, opacity: true },
+  textbox: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
+  text: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
+  iText: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
 };
 
 const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
@@ -644,7 +650,7 @@ function isFabricRasterImage(target) {
 function getToolbarVisibilityForTarget(target) {
   if (!target) return TOOLBAR_VISIBILITY_BY_TYPE.default;
   if (target.iconKind) {
-    return { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: false };
+    return { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: false, opacity: true };
   }
   if (isRoundedPolygonShape(target)) {
     return { ...TOOLBAR_VISIBILITY_BY_TYPE.default, radius: true };
@@ -732,7 +738,7 @@ function getToolbarStyleTargets(fabricCanvas) {
 
 function getSharedToolbarVisibility(targets) {
   if (!Array.isArray(targets) || targets.length === 0) return TOOLBAR_VISIBILITY_BY_TYPE.default;
-  const initial = { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: true };
+  const initial = { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: true, opacity: true };
   return targets.reduce((acc, target) => {
     const v = getToolbarVisibilityForTarget(target);
     return {
@@ -741,6 +747,7 @@ function getSharedToolbarVisibility(targets) {
       strokeWidth: !!(acc.strokeWidth && v.strokeWidth),
       radius: !!(acc.radius && v.radius),
       fontSize: !!(acc.fontSize && v.fontSize),
+      opacity: !!(acc.opacity && v.opacity),
     };
   }, initial);
 }
@@ -840,6 +847,60 @@ function applyRectCornerRadiusPx(target, radiusPx) {
     cornerRadiusPx: safeRadiusPx,
     rx: safeRadiusPx / sx,
     ry: safeRadiusPx / sy,
+  });
+}
+
+/**
+ * Coins arrondis pour fabric.Image : clipPath Rect, rayon visuel constant (px) comme pour les rects.
+ */
+function applyImageCornerRadiusPx(target, fabricLib, radiusPx) {
+  if (!target || !isFabricRasterImage(target) || !fabricLib || !fabricLib.Rect) return;
+  const safePx = Math.max(0, Math.min(200, Number(radiusPx) || 0));
+  const sx = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
+  const sy = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);
+  const s = Math.min(sx, sy);
+  const w = Math.max(1e-6, Number(target.width) || 1);
+  const h = Math.max(1e-6, Number(target.height) || 1);
+  target.set({ cornerRadiusPx: safePx });
+  if (safePx <= 0) {
+    target.set({ clipPath: null });
+    if (typeof target.setCoords === 'function') target.setCoords();
+    return;
+  }
+  const rLocal = Math.min(safePx / s, w / 2, h / 2);
+  const clip = new fabricLib.Rect({
+    width: w,
+    height: h,
+    rx: rLocal,
+    ry: rLocal,
+    originX: 'center',
+    originY: 'center',
+    left: 0,
+    top: 0,
+    absolutePositioned: false,
+  });
+  target.set({ clipPath: clip });
+  if (typeof target.setCoords === 'function') target.setCoords();
+}
+
+function walkFabricObjectsDepthFirst(rootList, visit) {
+  if (!Array.isArray(rootList)) return;
+  rootList.forEach((o) => {
+    if (!o) return;
+    visit(o);
+    if (typeof o.getObjects === 'function') {
+      const kids = o.getObjects();
+      if (Array.isArray(kids)) walkFabricObjectsDepthFirst(kids, visit);
+    }
+  });
+}
+
+function syncImageCornerRadiusClipsOnCanvas(fabricCanvas, fabricLib) {
+  if (!fabricCanvas || !fabricLib) return;
+  walkFabricObjectsDepthFirst(fabricCanvas.getObjects(), (o) => {
+    if (!isFabricRasterImage(o)) return;
+    if (!Number.isFinite(Number(o.cornerRadiusPx)) || Number(o.cornerRadiusPx) <= 0) return;
+    applyImageCornerRadiusPx(o, fabricLib, Number(o.cornerRadiusPx));
   });
 }
 
@@ -973,41 +1034,73 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   }
 }
 
+/**
+ * Déplace l’objet vers l’index final `dest` (indices avant le move).
+ * Équivalent Fabric : remove puis splice à (dest > from ? dest - 1 : dest).
+ */
+function moveCanvasObjectToFinalIndex(fabricCanvas, object, from, dest) {
+  if (!fabricCanvas || !object || from < 0 || dest < 0 || from === dest) return;
+  if (typeof fabricCanvas.moveObjectTo === 'function') {
+    const idxAfterRemoval = dest > from ? dest - 1 : dest;
+    fabricCanvas.moveObjectTo(object, idxAfterRemoval);
+    return;
+  }
+  fabricCanvas.remove(object);
+  const idxAfterRemoval = dest > from ? dest - 1 : dest;
+  const len = fabricCanvas.getObjects().length;
+  const clamped = Math.max(0, Math.min(idxAfterRemoval, len));
+  if (typeof fabricCanvas.insertAt === 'function') {
+    fabricCanvas.insertAt(clamped, object);
+  } else {
+    fabricCanvas.add(object);
+  }
+}
+
+/** Objet réellement empilé sur le canvas (sélection simple ou ActiveSelection / groupe), pas les feuilles. */
+function getZOrderStackTarget(fabricCanvas) {
+  const active = fabricCanvas && fabricCanvas.getActiveObject ? fabricCanvas.getActiveObject() : null;
+  if (!active || active.isArtboard || active.isSafeZone) return null;
+  return active;
+}
+
 function applyZOrderToSelection(fabricCanvas, action, instance) {
   if (!fabricCanvas) return;
-  const targets = getActiveSelectionTargets(fabricCanvas);
-  if (!Array.isArray(targets) || targets.length === 0) return;
+  const target = getZOrderStackTarget(fabricCanvas);
+  if (!target) return;
   const objects = fabricCanvas.getObjects();
-  const ordered = [...targets].sort((a, b) => objects.indexOf(a) - objects.indexOf(b));
+  const idx = objects.indexOf(target);
+  if (idx < 0) return;
 
-  const bringFront = (obj) => {
-    if (typeof fabricCanvas.bringObjectToFront === 'function') fabricCanvas.bringObjectToFront(obj);
-    else if (typeof obj.bringToFront === 'function') obj.bringToFront();
-  };
-  const sendBack = (obj) => {
-    if (typeof fabricCanvas.sendObjectToBack === 'function') fabricCanvas.sendObjectToBack(obj);
-    else if (typeof obj.sendToBack === 'function') obj.sendToBack();
-  };
-  const bringForward = (obj) => {
-    if (typeof fabricCanvas.bringObjectForward === 'function') fabricCanvas.bringObjectForward(obj, false);
-    else if (typeof obj.bringForward === 'function') obj.bringForward(false);
-  };
-  const sendBackward = (obj) => {
-    if (typeof fabricCanvas.sendObjectBackwards === 'function') fabricCanvas.sendObjectBackwards(obj, false);
-    else if (typeof obj.sendBackwards === 'function') obj.sendBackwards(false);
-  };
-
-  if (action === 'to-front') {
-    ordered.forEach((obj) => bringFront(obj));
-  } else if (action === 'forward') {
-    [...ordered].reverse().forEach((obj) => bringForward(obj));
-  } else if (action === 'backward') {
-    ordered.forEach((obj) => sendBackward(obj));
-  } else if (action === 'to-back') {
-    [...ordered].reverse().forEach((obj) => sendBack(obj));
+  if (instance) {
+    rebindArtboardFromCanvas(instance);
+    ensureArtboardAtBack(instance);
   }
 
-  if (instance) syncGuideLayers(instance);
+  /** Page + 1 couche réservée en dessous du contenu éditable ; premier slot contenu = 2. */
+  const minUser = 2;
+
+  if (action === 'to-back') {
+    moveCanvasObjectToFinalIndex(fabricCanvas, target, idx, minUser);
+  } else if (action === 'backward') {
+    const dest = Math.max(minUser, idx - 1);
+    moveCanvasObjectToFinalIndex(fabricCanvas, target, idx, dest);
+  } else if (action === 'forward') {
+    if (typeof fabricCanvas.bringObjectForward === 'function') fabricCanvas.bringObjectForward(target, false);
+    else if (typeof target.bringForward === 'function') target.bringForward(false);
+  } else if (action === 'to-front') {
+    if (typeof fabricCanvas.bringObjectToFront === 'function') fabricCanvas.bringObjectToFront(target);
+    else if (typeof target.bringToFront === 'function') target.bringToFront();
+  }
+
+  if (typeof fabricCanvas.setActiveObject === 'function') {
+    try {
+      fabricCanvas.setActiveObject(target);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  if (instance) syncGuideStackAfterUserZOrder(instance);
   fabricCanvas.requestRenderAll();
 }
 
@@ -1033,6 +1126,7 @@ function isShapeObject(target) {
     || t === 'triangle'
     || t === 'polygon'
     || t === 'path'
+    || t === 'image'
     || isRoundedPolygonShape(target);
 }
 
@@ -1421,7 +1515,9 @@ function getDocumentMargins(instance) {
 function rebindArtboardFromCanvas(instance) {
   const canvas = instance && instance.data ? instance.data.fabricCanvas : null;
   if (!canvas) return;
-  const artboard = canvas.getObjects().find((o) => o && o.isArtboard);
+  const objs = canvas.getObjects();
+  const artboard = objs.find((o) => o && o.isArtboard)
+    || objs.find((o) => o && String(o.type || '') === 'rect' && o.excludeFromExport);
   instance.data.artboardRect = artboard || null;
 }
 
@@ -1467,6 +1563,8 @@ function finalizeAfterArtboardLoad(instance, fabricLib) {
   ensureArtboardAtBack(instance);
   syncGuideLayers(instance);
   ensureCanvasSize(instance);
+  const canvas = instance.data.fabricCanvas;
+  if (canvas) syncImageCornerRadiusClipsOnCanvas(canvas, fabricLib);
 }
 
 function goToArtboard(instance, targetIndex, opts) {
@@ -1695,6 +1793,14 @@ function ensureMarginGuideLines(instance, fabricLib) {
 function syncGuideLayers(instance) {
   ensureArtboardAtBack(instance);
   ensureMarginGuideLines(instance, instance.data.fabricLib);
+  ensureMarginGuidesAtFront(instance);
+}
+
+/** Après bring/send sur le contenu : page au fond + guides au-dessus, sans recréer les lignes (évite un réordonnancement inutile de la pile). */
+function syncGuideStackAfterUserZOrder(instance) {
+  if (!instance || !instance.data) return;
+  rebindArtboardFromCanvas(instance);
+  ensureArtboardAtBack(instance);
   ensureMarginGuidesAtFront(instance);
 }
 
@@ -2486,6 +2592,15 @@ function buildShell() {
   fontSizeInput.value = '16';
   styleTopNumberInput(fontSizeInput);
 
+  const opacityInput = document.createElement('input');
+  opacityInput.type = 'text';
+  opacityInput.inputMode = 'numeric';
+  opacityInput.min = '0';
+  opacityInput.max = '100';
+  opacityInput.step = '1';
+  opacityInput.value = '100';
+  styleTopNumberInput(opacityInput);
+
   const fontFamilySelect = document.createElement('select');
   fontFamilySelect.setAttribute('aria-label', 'Font family');
   fontFamilySelect.style.width = '148px';
@@ -2513,7 +2628,7 @@ function buildShell() {
   const topStroke = strokeControl.root;
 
   const topStrokeWidth = document.createElement('label');
-  topStrokeWidth.textContent = 'Stroke width';
+  topStrokeWidth.textContent = 'Width';
   topStrokeWidth.style.display = 'inline-flex';
   topStrokeWidth.style.gap = '8px';
   topStrokeWidth.style.alignItems = 'center';
@@ -2543,6 +2658,15 @@ function buildShell() {
   topFontSize.style.fontSize = '12px';
   topFontSize.style.color = '#334155';
   topFontSize.appendChild(fontSizeInput);
+
+  const topOpacity = document.createElement('label');
+  topOpacity.textContent = 'Opacity';
+  topOpacity.style.display = 'inline-flex';
+  topOpacity.style.gap = '8px';
+  topOpacity.style.alignItems = 'center';
+  topOpacity.style.fontSize = '12px';
+  topOpacity.style.color = '#334155';
+  topOpacity.appendChild(opacityInput);
 
   const mkBtn = (iconClass, title) => {
     const btn = document.createElement('button');
@@ -2586,6 +2710,7 @@ function buildShell() {
   topControls.appendChild(topRadius);
   topControls.appendChild(topFontFamily);
   topControls.appendChild(topFontSize);
+  topControls.appendChild(topOpacity);
   topBar.appendChild(topControls);
 
   const body = document.createElement('div');
@@ -2692,12 +2817,14 @@ function buildShell() {
     radiusInput,
     fontFamilySelect,
     fontSizeInput,
+    opacityInput,
     topFill,
     topStroke,
     topStrokeWidth,
     topRadius,
     topFontFamily,
     topFontSize,
+    topOpacity,
     canvasEl,
     textBtn,
     iconBtn,
@@ -2768,12 +2895,15 @@ function updateTopBarForSelection(instance) {
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
     ui.fontFamilySelect.style.opacity = '0.55';
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   if (!target && !isDrawMode) {
@@ -2790,12 +2920,15 @@ function updateTopBarForSelection(instance) {
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
     ui.fontFamilySelect.style.opacity = '0.55';
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   if (!target && isDrawMode) {
@@ -2814,6 +2947,7 @@ function updateTopBarForSelection(instance) {
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   ui.topBar.style.visibility = 'visible';
@@ -2829,11 +2963,13 @@ function updateTopBarForSelection(instance) {
   ui.topRadius.style.display = visibility.radius ? 'inline-flex' : 'none';
   ui.topFontFamily.style.display = visibility.fontSize ? 'inline-flex' : 'none';
   ui.topFontSize.style.display = visibility.fontSize ? 'inline-flex' : 'none';
+  ui.topOpacity.style.display = visibility.opacity ? 'inline-flex' : 'none';
 
   const style = getObjectStyle(target || targets[0]);
   ui.fillControl.setDisabled(false);
   ui.strokeControl.setDisabled(false);
   ui.strokeWidthInput.disabled = false;
+  ui.opacityInput.disabled = false;
   ui.fontSizeInput.disabled = !visibility.fontSize;
   ui.fontFamilySelect.disabled = !visibility.fontSize;
   ui.strokeWidthInput.style.opacity = '1';
@@ -2854,6 +2990,10 @@ function updateTopBarForSelection(instance) {
   ui.radiusInput.style.color = '#0f172a';
   ui.radiusInput.style.borderColor = '#cbd5e1';
   ui.radiusInput.placeholder = '';
+  ui.opacityInput.style.background = '#ffffff';
+  ui.opacityInput.style.color = '#0f172a';
+  ui.opacityInput.style.borderColor = '#cbd5e1';
+  ui.opacityInput.placeholder = '';
   ui.fillControl.setMixed(false);
   ui.strokeControl.setMixed(false);
 
@@ -2868,13 +3008,25 @@ function updateTopBarForSelection(instance) {
       syncFontFamilySelect(ui, rawFf, false);
     }
     const supportsRadius = visibility.radius
-      && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target));
+      && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target) || isFabricRasterImage(target));
     ui.radiusInput.disabled = !supportsRadius;
     const polygonRadius = Number.isFinite(Number(target.cornerRadius)) ? Number(target.cornerRadius) : 0;
     ui.radiusInput.value = supportsRadius
       ? String(isRoundedPolygonShape(target) ? polygonRadius : style.radius)
       : '0';
     ui.radiusInput.style.opacity = supportsRadius ? '1' : '0.55';
+    ui.opacityInput.disabled = !visibility.opacity;
+    if (visibility.opacity) {
+      ui.opacityInput.value = String(Math.round(style.opacity * 100));
+      ui.opacityInput.style.opacity = '1';
+      ui.opacityInput.style.background = '#ffffff';
+      ui.opacityInput.style.color = '#0f172a';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+      ui.opacityInput.placeholder = '';
+    } else {
+      ui.opacityInput.value = '100';
+      ui.opacityInput.style.opacity = '0.55';
+    }
     return;
   }
 
@@ -2891,11 +3043,15 @@ function updateTopBarForSelection(instance) {
   const radiusShared = getSharedValue(targets, (item) => {
     if (isRoundedPolygonShape(item)) return Number.isFinite(Number(item.cornerRadius)) ? Number(item.cornerRadius) : 0;
     if (item.type === 'rect') return getRectCornerRadiusPx(item);
+    if (isFabricRasterImage(item)) {
+      return Number.isFinite(Number(item.cornerRadiusPx)) ? Math.max(0, Number(item.cornerRadiusPx)) : 0;
+    }
     if (Number.isFinite(Number(item.rx))) {
       return Number(item.rx);
     }
     return null;
   });
+  const opacityShared = getSharedValue(styleList, (item) => item.opacity);
 
   ui.fillControl.setColor(fillShared.mixed ? 'transparent' : fillShared.value);
   ui.fillControl.setMixed(fillShared.mixed);
@@ -2932,6 +3088,28 @@ function updateTopBarForSelection(instance) {
         : DEFAULT_TEXT_FONT_FAMILY;
       syncFontFamilySelect(ui, rawFf, false);
     }
+  }
+
+  if (visibility.opacity) {
+    ui.opacityInput.disabled = false;
+    ui.opacityInput.style.opacity = '1';
+    if (opacityShared.mixed) {
+      ui.opacityInput.value = '';
+      ui.opacityInput.placeholder = 'mix';
+      ui.opacityInput.style.background = '#f1f5f9';
+      ui.opacityInput.style.color = '#64748b';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+    } else {
+      ui.opacityInput.value = String(Math.max(0, Math.min(100, Math.round(Number(opacityShared.value) * 100))));
+      ui.opacityInput.style.background = '#ffffff';
+      ui.opacityInput.style.color = '#0f172a';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+      ui.opacityInput.placeholder = '';
+    }
+  } else {
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.value = '100';
+    ui.opacityInput.style.opacity = '0.55';
   }
 
   if (visibility.radius) {
@@ -4649,6 +4827,10 @@ function buildFabricClipboardJsonString(targets) {
     }
     applyStyleToSelection(instance, { strokeWidth });
   });
+  ui.opacityInput.addEventListener('input', () => {
+    const pct = Math.max(0, Math.min(100, Number(ui.opacityInput.value || 0)));
+    applyStyleToSelection(instance, { opacity: pct / 100 });
+  });
   ui.radiusInput.addEventListener('input', () => {
     const active = fabricCanvas.getActiveObject();
     if (!active) return;
@@ -4663,6 +4845,12 @@ function buildFabricClipboardJsonString(targets) {
           replacement.cornerRadiusPx = radius;
           updated.push(replacement);
         }
+        return;
+      }
+      if (isFabricRasterImage(target)) {
+        applyImageCornerRadiusPx(target, fabricLib, radius);
+        if (typeof target.setCoords === 'function') target.setCoords();
+        updated.push(target);
         return;
       }
       if (target.type === 'rect') {
@@ -4871,6 +5059,13 @@ function buildFabricClipboardJsonString(targets) {
       applyRectCornerRadiusPx(target, lockedRadiusPx);
     }
 
+    if (isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
+      const lockedPx = original && Number.isFinite(Number(original.cornerRadiusPx))
+        ? Math.max(0, Number(original.cornerRadiusPx))
+        : Math.max(0, Number(target.cornerRadiusPx));
+      applyImageCornerRadiusPx(target, fabricLib, lockedPx);
+    }
+
     if (original && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
       const sxFinal = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
       const syFinal = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);
@@ -4905,6 +5100,9 @@ function buildFabricClipboardJsonString(targets) {
     if (target && target.type === 'rect' && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
       const lockedRadiusPx = getRectCornerRadiusPx(target);
       applyRectCornerRadiusPx(target, lockedRadiusPx);
+    }
+    if (target && isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
+      applyImageCornerRadiusPx(target, instance.data.fabricLib, Number(target.cornerRadiusPx));
     }
     if (target && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
       if (!Number.isFinite(Number(target.cornerRadiusPx))) {
