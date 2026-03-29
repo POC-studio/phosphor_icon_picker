@@ -4155,6 +4155,7 @@ function buildFabricClipboardJsonString(targets) {
   bookmarkMenu.style.display = 'none';
   bookmarkMenu.style.flexDirection = 'column';
   bookmarkMenu.style.alignItems = 'stretch';
+  bookmarkMenu.style.gap = '8px';
   bookmarkMenu.style.padding = '10px';
   bookmarkMenu.style.background = '#ffffff';
   bookmarkMenu.style.border = '1px solid #e2e8f0';
@@ -4164,6 +4165,23 @@ function buildFabricClipboardJsonString(targets) {
   bookmarkMenu.style.width = '198px';
   bookmarkMenu.style.boxSizing = 'border-box';
   bookmarkMenu.style.overflow = 'hidden';
+
+  const bookmarkSearch = document.createElement('input');
+  bookmarkSearch.type = 'text';
+  bookmarkSearch.placeholder = 'Search bookmark...';
+  bookmarkSearch.autocomplete = 'off';
+  bookmarkSearch.spellcheck = false;
+  bookmarkSearch.style.height = '32px';
+  bookmarkSearch.style.border = '1px solid #cbd5e1';
+  bookmarkSearch.style.borderRadius = '8px';
+  bookmarkSearch.style.padding = '0 10px';
+  bookmarkSearch.style.fontSize = '12px';
+  bookmarkSearch.style.outline = 'none';
+  bookmarkSearch.style.color = '#0f172a';
+  bookmarkSearch.style.background = '#ffffff';
+  bookmarkSearch.style.boxSizing = 'border-box';
+  bookmarkSearch.style.width = '100%';
+  bookmarkMenu.appendChild(bookmarkSearch);
 
   const bookmarkScroll = document.createElement('div');
   bookmarkScroll.style.flex = '1';
@@ -4183,9 +4201,27 @@ function buildFabricClipboardJsonString(targets) {
     bookmarkMenu.style.left = '62px';
   };
 
+  const getBookmarkSearchHaystack = (item) => {
+    const contributor = String(item && item.contributor != null ? item.contributor : '').trim().toLowerCase();
+    const url = String(item && item.image_url ? item.image_url : '').trim();
+    let fileName = '';
+    try {
+      const u = new URL(url, 'https://placeholder.local');
+      const parts = u.pathname.split('/').filter(Boolean);
+      fileName = decodeURIComponent(parts[parts.length - 1] || '').toLowerCase();
+    } catch (e) {
+      fileName = '';
+    }
+    return `${contributor} ${fileName} ${url.toLowerCase()}`.trim();
+  };
+
   const renderBookmarksPanel = () => {
     bookmarkScroll.innerHTML = '';
     const list = Array.isArray(instance.data.bookmarksList) ? instance.data.bookmarksList : [];
+    const q = String(bookmarkSearch.value || '').trim().toLowerCase();
+    const filtered = q
+      ? list.filter((item) => getBookmarkSearchHaystack(item).includes(q))
+      : list;
     if (list.length === 0) {
       const empty = document.createElement('div');
       empty.textContent = 'Aucun bookmark';
@@ -4196,7 +4232,17 @@ function buildFabricClipboardJsonString(targets) {
       bookmarkScroll.appendChild(empty);
       return;
     }
-    list.forEach((item) => {
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.textContent = 'No bookmark found.';
+      empty.style.fontSize = '12px';
+      empty.style.color = '#64748b';
+      empty.style.padding = '8px 4px';
+      empty.style.textAlign = 'center';
+      bookmarkScroll.appendChild(empty);
+      return;
+    }
+    filtered.forEach((item) => {
       const row = document.createElement('button');
       row.type = 'button';
       row.style.display = 'flex';
@@ -4263,6 +4309,10 @@ function buildFabricClipboardJsonString(targets) {
       bookmarkScroll.appendChild(row);
     });
   };
+
+  bookmarkSearch.addEventListener('input', () => {
+    renderBookmarksPanel();
+  });
 
   instance.data.refreshBookmarksPanel = renderBookmarksPanel;
   ui.root.appendChild(bookmarkMenu);
@@ -4394,6 +4444,7 @@ function buildFabricClipboardJsonString(targets) {
       syncBookmarkMenuPosition();
       renderBookmarksPanel();
       bookmarkMenu.style.display = 'flex';
+      bookmarkSearch.focus();
     } else {
       bookmarkMenu.style.display = 'none';
     }
