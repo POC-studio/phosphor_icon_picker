@@ -6,7 +6,7 @@ const FONT_PRESETS = [
   { label: 'Fraunces', fontFamily: "'Fraunces'" },
   { label: 'Schoolbell', fontFamily: "'Schoolbell'" },
   { label: 'Space Grotesk', fontFamily: "'Space Grotesk'" },
-  { label: 'Archivo Black', fontFamily: "'Archivo Black'" },
+  { label: 'Ultra', fontFamily: "'Ultra'" },
 ];
 const DEFAULT_TEXT_FONT_FAMILY = FONT_PRESETS[0].fontFamily;
 
