@@ -2,11 +2,11 @@ export default function(instance, context) {
 const RANDOM_COLORS = ['#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ef4444', '#0ea5e9', '#f59e0b'];
 
 const FONT_PRESETS = [
-  { label: 'Special Elite', fontFamily: "'Special Elite', cursive" },
-  { label: 'Fraunces', fontFamily: "'Fraunces', serif" },
-  { label: 'Syne', fontFamily: "'Syne', sans-serif" },
-  { label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
-  { label: 'Archivo Black', fontFamily: "'Archivo Black', sans-serif" },
+  { label: 'Special Elite', fontFamily: "'Special Elite'" },
+  { label: 'Fraunces', fontFamily: "'Fraunces'" },
+  { label: 'Schoolbell', fontFamily: "'Schoolbell'" },
+  { label: 'Space Grotesk', fontFamily: "'Space Grotesk'" },
+  { label: 'Archivo Black', fontFamily: "'Archivo Black'" },
 ];
 const DEFAULT_TEXT_FONT_FAMILY = FONT_PRESETS[0].fontFamily;
 
@@ -559,6 +559,8 @@ const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
 ];
 const PHOSPHOR_STYLES = ['regular', 'bold', 'fill', 'light', 'thin', 'duotone'];
 const ARTBOARD_VIEWER_MARGIN_PX = 24;
+/** Alt+drag duplicate : ignore le bruit avant ce déplacement (px). */
+const ALT_DUP_MIN_MOVE_PX = 5;
 
 /** 5 mm @ 300 dpi — même logique que le plan (A4 plié, 3 pages). */
 const PX_PER_MM = 300 / 25.4;
@@ -739,7 +741,31 @@ function getSharedValue(items, getter) {
 
 function normalizeFontFamily(value) {
   if (value == null || typeof value !== 'string') return '';
-  return value.trim().replace(/\s+/g, ' ').replace(/['"]/g, '').toLowerCase();
+  const first = value.split(',')[0].trim();
+  return first.replace(/\s+/g, ' ').replace(/['"]/g, '').toLowerCase();
+}
+
+/** Après changement de fontFamily : attend la face web puis remesure + redraw (évite le rendu en fallback générique). */
+function loadWebFontsThenRedraw(fabricCanvas, targets) {
+  if (!fabricCanvas || !Array.isArray(targets) || targets.length === 0) return;
+  const doc = typeof document !== 'undefined' ? document : null;
+  if (!doc || !doc.fonts || typeof doc.fonts.load !== 'function') {
+    fabricCanvas.requestRenderAll();
+    return;
+  }
+  const loads = targets.map((target) => {
+    const size = Number.isFinite(Number(target.fontSize)) ? Math.max(1, Math.min(400, Number(target.fontSize))) : 16;
+    const ff = typeof target.fontFamily === 'string' ? target.fontFamily.trim() : '';
+    if (!ff) return Promise.resolve();
+    return doc.fonts.load(`${size}px ${ff}`).catch(() => {});
+  });
+  Promise.all(loads).finally(() => {
+    targets.forEach((t) => {
+      if (typeof t.initDimensions === 'function') t.initDimensions();
+      if (typeof t.setCoords === 'function') t.setCoords();
+    });
+    fabricCanvas.requestRenderAll();
+  });
 }
 
 function syncFontFamilySelect(ui, rawFontFamily, mixed) {
@@ -867,13 +893,30 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   if (!active || target !== active) return;
   if (!instance.data.altKeyAtMouseDown) return;
 
+  const gid = Number(instance.data._canvasPointerGestureId) || 0;
+  if (Number.isFinite(instance.data._altDupClonedGestureId) && instance.data._altDupClonedGestureId === gid) {
+    return;
+  }
+
+  const moveEv = e.e;
+  if (moveEv && Number.isFinite(Number(instance.data._altDupDownClientX)) && Number.isFinite(Number(instance.data._altDupDownClientY))) {
+    const dx = (Number(moveEv.clientX) || 0) - Number(instance.data._altDupDownClientX);
+    const dy = (Number(moveEv.clientY) || 0) - Number(instance.data._altDupDownClientY);
+    if (dx * dx + dy * dy < ALT_DUP_MIN_MOVE_PX * ALT_DUP_MIN_MOVE_PX) {
+      return;
+    }
+  }
+
   const orig = transform.original;
 
+  const prevCommitted = instance.data._altDupClonedGestureId;
+  instance.data._altDupClonedGestureId = gid;
   instance.data._altDuplicateDone = true;
 
   const cloneSource = active;
   const done = (cloned) => {
     if (!cloned) {
+      instance.data._altDupClonedGestureId = prevCommitted;
       instance.data._altDuplicateDone = false;
       return;
     }
@@ -894,6 +937,7 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   };
 
   if (typeof cloneSource.clone !== 'function') {
+    instance.data._altDupClonedGestureId = prevCommitted;
     instance.data._altDuplicateDone = false;
     return;
   }
@@ -902,12 +946,14 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
     const result = cloneSource.clone();
     if (result && typeof result.then === 'function') {
       result.then(done).catch(() => {
+        instance.data._altDupClonedGestureId = prevCommitted;
         instance.data._altDuplicateDone = false;
       });
     } else {
       done(result);
     }
   } catch (err) {
+    instance.data._altDupClonedGestureId = prevCommitted;
     instance.data._altDuplicateDone = false;
   }
 }
@@ -3271,6 +3317,10 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.panLastClientY = 0;
   instance.data.altKeyAtMouseDown = false;
   instance.data._altDuplicateDone = false;
+  instance.data._canvasPointerGestureId = 0;
+  instance.data._altDupClonedGestureId = null;
+  instance.data._altDupDownClientX = null;
+  instance.data._altDupDownClientY = null;
 
   const applyPenBrush = () => {
     if (!fabricCanvas.freeDrawingBrush && typeof fabricLib.PencilBrush === 'function') {
@@ -3283,6 +3333,26 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.freeDrawingBrush.strokeLineCap = 'round';
     fabricCanvas.freeDrawingBrush.strokeLineJoin = 'round';
     fabricCanvas.freeDrawingBrush.decimate = 10;
+  };
+
+  const setActiveToolButton = (activeBtn) => {
+    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
+      btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
+    });
+  };
+
+  /** Seuls draw / pan ont un état « actif » persistant ; le reste est ponctuel. */
+  const syncToolButtonHighlightToMode = () => {
+    const m = instance.data.toolMode;
+    if (m === 'draw') {
+      setActiveToolButton(ui.penBtn);
+    } else if (m === 'pan') {
+      setActiveToolButton(ui.panBtn);
+    } else {
+      setActiveToolButton(null);
+    }
   };
 
   const setToolMode = (mode) => {
@@ -3306,19 +3376,12 @@ function buildFabricClipboardJsonString(targets) {
     }
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
-  const setActiveToolButton = (activeBtn) => {
-    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
-      if (!btn) return;
-      btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
-      btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
-    });
-  };
   const exitPanMode = () => {
     if (instance.data.toolMode !== 'pan') return;
     setToolMode('select');
-    setActiveToolButton(null);
   };
 
   const removeEmptySelectionContainers = () => {
@@ -3702,6 +3765,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.setActiveObject(shape);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
   const addPhosphorSvg = async (iconName, style = 'regular') => {
@@ -3760,6 +3824,7 @@ function buildFabricClipboardJsonString(targets) {
       fabricCanvas.setActiveObject(fallback);
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
+      syncToolButtonHighlightToMode();
       return;
     }
 
@@ -3792,6 +3857,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.setActiveObject(grouped);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
   const snapshots = [];
@@ -3828,7 +3894,6 @@ function buildFabricClipboardJsonString(targets) {
   ui.textBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.textBtn);
     const docSize = getDocumentSize(instance);
     const text = createDefaultTextbox(fabricLib, docSize.width, docSize.height);
     if (!text) return;
@@ -4059,14 +4124,12 @@ function buildFabricClipboardJsonString(targets) {
   ui.shapeBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.shapeBtn);
     iconMenu.style.display = 'none';
     shapeMenu.style.display = shapeMenu.style.display === 'none' ? 'flex' : 'none';
   });
   ui.iconBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.iconBtn);
     shapeMenu.style.display = 'none';
     const willOpen = iconMenu.style.display === 'none';
     iconMenu.style.display = willOpen ? 'flex' : 'none';
@@ -4085,7 +4148,6 @@ function buildFabricClipboardJsonString(targets) {
     iconMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'draw' ? 'select' : 'draw';
     setToolMode(nextMode);
-    setActiveToolButton(nextMode === 'draw' ? ui.penBtn : null);
   });
   ui.panBtn.addEventListener('click', (event) => {
     if (event) {
@@ -4096,7 +4158,6 @@ function buildFabricClipboardJsonString(targets) {
     iconMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'pan' ? 'select' : 'pan';
     setToolMode(nextMode);
-    setActiveToolButton(nextMode === 'pan' ? ui.panBtn : null);
   });
 
   const imageFileInput = document.createElement('input');
@@ -4152,13 +4213,14 @@ function buildFabricClipboardJsonString(targets) {
       }
     } catch (e) {
       console.error('[FabricView image picker] chargement image', e);
+    } finally {
+      syncToolButtonHighlightToMode();
     }
   });
 
   ui.imageBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.imageBtn);
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
     imageFileInput.click();
@@ -4167,7 +4229,6 @@ function buildFabricClipboardJsonString(targets) {
   ui.bookmarkBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.bookmarkBtn);
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
   });
@@ -4250,7 +4311,6 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardPrevBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i <= 0) return;
     goToArtboard(instance, i - 1).then(() => {
@@ -4262,7 +4322,6 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardNextBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i >= 2) return;
     goToArtboard(instance, i + 1).then(() => {
@@ -4273,7 +4332,6 @@ function buildFabricClipboardJsonString(targets) {
   ui.artboardDownloadBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
     void triggerFoldedA4PdfDownload(instance);
   });
   updateZoomButtons();
@@ -4421,6 +4479,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
+    loadWebFontsThenRedraw(fabricCanvas, targets);
   });
   ui.fontFamilySelect.addEventListener('change', () => {
     const nextFamily = ui.fontFamilySelect.value;
@@ -4436,6 +4495,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
+    loadWebFontsThenRedraw(fabricCanvas, targets);
   });
 
   const onSelectionChanged = () => {
@@ -4463,7 +4523,10 @@ function buildFabricClipboardJsonString(targets) {
   fabricCanvas.on('selection:updated', onSelectionChanged);
   fabricCanvas.on('selection:cleared', onSelectionCleared);
   fabricCanvas.on('mouse:down', (opt) => {
+    instance.data._canvasPointerGestureId = (Number(instance.data._canvasPointerGestureId) || 0) + 1;
     instance.data.altKeyAtMouseDown = false;
+    instance.data._altDupDownClientX = null;
+    instance.data._altDupDownClientY = null;
     if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
     const t = opt.target;
     if (!t || t.isArtboard || t.isSafeZone) return;
@@ -4471,10 +4534,18 @@ function buildFabricClipboardJsonString(targets) {
     if (!active) return;
     if (!isPartOfActiveObject(active, t)) return;
     instance.data.altKeyAtMouseDown = !!opt.e.altKey;
+    if (opt.e && instance.data.altKeyAtMouseDown) {
+      instance.data._altDupDownClientX = Number(opt.e.clientX) || 0;
+      instance.data._altDupDownClientY = Number(opt.e.clientY) || 0;
+    }
   });
   fabricCanvas.on('object:moving', (e) => {
     if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
     if (!instance.data.altKeyAtMouseDown) return;
+    const gid = Number(instance.data._canvasPointerGestureId) || 0;
+    if (Number.isFinite(instance.data._altDupClonedGestureId) && instance.data._altDupClonedGestureId === gid) {
+      return;
+    }
     if (instance.data._altDuplicateDone) return;
     performAltDuplicateDrag(instance, fabricCanvas, e);
   });
@@ -4517,6 +4588,13 @@ function buildFabricClipboardJsonString(targets) {
     instance.data.isPanning = false;
     ui.board.style.cursor = instance.data.toolMode === 'pan' ? 'grab' : '';
   });
+  const onWindowPointerUp = () => {
+    instance.data.altKeyAtMouseDown = false;
+    instance.data._altDuplicateDone = false;
+  };
+  window.addEventListener('pointerup', onWindowPointerUp, true);
+  instance.data._altDupWindowPointerUp = onWindowPointerUp;
+
   fabricCanvas.on('mouse:up', () => {
     instance.data.altKeyAtMouseDown = false;
     instance.data._altDuplicateDone = false;
@@ -4713,6 +4791,6 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
   instance.data.loadWrappedCanvasJson = (jsonString) => loadWrappedCanvasJson(instance, jsonString);
-  setActiveToolButton(null);
+  syncToolButtonHighlightToMode();
   /* Pas de publishCanvasJson ici : update() charge initial_json → loadWrappedCanvasJson lève _suppress puis publie (évite d’écraser Bubble avec les 3 pages vides du bootstrap). */
 }
