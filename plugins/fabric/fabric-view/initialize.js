@@ -243,7 +243,10 @@ function applySwatchStyle(swatch, swatchMode, color) {
     swatch.style.background = 'transparent';
     return;
   }
-  swatch.style.border = 'none';
+  // Quand la couleur de fond est blanche, une bordure est nécessaire pour rester visible.
+  const normalized = typeof color === 'string' ? color.trim().toLowerCase() : '';
+  const isWhite = normalized === '#ffffff' || normalized === '#fff';
+  swatch.style.border = isWhite ? '1px solid #cbd5e1' : 'none';
   swatch.style.background = color;
 }
 
@@ -2779,6 +2782,7 @@ function buildShell() {
   const textBtn = mkBtn('ph ph-text-t', 'Text');
   const shapeBtn = mkBtn('ph ph-square', 'Shape');
   const iconBtn = mkBtn('ph ph-smiley', 'Emojis');
+  const tableBtn = mkBtn('ph ph-grid-nine', 'Table');
   const penBtn = mkBtn('ph ph-pen', 'Pen');
   const panBtn = mkBtn('ph ph-hand', 'Pan');
   const imageBtn = mkBtn('ph ph-image', 'Image');
@@ -2790,6 +2794,7 @@ function buildShell() {
   leftBar.appendChild(textBtn);
   leftBar.appendChild(shapeBtn);
   leftBar.appendChild(iconBtn);
+  leftBar.appendChild(tableBtn);
   leftBar.appendChild(penBtn);
   leftBar.appendChild(imageBtn);
   leftBar.appendChild(bookmarkBtn);
@@ -2828,6 +2833,7 @@ function buildShell() {
     canvasEl,
     textBtn,
     iconBtn,
+    tableBtn,
     penBtn,
     panBtn,
     imageBtn,
@@ -3653,6 +3659,21 @@ function buildFabricClipboardJsonString(targets) {
     });
     fabricCanvas.remove(active);
 
+    // Fabric 6: après retrait du Group, certains enfants peuvent ne plus être présents
+    // sur le canvas (donc invisibles / in-sélectionnables). On les ré-ajoute explicitement.
+    if (typeof fabricCanvas.add === 'function') {
+      const existing = new Set(
+        typeof fabricCanvas.getObjects === 'function' ? fabricCanvas.getObjects() : []
+      );
+      children.forEach((obj) => {
+        if (!obj) return;
+        if (existing.has(obj)) return;
+        fabricCanvas.add(obj);
+        if (typeof obj.setCoords === 'function') obj.setCoords();
+        obj.visible = obj.visible !== false;
+      });
+    }
+
     if (typeof fabricLib.ActiveSelection === 'function') {
       const selection = new fabricLib.ActiveSelection(children, { canvas: fabricCanvas });
       fabricCanvas.setActiveObject(selection);
@@ -3964,6 +3985,82 @@ function buildFabricClipboardJsonString(targets) {
     if (!shape) return;
     fabricCanvas.add(shape);
     fabricCanvas.setActiveObject(shape);
+    fabricCanvas.requestRenderAll();
+    updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
+  };
+
+  const addTableGrid = (cols, rows) => {
+    const safeCols = Math.max(1, Math.floor(Number(cols) || 1));
+    const safeRows = Math.max(1, Math.floor(Number(rows) || 1));
+    const doc = getDocumentSize(instance);
+
+    // Fit à 80% max (on garde le ratio 4:1 des cellules).
+    const tableMaxW = doc.width * 0.8;
+    const tableMaxH = doc.height * 0.8;
+
+    const cellH = Math.min(tableMaxW / (safeCols * 3), tableMaxH / safeRows);
+    const cellW = 3 * cellH;
+    const tableW = safeCols * cellW;
+    const tableH = safeRows * cellH;
+
+    const center = getDocumentCenter(instance);
+    const groupLeft = center.x - tableW / 2;
+    const groupTop = center.y - tableH / 2;
+
+    // Fond couleur modifiable (via barre de propriétés quand le groupe est sélectionné).
+    const bgFill = '#ffffff';
+    const gridStroke = '#cbd5e1';
+    const gridStrokeWidth = 1;
+
+    const backgroundRect = new fabricLib.Rect({
+      left: 0,
+      top: 0,
+      width: tableW,
+      height: tableH,
+      fill: bgFill,
+      stroke: '#00000000',
+      strokeWidth: 0,
+      originX: 'left',
+      originY: 'top',
+    });
+
+    const lines = [];
+    for (let c = 0; c <= safeCols; c++) {
+      const x = c * cellW;
+      lines.push(new fabricLib.Line([x, 0, x, tableH], {
+        stroke: gridStroke,
+        strokeWidth: gridStrokeWidth,
+        fill: bgFill,
+        strokeUniform: true,
+      }));
+    }
+    for (let r = 0; r <= safeRows; r++) {
+      const y = r * cellH;
+      lines.push(new fabricLib.Line([0, y, tableW, y], {
+        stroke: gridStroke,
+        strokeWidth: gridStrokeWidth,
+        fill: bgFill,
+        strokeUniform: true,
+      }));
+    }
+
+    const group = new fabricLib.Group([backgroundRect, ...lines], {
+      left: groupLeft,
+      top: groupTop,
+      originX: 'left',
+      originY: 'top',
+      // Important: la logique d'ungroup du projet suppose que le groupe est "lié" au canvas.
+      canvas: fabricCanvas,
+    });
+
+    if (typeof group.triggerLayout === 'function') {
+      group.triggerLayout();
+    } else if (typeof group.setCoords === 'function') {
+      group.setCoords();
+    }
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
     syncToolButtonHighlightToMode();
@@ -4496,10 +4593,124 @@ function buildFabricClipboardJsonString(targets) {
   ui.root.appendChild(bookmarkMenu);
   instance.data.bookmarkMenu = bookmarkMenu;
 
+  const tableMenu = document.createElement('div');
+  const TABLE_PANEL_EDGE = BOOKMARK_PANEL_EDGE;
+  tableMenu.style.position = 'absolute';
+  tableMenu.style.left = '62px';
+  tableMenu.style.display = 'none';
+  tableMenu.style.flexDirection = 'column';
+  tableMenu.style.alignItems = 'stretch';
+  tableMenu.style.gap = '8px';
+  tableMenu.style.padding = '10px';
+  tableMenu.style.background = '#ffffff';
+  tableMenu.style.border = '1px solid #e2e8f0';
+  tableMenu.style.borderRadius = '12px';
+  tableMenu.style.boxShadow = '0 10px 25px rgba(15, 23, 42, 0.16)';
+  tableMenu.style.zIndex = '25';
+  tableMenu.style.width = '198px';
+  tableMenu.style.boxSizing = 'border-box';
+  tableMenu.style.overflow = 'hidden';
+
+  const tableSizeLabel = document.createElement('div');
+  tableSizeLabel.style.fontSize = '11px';
+  tableSizeLabel.style.color = '#64748b';
+  tableSizeLabel.style.padding = '6px 0';
+  tableSizeLabel.style.textAlign = 'left';
+  tableSizeLabel.textContent = '—';
+  tableMenu.appendChild(tableSizeLabel);
+
+  const tableGridScroller = document.createElement('div');
+  tableGridScroller.style.flex = '1';
+  tableGridScroller.style.minHeight = '0';
+  tableGridScroller.style.overflowY = 'hidden';
+  tableGridScroller.style.overflowX = 'hidden';
+  tableGridScroller.style.display = 'flex';
+  tableGridScroller.style.flexDirection = 'column';
+  tableGridScroller.style.paddingRight = '4px';
+  tableMenu.appendChild(tableGridScroller);
+
+  const tablePickerGrid = document.createElement('div');
+  const GRID_COLS = 10;
+  const GRID_ROWS = 15;
+  const CELL_GAP_PX = 4;
+  const DEFAULT_BG = '#ffffff';
+  const DEFAULT_BORDER = '#cbd5e1';
+  const ACTIVE_BG = '#eef2ff';
+  const ACTIVE_BORDER = '#93c5fd';
+  const CELL_SIZE_PX = 14;
+  const cellEls = [];
+  tablePickerGrid.style.display = 'grid';
+  tablePickerGrid.style.gap = `${CELL_GAP_PX}px`;
+  tablePickerGrid.style.justifyContent = 'space-between';
+  tablePickerGrid.style.gridTemplateColumns = `repeat(${GRID_COLS}, ${CELL_SIZE_PX}px)`;
+  tablePickerGrid.style.gridTemplateRows = `repeat(${GRID_ROWS}, ${CELL_SIZE_PX}px)`;
+  tableGridScroller.appendChild(tablePickerGrid);
+
+  // Fit: la hauteur du volet doit dépendre du contenu, pas l'inverse.
+  // On fixe la hauteur du scroller pour éviter d'étirer le menu avec un "bottom".
+  const tableGridHeightPx = GRID_ROWS * CELL_SIZE_PX + (GRID_ROWS - 1) * CELL_GAP_PX;
+  tableGridScroller.style.height = `${tableGridHeightPx}px`;
+
+  const setAllCellsHoverState = (hoveredIndex) => {
+    const hasHover = Number.isFinite(Number(hoveredIndex));
+    const idxN = hasHover ? Number(hoveredIndex) : null;
+    const hoveredCol = hasHover ? (idxN % GRID_COLS) : null; // 0-based
+    const hoveredRow = hasHover ? Math.floor(idxN / GRID_COLS) : null; // 0-based
+    cellEls.forEach((el) => {
+      const idx = Number(el.dataset.tableIndex || 0);
+      const col = idx % GRID_COLS; // 0-based
+      const row = Math.floor(idx / GRID_COLS); // 0-based
+      const active = hasHover && col <= hoveredCol && row <= hoveredRow;
+      el.style.background = active ? ACTIVE_BG : DEFAULT_BG;
+      el.style.borderColor = active ? ACTIVE_BORDER : DEFAULT_BORDER;
+    });
+  };
+
+  // Taille des carrés fixe : pas de recalcul nécessaire.
+
+  const syncTableMenuPosition = () => {
+    const topBarH = ui.topBar ? ui.topBar.offsetHeight : 52;
+    tableMenu.style.top = `${topBarH + TABLE_PANEL_EDGE}px`;
+    tableMenu.style.bottom = 'auto';
+    tableMenu.style.left = '62px';
+  };
+
+  for (let r = 1; r <= GRID_ROWS; r++) {
+    for (let c = 1; c <= GRID_COLS; c++) {
+      const cell = document.createElement('div');
+      const index = (r - 1) * GRID_COLS + (c - 1);
+      cell.dataset.tableIndex = String(index);
+      cell.style.width = `${CELL_SIZE_PX}px`;
+      cell.style.height = `${CELL_SIZE_PX}px`;
+      cell.style.border = '1px solid transparent';
+      cell.style.borderColor = DEFAULT_BORDER;
+      cell.style.borderRadius = '3px';
+      cell.style.background = DEFAULT_BG;
+      cell.style.cursor = 'pointer';
+      cell.style.boxSizing = 'border-box';
+      cell.addEventListener('mouseenter', () => {
+        tableSizeLabel.textContent = `${c} x ${r}`;
+        setAllCellsHoverState(index);
+      });
+      cell.addEventListener('click', () => {
+        tableMenu.style.display = 'none';
+        addTableGrid(c, r);
+      });
+      tablePickerGrid.appendChild(cell);
+      cellEls.push(cell);
+    }
+  }
+
+  tablePickerGrid.addEventListener('mouseleave', () => setAllCellsHoverState(null));
+
+  ui.root.appendChild(tableMenu);
+  instance.data.tableMenu = tableMenu;
+
   const closeFloatingMenus = () => {
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
     bookmarkMenu.style.display = 'none';
+    tableMenu.style.display = 'none';
   };
 
   ui.shapeBtn.addEventListener('click', () => {
@@ -4521,6 +4732,23 @@ function buildFabricClipboardJsonString(targets) {
       iconSearch.focus();
     }
   });
+
+  ui.tableBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
+    const willOpen = tableMenu.style.display === 'none';
+    tableMenu.style.display = willOpen ? 'flex' : 'none';
+    if (willOpen) {
+      syncTableMenuPosition();
+      setAllCellsHoverState(null);
+    } else {
+      setAllCellsHoverState(null);
+    }
+  });
+
   ui.penBtn.addEventListener('click', (event) => {
     if (event) {
       event.preventDefault();
@@ -5179,11 +5407,14 @@ function buildFabricClipboardJsonString(targets) {
     const clickedIconMenu = iconMenu.contains(target);
     const clickedBookmarkTrigger = ui.bookmarkBtn.contains(target);
     const clickedBookmarkMenu = bookmarkMenu.contains(target);
+    const clickedTableTrigger = ui.tableBtn.contains(target);
+    const clickedTableMenu = tableMenu.contains(target);
     if (clickedShapeTrigger || clickedMenu || clickedIconTrigger || clickedIconMenu
-        || clickedBookmarkTrigger || clickedBookmarkMenu) return;
+        || clickedBookmarkTrigger || clickedBookmarkMenu || clickedTableTrigger || clickedTableMenu) return;
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
     bookmarkMenu.style.display = 'none';
+    tableMenu.style.display = 'none';
   }, true);
 
   if (window.ResizeObserver) {
