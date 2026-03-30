@@ -94,7 +94,7 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
     top: Math.round(maxH * 0.5 - 20),
     width: 180,
     fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-    fontSize: 30,
+    fontSize: 36,
     fontWeight: 600,
     fill: '#111827',
     stroke: '#00000000',
@@ -2248,7 +2248,7 @@ function addPastedPlainText(instance, fabricLib, text) {
     originY: 'center',
     width: Math.min(560, Math.max(120, doc.width * 0.6)),
     fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-    fontSize: 24,
+    fontSize: 30,
     fill: '#0f172a',
     strokeUniform: true,
   });
@@ -4017,7 +4017,7 @@ function buildFabricClipboardJsonString(targets) {
         originX: 'center',
         originY: 'center',
         fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: 700,
         fill: '#0f172a',
       });
@@ -4030,7 +4030,7 @@ function buildFabricClipboardJsonString(targets) {
     }
 
     const grouped = fabricLib.util.groupSVGElements(objects, options || {});
-    const initialScale = 0.16;
+    const initialScale = 0.3;
     grouped.set({
       scaleX: initialScale,
       scaleY: initialScale,
