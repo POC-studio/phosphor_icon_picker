@@ -2,11 +2,11 @@ const n=`export default function(instance, context) {
 const RANDOM_COLORS = ['#f97316', '#06b6d4', '#22c55e', '#a855f7', '#ef4444', '#0ea5e9', '#f59e0b'];
 
 const FONT_PRESETS = [
-  { label: 'Special Elite', fontFamily: "'Special Elite', cursive" },
-  { label: 'Fraunces', fontFamily: "'Fraunces', serif" },
-  { label: 'Syne', fontFamily: "'Syne', sans-serif" },
-  { label: 'Space Grotesk', fontFamily: "'Space Grotesk', sans-serif" },
-  { label: 'Archivo Black', fontFamily: "'Archivo Black', sans-serif" },
+  { label: 'JetBrains Mono', fontFamily: "'JetBrains Mono'" },
+  { label: 'Fraunces', fontFamily: "'Fraunces'" },
+  { label: 'Schoolbell', fontFamily: "'Schoolbell'" },
+  { label: 'Space Grotesk', fontFamily: "'Space Grotesk'" },
+  { label: 'Ultra', fontFamily: "'Ultra'" },
 ];
 const DEFAULT_TEXT_FONT_FAMILY = FONT_PRESETS[0].fontFamily;
 
@@ -94,7 +94,7 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
     top: Math.round(maxH * 0.5 - 20),
     width: 180,
     fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-    fontSize: 30,
+    fontSize: 36,
     fontWeight: 600,
     fill: '#111827',
     stroke: '#00000000',
@@ -151,7 +151,7 @@ function isTransparentColor(value) {
 
 function getObjectStyle(target) {
   if (!target) {
-    return { fill: 'transparent', stroke: 'transparent', strokeWidth: 1, radius: 0 };
+    return { fill: 'transparent', stroke: 'transparent', strokeWidth: 1, radius: 0, opacity: 1 };
   }
   const fill = typeof target.fill === 'string'
     ? target.fill
@@ -172,11 +172,14 @@ function getObjectStyle(target) {
   if (normalizedStroke !== 'transparent' && strokeWidth <= 0) {
     strokeWidth = 1;
   }
+  const rawOpacity = Number.isFinite(Number(target.opacity)) ? Number(target.opacity) : 1;
+  const opacity = Math.max(0, Math.min(1, rawOpacity));
   return {
     fill: normalizedFill,
     stroke: normalizedStroke,
     strokeWidth: Math.max(0, Math.min(50, strokeWidth)),
     radius: Math.max(0, Math.min(200, visualRadius)),
+    opacity,
   };
 }
 
@@ -240,7 +243,10 @@ function applySwatchStyle(swatch, swatchMode, color) {
     swatch.style.background = 'transparent';
     return;
   }
-  swatch.style.border = 'none';
+  // Quand la couleur de fond est blanche, une bordure est nécessaire pour rester visible.
+  const normalized = typeof color === 'string' ? color.trim().toLowerCase() : '';
+  const isWhite = normalized === '#ffffff' || normalized === '#fff';
+  swatch.style.border = isWhite ? '1px solid #cbd5e1' : 'none';
   swatch.style.background = color;
 }
 
@@ -541,13 +547,33 @@ function resolveFabric() {
   return null;
 }
 
+/** Identifiant stable pour chaque image raster (sérialisé via FabricObject.customProperties). */
+function newFabricImageId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return \`img_\${Math.random().toString(36).slice(2, 12)}_\${Date.now().toString(36)}\`;
+}
+
+function ensureFabricImageIdSerialization(fabricLib) {
+  if (!fabricLib || !fabricLib.FabricObject || !Array.isArray(fabricLib.FabricObject.customProperties)) return;
+  if (fabricLib.FabricObject.customProperties.indexOf('id') === -1) {
+    fabricLib.FabricObject.customProperties.push('id');
+  }
+  if (fabricLib.FabricObject.customProperties.indexOf('cornerRadiusPx') === -1) {
+    fabricLib.FabricObject.customProperties.push('cornerRadiusPx');
+  }
+}
+
 const TOOLBAR_VISIBILITY_BY_TYPE = {
-  default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
-  rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false },
-  circle: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false },
-  textbox: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
-  text: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
-  iText: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true },
+  default: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false, opacity: true },
+  rect: { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: false, opacity: true },
+  circle: { fill: true, stroke: true, strokeWidth: true, radius: false, fontSize: false, opacity: true },
+  /** Raster fabric.Image : type sérialisé \`'image'\`, pas de fill (bitmap), stroke possible pour un cadre. */
+  image: { fill: false, stroke: true, strokeWidth: true, radius: true, fontSize: false, opacity: true },
+  textbox: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
+  text: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
+  iText: { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: true, opacity: true },
 };
 
 const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
@@ -557,6 +583,8 @@ const PHOSPHOR_REGULAR_ICONS_FALLBACK = [
 ];
 const PHOSPHOR_STYLES = ['regular', 'bold', 'fill', 'light', 'thin', 'duotone'];
 const ARTBOARD_VIEWER_MARGIN_PX = 24;
+/** Alt+drag duplicate : ignore le bruit avant ce déplacement (px). */
+const ALT_DUP_MIN_MOVE_PX = 5;
 
 /** 5 mm @ 300 dpi — même logique que le plan (A4 plié, 3 pages). */
 const PX_PER_MM = 300 / 25.4;
@@ -617,10 +645,15 @@ function getStyleAssetFileName(iconName, style) {
   return \`\${safeName}-\${style}.svg\`;
 }
 
+function isFabricRasterImage(target) {
+  if (!target) return false;
+  return String(target.type || '').toLowerCase() === 'image';
+}
+
 function getToolbarVisibilityForTarget(target) {
   if (!target) return TOOLBAR_VISIBILITY_BY_TYPE.default;
   if (target.iconKind) {
-    return { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: false };
+    return { fill: true, stroke: false, strokeWidth: false, radius: false, fontSize: false, opacity: true };
   }
   if (isRoundedPolygonShape(target)) {
     return { ...TOOLBAR_VISIBILITY_BY_TYPE.default, radius: true };
@@ -708,7 +741,7 @@ function getToolbarStyleTargets(fabricCanvas) {
 
 function getSharedToolbarVisibility(targets) {
   if (!Array.isArray(targets) || targets.length === 0) return TOOLBAR_VISIBILITY_BY_TYPE.default;
-  const initial = { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: true };
+  const initial = { fill: true, stroke: true, strokeWidth: true, radius: true, fontSize: true, opacity: true };
   return targets.reduce((acc, target) => {
     const v = getToolbarVisibilityForTarget(target);
     return {
@@ -717,6 +750,7 @@ function getSharedToolbarVisibility(targets) {
       strokeWidth: !!(acc.strokeWidth && v.strokeWidth),
       radius: !!(acc.radius && v.radius),
       fontSize: !!(acc.fontSize && v.fontSize),
+      opacity: !!(acc.opacity && v.opacity),
     };
   }, initial);
 }
@@ -732,7 +766,31 @@ function getSharedValue(items, getter) {
 
 function normalizeFontFamily(value) {
   if (value == null || typeof value !== 'string') return '';
-  return value.trim().replace(/\\s+/g, ' ').replace(/['"]/g, '').toLowerCase();
+  const first = value.split(',')[0].trim();
+  return first.replace(/\\s+/g, ' ').replace(/['"]/g, '').toLowerCase();
+}
+
+/** Après changement de fontFamily : attend la face web puis remesure + redraw (évite le rendu en fallback générique). */
+function loadWebFontsThenRedraw(fabricCanvas, targets) {
+  if (!fabricCanvas || !Array.isArray(targets) || targets.length === 0) return;
+  const doc = typeof document !== 'undefined' ? document : null;
+  if (!doc || !doc.fonts || typeof doc.fonts.load !== 'function') {
+    fabricCanvas.requestRenderAll();
+    return;
+  }
+  const loads = targets.map((target) => {
+    const size = Number.isFinite(Number(target.fontSize)) ? Math.max(1, Math.min(400, Number(target.fontSize))) : 16;
+    const ff = typeof target.fontFamily === 'string' ? target.fontFamily.trim() : '';
+    if (!ff) return Promise.resolve();
+    return doc.fonts.load(\`\${size}px \${ff}\`).catch(() => {});
+  });
+  Promise.all(loads).finally(() => {
+    targets.forEach((t) => {
+      if (typeof t.initDimensions === 'function') t.initDimensions();
+      if (typeof t.setCoords === 'function') t.setCoords();
+    });
+    fabricCanvas.requestRenderAll();
+  });
 }
 
 function syncFontFamilySelect(ui, rawFontFamily, mixed) {
@@ -792,6 +850,60 @@ function applyRectCornerRadiusPx(target, radiusPx) {
     cornerRadiusPx: safeRadiusPx,
     rx: safeRadiusPx / sx,
     ry: safeRadiusPx / sy,
+  });
+}
+
+/**
+ * Coins arrondis pour fabric.Image : clipPath Rect, rayon visuel constant (px) comme pour les rects.
+ */
+function applyImageCornerRadiusPx(target, fabricLib, radiusPx) {
+  if (!target || !isFabricRasterImage(target) || !fabricLib || !fabricLib.Rect) return;
+  const safePx = Math.max(0, Math.min(200, Number(radiusPx) || 0));
+  const sx = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
+  const sy = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);
+  const s = Math.min(sx, sy);
+  const w = Math.max(1e-6, Number(target.width) || 1);
+  const h = Math.max(1e-6, Number(target.height) || 1);
+  target.set({ cornerRadiusPx: safePx });
+  if (safePx <= 0) {
+    target.set({ clipPath: null });
+    if (typeof target.setCoords === 'function') target.setCoords();
+    return;
+  }
+  const rLocal = Math.min(safePx / s, w / 2, h / 2);
+  const clip = new fabricLib.Rect({
+    width: w,
+    height: h,
+    rx: rLocal,
+    ry: rLocal,
+    originX: 'center',
+    originY: 'center',
+    left: 0,
+    top: 0,
+    absolutePositioned: false,
+  });
+  target.set({ clipPath: clip });
+  if (typeof target.setCoords === 'function') target.setCoords();
+}
+
+function walkFabricObjectsDepthFirst(rootList, visit) {
+  if (!Array.isArray(rootList)) return;
+  rootList.forEach((o) => {
+    if (!o) return;
+    visit(o);
+    if (typeof o.getObjects === 'function') {
+      const kids = o.getObjects();
+      if (Array.isArray(kids)) walkFabricObjectsDepthFirst(kids, visit);
+    }
+  });
+}
+
+function syncImageCornerRadiusClipsOnCanvas(fabricCanvas, fabricLib) {
+  if (!fabricCanvas || !fabricLib) return;
+  walkFabricObjectsDepthFirst(fabricCanvas.getObjects(), (o) => {
+    if (!isFabricRasterImage(o)) return;
+    if (!Number.isFinite(Number(o.cornerRadiusPx)) || Number(o.cornerRadiusPx) <= 0) return;
+    applyImageCornerRadiusPx(o, fabricLib, Number(o.cornerRadiusPx));
   });
 }
 
@@ -860,13 +972,30 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   if (!active || target !== active) return;
   if (!instance.data.altKeyAtMouseDown) return;
 
+  const gid = Number(instance.data._canvasPointerGestureId) || 0;
+  if (Number.isFinite(instance.data._altDupClonedGestureId) && instance.data._altDupClonedGestureId === gid) {
+    return;
+  }
+
+  const moveEv = e.e;
+  if (moveEv && Number.isFinite(Number(instance.data._altDupDownClientX)) && Number.isFinite(Number(instance.data._altDupDownClientY))) {
+    const dx = (Number(moveEv.clientX) || 0) - Number(instance.data._altDupDownClientX);
+    const dy = (Number(moveEv.clientY) || 0) - Number(instance.data._altDupDownClientY);
+    if (dx * dx + dy * dy < ALT_DUP_MIN_MOVE_PX * ALT_DUP_MIN_MOVE_PX) {
+      return;
+    }
+  }
+
   const orig = transform.original;
 
+  const prevCommitted = instance.data._altDupClonedGestureId;
+  instance.data._altDupClonedGestureId = gid;
   instance.data._altDuplicateDone = true;
 
   const cloneSource = active;
   const done = (cloned) => {
     if (!cloned) {
+      instance.data._altDupClonedGestureId = prevCommitted;
       instance.data._altDuplicateDone = false;
       return;
     }
@@ -887,6 +1016,7 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   };
 
   if (typeof cloneSource.clone !== 'function') {
+    instance.data._altDupClonedGestureId = prevCommitted;
     instance.data._altDuplicateDone = false;
     return;
   }
@@ -895,51 +1025,85 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
     const result = cloneSource.clone();
     if (result && typeof result.then === 'function') {
       result.then(done).catch(() => {
+        instance.data._altDupClonedGestureId = prevCommitted;
         instance.data._altDuplicateDone = false;
       });
     } else {
       done(result);
     }
   } catch (err) {
+    instance.data._altDupClonedGestureId = prevCommitted;
     instance.data._altDuplicateDone = false;
   }
 }
 
+/**
+ * Déplace l’objet vers l’index final \`dest\` (indices avant le move).
+ * Équivalent Fabric : remove puis splice à (dest > from ? dest - 1 : dest).
+ */
+function moveCanvasObjectToFinalIndex(fabricCanvas, object, from, dest) {
+  if (!fabricCanvas || !object || from < 0 || dest < 0 || from === dest) return;
+  if (typeof fabricCanvas.moveObjectTo === 'function') {
+    const idxAfterRemoval = dest > from ? dest - 1 : dest;
+    fabricCanvas.moveObjectTo(object, idxAfterRemoval);
+    return;
+  }
+  fabricCanvas.remove(object);
+  const idxAfterRemoval = dest > from ? dest - 1 : dest;
+  const len = fabricCanvas.getObjects().length;
+  const clamped = Math.max(0, Math.min(idxAfterRemoval, len));
+  if (typeof fabricCanvas.insertAt === 'function') {
+    fabricCanvas.insertAt(clamped, object);
+  } else {
+    fabricCanvas.add(object);
+  }
+}
+
+/** Objet réellement empilé sur le canvas (sélection simple ou ActiveSelection / groupe), pas les feuilles. */
+function getZOrderStackTarget(fabricCanvas) {
+  const active = fabricCanvas && fabricCanvas.getActiveObject ? fabricCanvas.getActiveObject() : null;
+  if (!active || active.isArtboard || active.isSafeZone) return null;
+  return active;
+}
+
 function applyZOrderToSelection(fabricCanvas, action, instance) {
   if (!fabricCanvas) return;
-  const targets = getActiveSelectionTargets(fabricCanvas);
-  if (!Array.isArray(targets) || targets.length === 0) return;
+  const target = getZOrderStackTarget(fabricCanvas);
+  if (!target) return;
   const objects = fabricCanvas.getObjects();
-  const ordered = [...targets].sort((a, b) => objects.indexOf(a) - objects.indexOf(b));
+  const idx = objects.indexOf(target);
+  if (idx < 0) return;
 
-  const bringFront = (obj) => {
-    if (typeof fabricCanvas.bringObjectToFront === 'function') fabricCanvas.bringObjectToFront(obj);
-    else if (typeof obj.bringToFront === 'function') obj.bringToFront();
-  };
-  const sendBack = (obj) => {
-    if (typeof fabricCanvas.sendObjectToBack === 'function') fabricCanvas.sendObjectToBack(obj);
-    else if (typeof obj.sendToBack === 'function') obj.sendToBack();
-  };
-  const bringForward = (obj) => {
-    if (typeof fabricCanvas.bringObjectForward === 'function') fabricCanvas.bringObjectForward(obj, false);
-    else if (typeof obj.bringForward === 'function') obj.bringForward(false);
-  };
-  const sendBackward = (obj) => {
-    if (typeof fabricCanvas.sendObjectBackwards === 'function') fabricCanvas.sendObjectBackwards(obj, false);
-    else if (typeof obj.sendBackwards === 'function') obj.sendBackwards(false);
-  };
-
-  if (action === 'to-front') {
-    ordered.forEach((obj) => bringFront(obj));
-  } else if (action === 'forward') {
-    [...ordered].reverse().forEach((obj) => bringForward(obj));
-  } else if (action === 'backward') {
-    ordered.forEach((obj) => sendBackward(obj));
-  } else if (action === 'to-back') {
-    [...ordered].reverse().forEach((obj) => sendBack(obj));
+  if (instance) {
+    rebindArtboardFromCanvas(instance);
+    ensureArtboardAtBack(instance);
   }
 
-  if (instance) syncGuideLayers(instance);
+  /** Page + 1 couche réservée en dessous du contenu éditable ; premier slot contenu = 2. */
+  const minUser = 2;
+
+  if (action === 'to-back') {
+    moveCanvasObjectToFinalIndex(fabricCanvas, target, idx, minUser);
+  } else if (action === 'backward') {
+    const dest = Math.max(minUser, idx - 1);
+    moveCanvasObjectToFinalIndex(fabricCanvas, target, idx, dest);
+  } else if (action === 'forward') {
+    if (typeof fabricCanvas.bringObjectForward === 'function') fabricCanvas.bringObjectForward(target, false);
+    else if (typeof target.bringForward === 'function') target.bringForward(false);
+  } else if (action === 'to-front') {
+    if (typeof fabricCanvas.bringObjectToFront === 'function') fabricCanvas.bringObjectToFront(target);
+    else if (typeof target.bringToFront === 'function') target.bringToFront();
+  }
+
+  if (typeof fabricCanvas.setActiveObject === 'function') {
+    try {
+      fabricCanvas.setActiveObject(target);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  if (instance) syncGuideStackAfterUserZOrder(instance);
   fabricCanvas.requestRenderAll();
 }
 
@@ -965,6 +1129,7 @@ function isShapeObject(target) {
     || t === 'triangle'
     || t === 'polygon'
     || t === 'path'
+    || t === 'image'
     || isRoundedPolygonShape(target);
 }
 
@@ -1028,10 +1193,31 @@ function oppositeOriginForCorner(corner) {
   return null;
 }
 
+/**
+ * Met à jour uniquement pageSnapshots depuis le canvas courant — sans publishState.
+ * À utiliser quand on a besoin d’un snapshot à jour (ex. export PDF) sans pousser canvas_json
+ * vers Bubble (sinon des workflows peuvent réécraser le champ qui alimente initial_json).
+ */
+function syncCurrentCanvasToPageSnapshots(instance) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas) return;
+  const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
+  instance.data.activeArtboardIndex = idx;
+  if (!Array.isArray(instance.data.pageSnapshots)) {
+    instance.data.pageSnapshots = [null, null, null];
+  }
+  try {
+    instance.data.pageSnapshots[idx] = instance.data.fabricCanvas.toJSON();
+  } catch (e) {
+    /* ignore */
+  }
+}
+
 function publishCanvasJson(instance, options) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) return;
   const silent = (options && options.silent)
     || (instance.data._artboardSwapInProgress === true);
+  const forceBubble = options && options.forcePublishToBubble === true;
+  const suppressBubble = instance.data._suppressCanvasJsonPublish === true && !forceBubble;
   const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
   instance.data.activeArtboardIndex = idx;
   if (!Array.isArray(instance.data.pageSnapshots)) {
@@ -1044,14 +1230,30 @@ function publishCanvasJson(instance, options) {
       activeArtboardIndex: idx,
       artboards: instance.data.pageSnapshots.slice(),
     });
-    instance.data._lastPublishedCanvasJson = payload;
-    instance.publishState('canvas_json', payload);
+    if (!suppressBubble) {
+      instance.data._lastPublishedCanvasJson = payload;
+      instance.publishState('canvas_json', payload);
+    }
   } catch (e) {
-    instance.publishState('canvas_json', '{}');
+    /* Ne jamais publier '{}' : un workflow Bubble qui écrit canvas_json en base effacerait la donnée (ex. collage image + toJSON échoue). */
+    console.warn('Fabric View: publishCanvasJson ignoré (toJSON / stringify)', e);
   }
-  if (!silent) {
+  if (!silent && !suppressBubble) {
     instance.triggerEvent('json_changed');
   }
+}
+
+/** Regroupe les publications déclenchées par les events Fabric (collage, guides, etc.) pour limiter les rafales vers Bubble. */
+function schedulePublishCanvasJson(instance) {
+  if (!instance || !instance.data) return;
+  const d = instance.data;
+  if (d._schedulePublishCanvasJsonTimer) {
+    clearTimeout(d._schedulePublishCanvasJsonTimer);
+  }
+  d._schedulePublishCanvasJsonTimer = setTimeout(() => {
+    d._schedulePublishCanvasJsonTimer = null;
+    publishCanvasJson(instance);
+  }, 120);
 }
 
 function getJsPdfConstructor() {
@@ -1157,6 +1359,36 @@ function pdfDownloadBaseName(instance) {
     : 'document';
 }
 
+let _fabricViewPdfSpinStyleInjected = false;
+function ensureFabricViewPdfSpinStyle() {
+  if (_fabricViewPdfSpinStyleInjected || typeof document === 'undefined') return;
+  _fabricViewPdfSpinStyleInjected = true;
+  const s = document.createElement('style');
+  s.setAttribute('data-fabric-view', 'pdf-spin');
+  s.textContent = '@keyframes fabric-view-spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(s);
+}
+
+function setPdfDownloadButtonLoading(btn, loading) {
+  if (!btn) return;
+  ensureFabricViewPdfSpinStyle();
+  const icon = btn.querySelector('i');
+  btn.disabled = !!loading;
+  btn.style.pointerEvents = loading ? 'none' : '';
+  btn.title = loading ? 'Génération du PDF…' : 'Télécharger PDF (pli A4)';
+  if (icon) {
+    if (loading) {
+      icon.className = 'ph ph-circle-notch';
+      icon.style.display = 'inline-block';
+      icon.style.animation = 'fabric-view-spin 0.7s linear infinite';
+    } else {
+      icon.className = 'ph ph-download-simple';
+      icon.style.animation = '';
+      icon.style.display = '';
+    }
+  }
+}
+
 function triggerFoldedA4PdfDownload(instance) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) {
     return Promise.resolve();
@@ -1171,11 +1403,14 @@ function triggerFoldedA4PdfDownload(instance) {
     return Promise.resolve();
   }
 
-  publishCanvasJson(instance, { silent: true });
+  syncCurrentCanvasToPageSnapshots(instance);
 
   if (!Array.isArray(instance.data.pageSnapshots) || instance.data.pageSnapshots.length < 3) {
     return Promise.resolve();
   }
+
+  const downloadBtn = instance.data.ui && instance.data.ui.artboardDownloadBtn;
+  setPdfDownloadButtonLoading(downloadBtn, true);
 
   const snaps = instance.data.pageSnapshots;
   const base = pdfDownloadBaseName(instance);
@@ -1233,9 +1468,13 @@ function triggerFoldedA4PdfDownload(instance) {
     doc.save(\`\${base}.pdf\`);
   };
 
-  return run().catch((err) => {
-    console.error('Export PDF pli A4 :', err);
-  });
+  return run()
+    .catch((err) => {
+      console.error('Export PDF pli A4 :', err);
+    })
+    .finally(() => {
+      setPdfDownloadButtonLoading(downloadBtn, false);
+    });
 }
 
 function getDocumentSize(instance) {
@@ -1279,7 +1518,9 @@ function getDocumentMargins(instance) {
 function rebindArtboardFromCanvas(instance) {
   const canvas = instance && instance.data ? instance.data.fabricCanvas : null;
   if (!canvas) return;
-  const artboard = canvas.getObjects().find((o) => o && o.isArtboard);
+  const objs = canvas.getObjects();
+  const artboard = objs.find((o) => o && o.isArtboard)
+    || objs.find((o) => o && String(o.type || '') === 'rect' && o.excludeFromExport);
   instance.data.artboardRect = artboard || null;
 }
 
@@ -1325,6 +1566,8 @@ function finalizeAfterArtboardLoad(instance, fabricLib) {
   ensureArtboardAtBack(instance);
   syncGuideLayers(instance);
   ensureCanvasSize(instance);
+  const canvas = instance.data.fabricCanvas;
+  if (canvas) syncImageCornerRadiusClipsOnCanvas(canvas, fabricLib);
 }
 
 function goToArtboard(instance, targetIndex, opts) {
@@ -1363,9 +1606,49 @@ function goToArtboard(instance, targetIndex, opts) {
     });
 }
 
+/**
+ * Marque les Image du JSON Fabric avec crossOrigin: 'anonymous' avant enliven,
+ * pour que toDataURL (export PDF) ne tombe pas en SecurityError (canvas tainted).
+ */
+function ensureFabricSnapshotCrossOrigin(snap) {
+  if (!snap || typeof snap !== 'object') return;
+
+  const tagImage = (o) => {
+    if (!o || o.type !== 'Image') return;
+    const src = o.src;
+    if (typeof src === 'string' && /^https?:\\/\\//i.test(src)) {
+      o.crossOrigin = 'anonymous';
+    }
+  };
+
+  const walk = (objs) => {
+    if (!Array.isArray(objs)) return;
+    objs.forEach((o) => {
+      if (!o || typeof o !== 'object') return;
+      tagImage(o);
+      if (Array.isArray(o.objects)) walk(o.objects);
+    });
+  };
+
+  walk(snap.objects);
+  tagImage(snap.backgroundImage);
+  tagImage(snap.overlayImage);
+}
+
 function loadFromJsonPromise(fabricCanvas, json) {
   if (!fabricCanvas) return Promise.resolve();
-  const maybe = fabricCanvas.loadFromJSON(json);
+  let data = json;
+  if (typeof json === 'string') {
+    try {
+      data = JSON.parse(json);
+    } catch (e) {
+      const maybe = fabricCanvas.loadFromJSON(json);
+      if (maybe && typeof maybe.then === 'function') return maybe;
+      return Promise.resolve();
+    }
+  }
+  ensureFabricSnapshotCrossOrigin(data);
+  const maybe = fabricCanvas.loadFromJSON(data);
   if (maybe && typeof maybe.then === 'function') return maybe;
   return Promise.resolve();
 }
@@ -1388,10 +1671,15 @@ function loadWrappedCanvasJson(instance, jsonString) {
   ];
   const idx = clampArtboardIndex(parsed.activeArtboardIndex);
   instance.data.activeArtboardIndex = idx;
-  goToArtboard(instance, idx, { skipSave: true }).then(() => {
-    publishCanvasJson(instance);
-    updateTopBarForSelection(instance);
-  });
+  goToArtboard(instance, idx, { skipSave: true })
+    .then(() => {
+      instance.data._suppressCanvasJsonPublish = false;
+      publishCanvasJson(instance);
+      updateTopBarForSelection(instance);
+    })
+    .catch(() => {
+      instance.data._suppressCanvasJsonPublish = false;
+    });
 }
 
 function ensureMarginGuidesAtFront(instance) {
@@ -1508,6 +1796,14 @@ function ensureMarginGuideLines(instance, fabricLib) {
 function syncGuideLayers(instance) {
   ensureArtboardAtBack(instance);
   ensureMarginGuideLines(instance, instance.data.fabricLib);
+  ensureMarginGuidesAtFront(instance);
+}
+
+/** Après bring/send sur le contenu : page au fond + guides au-dessus, sans recréer les lignes (évite un réordonnancement inutile de la pile). */
+function syncGuideStackAfterUserZOrder(instance) {
+  if (!instance || !instance.data) return;
+  rebindArtboardFromCanvas(instance);
+  ensureArtboardAtBack(instance);
   ensureMarginGuidesAtFront(instance);
 }
 
@@ -1772,15 +2068,39 @@ async function loadFabricImageFromUrl(ImageApi, url) {
   }
 }
 
-async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
+/**
+ * @param {string} primaryUrl - URL Bubble (https) ou data URL (sandbox sans uploadContent)
+ * @param {{ fallbackDataUrl?: string, forbidDataUrlFallback?: boolean }} options
+ *   - forbidDataUrlFallback: true après upload Bubble réussi → pas de src data: sur le canvas
+ * @returns {Promise<string|undefined>} \`id\` de l’image Fabric ajoutée, ou undefined si échec
+ */
+async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-  if (!fabricCanvas || !fabricLib || !url) return;
-  const ImageApi = fabricLib.Image;
-  let img = await loadFabricImageFromUrl(ImageApi, url);
-  if (!img && fallbackUrl && fallbackUrl !== url) {
-    img = await loadFabricImageFromUrl(ImageApi, fallbackUrl);
+  const log = '[FabricView image]';
+  if (!fabricCanvas || !fabricLib || !primaryUrl) {
+    console.warn(log, 'canvas, fabric ou primaryUrl manquant');
+    return undefined;
   }
-  if (!img) return;
+  const opts = options || {};
+  const fallbackDataUrl = opts.fallbackDataUrl;
+  const forbidFallback = opts.forbidDataUrlFallback === true;
+
+  const ImageApi = fabricLib.Image;
+  let img = await loadFabricImageFromUrl(ImageApi, primaryUrl);
+  if (!img && forbidFallback) {
+    console.error(log, 'Échec chargement depuis l’URL Bubble (repli data URL désactivé en prod Bubble)', primaryUrl);
+  }
+  if (!img && !forbidFallback && fallbackDataUrl && fallbackDataUrl !== primaryUrl) {
+    console.warn(log, 'Repli data URL après échec URL primaire (sandbox ou secours)');
+    img = await loadFabricImageFromUrl(ImageApi, fallbackDataUrl);
+  }
+  if (!img) {
+    if (!forbidFallback) {
+      console.error(log, 'Impossible de charger l’image (URL primaire et repli échoués)');
+    }
+    return undefined;
+  }
+  const imageId = newFabricImageId();
   const doc = getDocumentSize(instance);
   const center = getDocumentCenter(instance);
   const el = img._element || (typeof img.getElement === 'function' ? img.getElement() : null);
@@ -1793,6 +2113,7 @@ async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
     scale = Math.min(maxW / iw, maxH / ih, 1);
   }
   img.set({
+    id: imageId,
     left: Math.round(center.x),
     top: Math.round(center.y),
     originX: 'center',
@@ -1805,6 +2126,7 @@ async function addRasterImageFromUrl(instance, fabricLib, url, fallbackUrl) {
   fabricCanvas.setActiveObject(img);
   fabricCanvas.requestRenderAll();
   updateTopBarForSelection(instance);
+  return imageId;
 }
 
 function looksLikeSvgMarkup(text) {
@@ -1929,7 +2251,7 @@ function addPastedPlainText(instance, fabricLib, text) {
     originY: 'center',
     width: Math.min(560, Math.max(120, doc.width * 0.6)),
     fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-    fontSize: 24,
+    fontSize: 30,
     fill: '#0f172a',
     strokeUniform: true,
   });
@@ -1964,18 +2286,36 @@ async function runCanvasPasteFromClipboardData(instance, fabricLib, context, cd)
           const ext = guessImageFileExtension(file);
           const rawName = name.trim() ? name.trim() : \`paste\${ext}\`;
           const safeName = rawName.replace(/[^\\w.-]/g, '_') || \`paste\${ext}\`;
-          let imageUrl = dataUrl;
           if (context && typeof context.uploadContent === 'function' && base64) {
-            imageUrl = await new Promise((resolve, reject) => {
-              context.uploadContent(safeName, base64, (err, url) => {
-                if (err) reject(err);
-                else resolve(url || dataUrl);
+            try {
+              const uploadedUrl = await new Promise((resolve, reject) => {
+                context.uploadContent(safeName, base64, (err, url) => {
+                  if (err) reject(err);
+                  else resolve(typeof url === 'string' ? url : '');
+                });
               });
-            });
+              const trimmed = String(uploadedUrl || '').trim();
+              const isHttpBubble = /^https?:\\/\\//i.test(trimmed);
+              if (isHttpBubble) {
+                await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+                  forbidDataUrlFallback: true,
+                  fallbackDataUrl: dataUrl,
+                });
+              } else {
+                console.warn('[FabricView paste] uploadContent sans URL http(s) — utilisation data URL', trimmed || '(vide)');
+                await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+              }
+            } catch (uploadErr) {
+              console.error('[FabricView paste] uploadContent erreur', uploadErr);
+              console.warn('[FabricView paste] Repli data URL après échec upload');
+              await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+            }
+          } else {
+            console.log('[FabricView paste] Pas de context.uploadContent — data URL (local / sandbox)');
+            await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
           }
-          await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
         } catch (e) {
-          /* ignore */
+          console.error('[FabricView paste] chargement image', e);
         }
         return true;
       }
@@ -2255,6 +2595,15 @@ function buildShell() {
   fontSizeInput.value = '16';
   styleTopNumberInput(fontSizeInput);
 
+  const opacityInput = document.createElement('input');
+  opacityInput.type = 'text';
+  opacityInput.inputMode = 'numeric';
+  opacityInput.min = '0';
+  opacityInput.max = '100';
+  opacityInput.step = '1';
+  opacityInput.value = '100';
+  styleTopNumberInput(opacityInput);
+
   const fontFamilySelect = document.createElement('select');
   fontFamilySelect.setAttribute('aria-label', 'Font family');
   fontFamilySelect.style.width = '148px';
@@ -2282,7 +2631,7 @@ function buildShell() {
   const topStroke = strokeControl.root;
 
   const topStrokeWidth = document.createElement('label');
-  topStrokeWidth.textContent = 'Stroke width';
+  topStrokeWidth.textContent = 'Width';
   topStrokeWidth.style.display = 'inline-flex';
   topStrokeWidth.style.gap = '8px';
   topStrokeWidth.style.alignItems = 'center';
@@ -2312,6 +2661,15 @@ function buildShell() {
   topFontSize.style.fontSize = '12px';
   topFontSize.style.color = '#334155';
   topFontSize.appendChild(fontSizeInput);
+
+  const topOpacity = document.createElement('label');
+  topOpacity.textContent = 'Opacity';
+  topOpacity.style.display = 'inline-flex';
+  topOpacity.style.gap = '8px';
+  topOpacity.style.alignItems = 'center';
+  topOpacity.style.fontSize = '12px';
+  topOpacity.style.color = '#334155';
+  topOpacity.appendChild(opacityInput);
 
   const mkBtn = (iconClass, title) => {
     const btn = document.createElement('button');
@@ -2355,6 +2713,7 @@ function buildShell() {
   topControls.appendChild(topRadius);
   topControls.appendChild(topFontFamily);
   topControls.appendChild(topFontSize);
+  topControls.appendChild(topOpacity);
   topBar.appendChild(topControls);
 
   const body = document.createElement('div');
@@ -2423,6 +2782,7 @@ function buildShell() {
   const textBtn = mkBtn('ph ph-text-t', 'Text');
   const shapeBtn = mkBtn('ph ph-square', 'Shape');
   const iconBtn = mkBtn('ph ph-smiley', 'Emojis');
+  const tableBtn = mkBtn('ph ph-grid-nine', 'Table');
   const penBtn = mkBtn('ph ph-pen', 'Pen');
   const panBtn = mkBtn('ph ph-hand', 'Pan');
   const imageBtn = mkBtn('ph ph-image', 'Image');
@@ -2434,6 +2794,7 @@ function buildShell() {
   leftBar.appendChild(textBtn);
   leftBar.appendChild(shapeBtn);
   leftBar.appendChild(iconBtn);
+  leftBar.appendChild(tableBtn);
   leftBar.appendChild(penBtn);
   leftBar.appendChild(imageBtn);
   leftBar.appendChild(bookmarkBtn);
@@ -2461,15 +2822,18 @@ function buildShell() {
     radiusInput,
     fontFamilySelect,
     fontSizeInput,
+    opacityInput,
     topFill,
     topStroke,
     topStrokeWidth,
     topRadius,
     topFontFamily,
     topFontSize,
+    topOpacity,
     canvasEl,
     textBtn,
     iconBtn,
+    tableBtn,
     penBtn,
     panBtn,
     imageBtn,
@@ -2537,12 +2901,15 @@ function updateTopBarForSelection(instance) {
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
     ui.fontFamilySelect.style.opacity = '0.55';
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   if (!target && !isDrawMode) {
@@ -2559,12 +2926,15 @@ function updateTopBarForSelection(instance) {
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
     ui.fontFamilySelect.style.opacity = '0.55';
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
     ui.topStroke.style.display = 'none';
     ui.topStrokeWidth.style.display = 'none';
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   if (!target && isDrawMode) {
@@ -2583,6 +2953,7 @@ function updateTopBarForSelection(instance) {
     ui.topRadius.style.display = 'none';
     ui.topFontFamily.style.display = 'none';
     ui.topFontSize.style.display = 'none';
+    ui.topOpacity.style.display = 'none';
     return;
   }
   ui.topBar.style.visibility = 'visible';
@@ -2598,11 +2969,13 @@ function updateTopBarForSelection(instance) {
   ui.topRadius.style.display = visibility.radius ? 'inline-flex' : 'none';
   ui.topFontFamily.style.display = visibility.fontSize ? 'inline-flex' : 'none';
   ui.topFontSize.style.display = visibility.fontSize ? 'inline-flex' : 'none';
+  ui.topOpacity.style.display = visibility.opacity ? 'inline-flex' : 'none';
 
   const style = getObjectStyle(target || targets[0]);
   ui.fillControl.setDisabled(false);
   ui.strokeControl.setDisabled(false);
   ui.strokeWidthInput.disabled = false;
+  ui.opacityInput.disabled = false;
   ui.fontSizeInput.disabled = !visibility.fontSize;
   ui.fontFamilySelect.disabled = !visibility.fontSize;
   ui.strokeWidthInput.style.opacity = '1';
@@ -2623,6 +2996,10 @@ function updateTopBarForSelection(instance) {
   ui.radiusInput.style.color = '#0f172a';
   ui.radiusInput.style.borderColor = '#cbd5e1';
   ui.radiusInput.placeholder = '';
+  ui.opacityInput.style.background = '#ffffff';
+  ui.opacityInput.style.color = '#0f172a';
+  ui.opacityInput.style.borderColor = '#cbd5e1';
+  ui.opacityInput.placeholder = '';
   ui.fillControl.setMixed(false);
   ui.strokeControl.setMixed(false);
 
@@ -2637,13 +3014,25 @@ function updateTopBarForSelection(instance) {
       syncFontFamilySelect(ui, rawFf, false);
     }
     const supportsRadius = visibility.radius
-      && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target));
+      && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target) || isFabricRasterImage(target));
     ui.radiusInput.disabled = !supportsRadius;
     const polygonRadius = Number.isFinite(Number(target.cornerRadius)) ? Number(target.cornerRadius) : 0;
     ui.radiusInput.value = supportsRadius
       ? String(isRoundedPolygonShape(target) ? polygonRadius : style.radius)
       : '0';
     ui.radiusInput.style.opacity = supportsRadius ? '1' : '0.55';
+    ui.opacityInput.disabled = !visibility.opacity;
+    if (visibility.opacity) {
+      ui.opacityInput.value = String(Math.round(style.opacity * 100));
+      ui.opacityInput.style.opacity = '1';
+      ui.opacityInput.style.background = '#ffffff';
+      ui.opacityInput.style.color = '#0f172a';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+      ui.opacityInput.placeholder = '';
+    } else {
+      ui.opacityInput.value = '100';
+      ui.opacityInput.style.opacity = '0.55';
+    }
     return;
   }
 
@@ -2660,11 +3049,15 @@ function updateTopBarForSelection(instance) {
   const radiusShared = getSharedValue(targets, (item) => {
     if (isRoundedPolygonShape(item)) return Number.isFinite(Number(item.cornerRadius)) ? Number(item.cornerRadius) : 0;
     if (item.type === 'rect') return getRectCornerRadiusPx(item);
+    if (isFabricRasterImage(item)) {
+      return Number.isFinite(Number(item.cornerRadiusPx)) ? Math.max(0, Number(item.cornerRadiusPx)) : 0;
+    }
     if (Number.isFinite(Number(item.rx))) {
       return Number(item.rx);
     }
     return null;
   });
+  const opacityShared = getSharedValue(styleList, (item) => item.opacity);
 
   ui.fillControl.setColor(fillShared.mixed ? 'transparent' : fillShared.value);
   ui.fillControl.setMixed(fillShared.mixed);
@@ -2701,6 +3094,28 @@ function updateTopBarForSelection(instance) {
         : DEFAULT_TEXT_FONT_FAMILY;
       syncFontFamilySelect(ui, rawFf, false);
     }
+  }
+
+  if (visibility.opacity) {
+    ui.opacityInput.disabled = false;
+    ui.opacityInput.style.opacity = '1';
+    if (opacityShared.mixed) {
+      ui.opacityInput.value = '';
+      ui.opacityInput.placeholder = 'mix';
+      ui.opacityInput.style.background = '#f1f5f9';
+      ui.opacityInput.style.color = '#64748b';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+    } else {
+      ui.opacityInput.value = String(Math.max(0, Math.min(100, Math.round(Number(opacityShared.value) * 100))));
+      ui.opacityInput.style.background = '#ffffff';
+      ui.opacityInput.style.color = '#0f172a';
+      ui.opacityInput.style.borderColor = '#cbd5e1';
+      ui.opacityInput.placeholder = '';
+    }
+  } else {
+    ui.opacityInput.disabled = true;
+    ui.opacityInput.value = '100';
+    ui.opacityInput.style.opacity = '0.55';
   }
 
   if (visibility.radius) {
@@ -2762,6 +3177,9 @@ function applyStyleToSelection(instance, patch) {
       }
       nextPatch.paintFirst = 'stroke';
       nextPatch.strokeLineJoin = 'round';
+    }
+    if (isFabricRasterImage(target) && nextPatch.fill != null) {
+      delete nextPatch.fill;
     }
     target.set(nextPatch);
     target.dirty = true;
@@ -3018,6 +3436,7 @@ function shouldBlockFabricCopyShortcut(target, fabricCanvas) {
 }
 
 const FABRIC_CLIPBOARD_EXTRA_KEYS = [
+  'id',
   'iconKind',
   'iconName',
   'iconStyle',
@@ -3042,6 +3461,7 @@ function buildFabricClipboardJsonString(targets) {
 }
 
   const fabricLib = resolveFabric();
+  ensureFabricImageIdSerialization(fabricLib);
   const ui = buildShell();
   instance.data.ui = ui;
   instance.data.fabricLib = fabricLib;
@@ -3084,12 +3504,15 @@ function buildFabricClipboardJsonString(targets) {
   });
   instance.data.fabricCanvas = fabricCanvas;
   instance.publishState('new_color', '');
+  instance.publishState('contribution_id', '');
   instance.publishState('pdf_url', '');
   instance.data.toolMode = 'select';
   instance.data.documentTitle = 'Document title';
   instance.data.activeArtboardIndex = 0;
   instance.data.pageSnapshots = [null, null, null];
   instance.data._lastPublishedCanvasJson = null;
+  /** Tant que true : pas de publishState(canvas_json) — Bubble reçoit le doc seulement après loadWrappedCanvasJson (ton initial_json, vide ou non). */
+  instance.data._suppressCanvasJsonPublish = true;
   instance.data.penColor = '#111827';
   instance.data.penWidth = 3;
   instance.data.zoomScale = 1;
@@ -3100,6 +3523,11 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.panLastClientY = 0;
   instance.data.altKeyAtMouseDown = false;
   instance.data._altDuplicateDone = false;
+  instance.data._canvasPointerGestureId = 0;
+  instance.data._altDupClonedGestureId = null;
+  instance.data._altDupDownClientX = null;
+  instance.data._altDupDownClientY = null;
+  instance.data.bookmarksList = [];
 
   const applyPenBrush = () => {
     if (!fabricCanvas.freeDrawingBrush && typeof fabricLib.PencilBrush === 'function') {
@@ -3112,6 +3540,26 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.freeDrawingBrush.strokeLineCap = 'round';
     fabricCanvas.freeDrawingBrush.strokeLineJoin = 'round';
     fabricCanvas.freeDrawingBrush.decimate = 10;
+  };
+
+  const setActiveToolButton = (activeBtn) => {
+    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
+      btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
+    });
+  };
+
+  /** Seuls draw / pan ont un état « actif » persistant ; le reste est ponctuel. */
+  const syncToolButtonHighlightToMode = () => {
+    const m = instance.data.toolMode;
+    if (m === 'draw') {
+      setActiveToolButton(ui.penBtn);
+    } else if (m === 'pan') {
+      setActiveToolButton(ui.panBtn);
+    } else {
+      setActiveToolButton(null);
+    }
   };
 
   const setToolMode = (mode) => {
@@ -3135,19 +3583,12 @@ function buildFabricClipboardJsonString(targets) {
     }
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
-  const setActiveToolButton = (activeBtn) => {
-    [ui.textBtn, ui.shapeBtn, ui.iconBtn, ui.penBtn, ui.panBtn, ui.imageBtn, ui.bookmarkBtn].forEach((btn) => {
-      if (!btn) return;
-      btn.style.background = btn === activeBtn ? '#eef2ff' : '#ffffff';
-      btn.style.borderColor = btn === activeBtn ? '#93c5fd' : '#cbd5e1';
-    });
-  };
   const exitPanMode = () => {
     if (instance.data.toolMode !== 'pan') return;
     setToolMode('select');
-    setActiveToolButton(null);
   };
 
   const removeEmptySelectionContainers = () => {
@@ -3217,6 +3658,21 @@ function buildFabricClipboardJsonString(targets) {
       }
     });
     fabricCanvas.remove(active);
+
+    // Fabric 6: après retrait du Group, certains enfants peuvent ne plus être présents
+    // sur le canvas (donc invisibles / in-sélectionnables). On les ré-ajoute explicitement.
+    if (typeof fabricCanvas.add === 'function') {
+      const existing = new Set(
+        typeof fabricCanvas.getObjects === 'function' ? fabricCanvas.getObjects() : []
+      );
+      children.forEach((obj) => {
+        if (!obj) return;
+        if (existing.has(obj)) return;
+        fabricCanvas.add(obj);
+        if (typeof obj.setCoords === 'function') obj.setCoords();
+        obj.visible = obj.visible !== false;
+      });
+    }
 
     if (typeof fabricLib.ActiveSelection === 'function') {
       const selection = new fabricLib.ActiveSelection(children, { canvas: fabricCanvas });
@@ -3531,6 +3987,83 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.setActiveObject(shape);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
+  };
+
+  const addTableGrid = (cols, rows) => {
+    const safeCols = Math.max(1, Math.floor(Number(cols) || 1));
+    const safeRows = Math.max(1, Math.floor(Number(rows) || 1));
+    const doc = getDocumentSize(instance);
+
+    // Fit à 80% max (on garde le ratio 4:1 des cellules).
+    const tableMaxW = doc.width * 0.8;
+    const tableMaxH = doc.height * 0.8;
+
+    const cellH = Math.min(tableMaxW / (safeCols * 3), tableMaxH / safeRows);
+    const cellW = 3 * cellH;
+    const tableW = safeCols * cellW;
+    const tableH = safeRows * cellH;
+
+    const center = getDocumentCenter(instance);
+    const groupLeft = center.x - tableW / 2;
+    const groupTop = center.y - tableH / 2;
+
+    // Fond couleur modifiable (via barre de propriétés quand le groupe est sélectionné).
+    const bgFill = '#ffffff';
+    const gridStroke = '#cbd5e1';
+    const gridStrokeWidth = 1;
+
+    const backgroundRect = new fabricLib.Rect({
+      left: 0,
+      top: 0,
+      width: tableW,
+      height: tableH,
+      fill: bgFill,
+      stroke: '#00000000',
+      strokeWidth: 0,
+      originX: 'left',
+      originY: 'top',
+    });
+
+    const lines = [];
+    for (let c = 0; c <= safeCols; c++) {
+      const x = c * cellW;
+      lines.push(new fabricLib.Line([x, 0, x, tableH], {
+        stroke: gridStroke,
+        strokeWidth: gridStrokeWidth,
+        fill: bgFill,
+        strokeUniform: true,
+      }));
+    }
+    for (let r = 0; r <= safeRows; r++) {
+      const y = r * cellH;
+      lines.push(new fabricLib.Line([0, y, tableW, y], {
+        stroke: gridStroke,
+        strokeWidth: gridStrokeWidth,
+        fill: bgFill,
+        strokeUniform: true,
+      }));
+    }
+
+    const group = new fabricLib.Group([backgroundRect, ...lines], {
+      left: groupLeft,
+      top: groupTop,
+      originX: 'left',
+      originY: 'top',
+      // Important: la logique d'ungroup du projet suppose que le groupe est "lié" au canvas.
+      canvas: fabricCanvas,
+    });
+
+    if (typeof group.triggerLayout === 'function') {
+      group.triggerLayout();
+    } else if (typeof group.setCoords === 'function') {
+      group.setCoords();
+    }
+    fabricCanvas.add(group);
+    fabricCanvas.setActiveObject(group);
+    fabricCanvas.requestRenderAll();
+    updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
   const addPhosphorSvg = async (iconName, style = 'regular') => {
@@ -3581,7 +4114,7 @@ function buildFabricClipboardJsonString(targets) {
         originX: 'center',
         originY: 'center',
         fontFamily: DEFAULT_TEXT_FONT_FAMILY,
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: 700,
         fill: '#0f172a',
       });
@@ -3589,11 +4122,12 @@ function buildFabricClipboardJsonString(targets) {
       fabricCanvas.setActiveObject(fallback);
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
+      syncToolButtonHighlightToMode();
       return;
     }
 
     const grouped = fabricLib.util.groupSVGElements(objects, options || {});
-    const initialScale = 0.16;
+    const initialScale = 0.3;
     grouped.set({
       scaleX: initialScale,
       scaleY: initialScale,
@@ -3621,6 +4155,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.setActiveObject(grouped);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    syncToolButtonHighlightToMode();
   };
 
   const snapshots = [];
@@ -3657,7 +4192,7 @@ function buildFabricClipboardJsonString(targets) {
   ui.textBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.textBtn);
+    if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     const docSize = getDocumentSize(instance);
     const text = createDefaultTextbox(fabricLib, docSize.width, docSize.height);
     if (!text) return;
@@ -3704,6 +4239,7 @@ function buildFabricClipboardJsonString(targets) {
     btn.addEventListener('click', () => {
       addShapeByType(type);
       shapeMenu.style.display = 'none';
+      if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     });
     btn.addEventListener('mouseenter', () => {
       btn.style.background = '#f8fafc';
@@ -3839,6 +4375,7 @@ function buildFabricClipboardJsonString(targets) {
     btn.addEventListener('click', () => {
       addPhosphorSvg(iconName, currentIconStyle);
       iconMenu.style.display = 'none';
+      if (instance.data.bookmarkMenu) instance.data.bookmarkMenu.style.display = 'none';
     });
     return btn;
   };
@@ -3885,18 +4422,309 @@ function buildFabricClipboardJsonString(targets) {
   ui.root.appendChild(iconMenu);
   instance.data.iconMenu = iconMenu;
 
+  const BOOKMARK_PANEL_EDGE = 12;
+
+  const bookmarkMenu = document.createElement('div');
+  bookmarkMenu.style.position = 'absolute';
+  bookmarkMenu.style.left = '62px';
+  bookmarkMenu.style.display = 'none';
+  bookmarkMenu.style.flexDirection = 'column';
+  bookmarkMenu.style.alignItems = 'stretch';
+  bookmarkMenu.style.gap = '8px';
+  bookmarkMenu.style.padding = '10px';
+  bookmarkMenu.style.background = '#ffffff';
+  bookmarkMenu.style.border = '1px solid #e2e8f0';
+  bookmarkMenu.style.borderRadius = '12px';
+  bookmarkMenu.style.boxShadow = '0 10px 25px rgba(15, 23, 42, 0.16)';
+  bookmarkMenu.style.zIndex = '25';
+  bookmarkMenu.style.width = '198px';
+  bookmarkMenu.style.boxSizing = 'border-box';
+  bookmarkMenu.style.overflow = 'hidden';
+
+  const bookmarkSearch = document.createElement('input');
+  bookmarkSearch.type = 'text';
+  bookmarkSearch.placeholder = 'Search bookmark...';
+  bookmarkSearch.autocomplete = 'off';
+  bookmarkSearch.spellcheck = false;
+  bookmarkSearch.style.height = '32px';
+  bookmarkSearch.style.border = '1px solid #cbd5e1';
+  bookmarkSearch.style.borderRadius = '8px';
+  bookmarkSearch.style.padding = '0 10px';
+  bookmarkSearch.style.fontSize = '12px';
+  bookmarkSearch.style.outline = 'none';
+  bookmarkSearch.style.color = '#0f172a';
+  bookmarkSearch.style.background = '#ffffff';
+  bookmarkSearch.style.boxSizing = 'border-box';
+  bookmarkSearch.style.width = '100%';
+  bookmarkMenu.appendChild(bookmarkSearch);
+
+  const bookmarkScroll = document.createElement('div');
+  bookmarkScroll.style.flex = '1';
+  bookmarkScroll.style.minHeight = '0';
+  bookmarkScroll.style.overflowY = 'auto';
+  bookmarkScroll.style.overflowX = 'hidden';
+  bookmarkScroll.style.display = 'flex';
+  bookmarkScroll.style.flexDirection = 'column';
+  bookmarkScroll.style.gap = '12px';
+  bookmarkScroll.style.paddingRight = '4px';
+  bookmarkMenu.appendChild(bookmarkScroll);
+
+  const syncBookmarkMenuPosition = () => {
+    const topBarH = ui.topBar ? ui.topBar.offsetHeight : 52;
+    bookmarkMenu.style.top = \`\${topBarH + BOOKMARK_PANEL_EDGE}px\`;
+    bookmarkMenu.style.bottom = \`\${BOOKMARK_PANEL_EDGE}px\`;
+    bookmarkMenu.style.left = '62px';
+  };
+
+  const getBookmarkSearchHaystack = (item) => {
+    const contributor = String(item && item.contributor != null ? item.contributor : '').trim().toLowerCase();
+    const url = String(item && item.image_url ? item.image_url : '').trim();
+    let fileName = '';
+    try {
+      const u = new URL(url, 'https://placeholder.local');
+      const parts = u.pathname.split('/').filter(Boolean);
+      fileName = decodeURIComponent(parts[parts.length - 1] || '').toLowerCase();
+    } catch (e) {
+      fileName = '';
+    }
+    return \`\${contributor} \${fileName} \${url.toLowerCase()}\`.trim();
+  };
+
+  const renderBookmarksPanel = () => {
+    bookmarkScroll.innerHTML = '';
+    const list = Array.isArray(instance.data.bookmarksList) ? instance.data.bookmarksList : [];
+    const q = String(bookmarkSearch.value || '').trim().toLowerCase();
+    const filtered = q
+      ? list.filter((item) => getBookmarkSearchHaystack(item).includes(q))
+      : list;
+    if (list.length === 0) {
+      const empty = document.createElement('div');
+      empty.textContent = 'Aucun bookmark';
+      empty.style.fontSize = '12px';
+      empty.style.color = '#64748b';
+      empty.style.padding = '8px 4px';
+      empty.style.textAlign = 'center';
+      bookmarkScroll.appendChild(empty);
+      return;
+    }
+    if (filtered.length === 0) {
+      const empty = document.createElement('div');
+      empty.textContent = 'No bookmark found.';
+      empty.style.fontSize = '12px';
+      empty.style.color = '#64748b';
+      empty.style.padding = '8px 4px';
+      empty.style.textAlign = 'center';
+      bookmarkScroll.appendChild(empty);
+      return;
+    }
+    filtered.forEach((item) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.style.display = 'flex';
+      row.style.flexDirection = 'column';
+      row.style.alignItems = 'stretch';
+      row.style.width = '100%';
+      row.style.flexShrink = '0';
+      row.style.padding = '0';
+      row.style.border = '1px solid #e2e8f0';
+      row.style.borderRadius = '10px';
+      row.style.background = '#ffffff';
+      row.style.cursor = 'pointer';
+      row.style.boxSizing = 'border-box';
+      row.style.overflow = 'hidden';
+
+      const img = document.createElement('img');
+      img.alt = item.contributor || '';
+      img.loading = 'lazy';
+      img.style.width = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.flexShrink = '0';
+      img.style.objectFit = 'cover';
+      img.style.background = '#f1f5f9';
+      img.src = item.image_url;
+
+      const footer = document.createElement('div');
+      footer.textContent = item.contributor || '—';
+      footer.style.flexShrink = '0';
+      footer.style.width = '100%';
+      footer.style.boxSizing = 'border-box';
+      footer.style.borderTop = '1px solid #e2e8f0';
+      footer.style.background = '#f8fafc';
+      footer.style.padding = '8px 10px';
+      footer.style.fontSize = '11px';
+      footer.style.fontWeight = '500';
+      footer.style.color = '#334155';
+      footer.style.textAlign = 'center';
+      footer.style.lineHeight = '1.35';
+      footer.style.overflow = 'hidden';
+      footer.style.textOverflow = 'ellipsis';
+      footer.style.display = '-webkit-box';
+      footer.style.webkitLineClamp = '2';
+      footer.style.webkitBoxOrient = 'vertical';
+
+      row.appendChild(img);
+      row.appendChild(footer);
+      row.addEventListener('click', async () => {
+        bookmarkMenu.style.display = 'none';
+        const imageId = await addRasterImageFromUrl(instance, fabricLib, item.image_url, {});
+        if (typeof imageId === 'string' && imageId.length > 0) {
+          instance.publishState('contribution_id', imageId);
+          instance.triggerEvent('contribution_added');
+        }
+      });
+      row.addEventListener('mouseenter', () => {
+        row.style.background = '#f1f5f9';
+        footer.style.background = '#eef2f6';
+      });
+      row.addEventListener('mouseleave', () => {
+        row.style.background = '#ffffff';
+        footer.style.background = '#f8fafc';
+      });
+      bookmarkScroll.appendChild(row);
+    });
+  };
+
+  bookmarkSearch.addEventListener('input', () => {
+    renderBookmarksPanel();
+  });
+
+  instance.data.refreshBookmarksPanel = renderBookmarksPanel;
+  ui.root.appendChild(bookmarkMenu);
+  instance.data.bookmarkMenu = bookmarkMenu;
+
+  const tableMenu = document.createElement('div');
+  const TABLE_PANEL_EDGE = BOOKMARK_PANEL_EDGE;
+  tableMenu.style.position = 'absolute';
+  tableMenu.style.left = '62px';
+  tableMenu.style.display = 'none';
+  tableMenu.style.flexDirection = 'column';
+  tableMenu.style.alignItems = 'stretch';
+  tableMenu.style.gap = '8px';
+  tableMenu.style.padding = '10px';
+  tableMenu.style.background = '#ffffff';
+  tableMenu.style.border = '1px solid #e2e8f0';
+  tableMenu.style.borderRadius = '12px';
+  tableMenu.style.boxShadow = '0 10px 25px rgba(15, 23, 42, 0.16)';
+  tableMenu.style.zIndex = '25';
+  tableMenu.style.width = '198px';
+  tableMenu.style.boxSizing = 'border-box';
+  tableMenu.style.overflow = 'hidden';
+
+  const tableSizeLabel = document.createElement('div');
+  tableSizeLabel.style.fontSize = '11px';
+  tableSizeLabel.style.color = '#64748b';
+  tableSizeLabel.style.padding = '6px 0';
+  tableSizeLabel.style.textAlign = 'left';
+  tableSizeLabel.textContent = '—';
+  tableMenu.appendChild(tableSizeLabel);
+
+  const tableGridScroller = document.createElement('div');
+  tableGridScroller.style.flex = '1';
+  tableGridScroller.style.minHeight = '0';
+  tableGridScroller.style.overflowY = 'hidden';
+  tableGridScroller.style.overflowX = 'hidden';
+  tableGridScroller.style.display = 'flex';
+  tableGridScroller.style.flexDirection = 'column';
+  tableGridScroller.style.paddingRight = '4px';
+  tableMenu.appendChild(tableGridScroller);
+
+  const tablePickerGrid = document.createElement('div');
+  const GRID_COLS = 10;
+  const GRID_ROWS = 15;
+  const CELL_GAP_PX = 4;
+  const DEFAULT_BG = '#ffffff';
+  const DEFAULT_BORDER = '#cbd5e1';
+  const ACTIVE_BG = '#eef2ff';
+  const ACTIVE_BORDER = '#93c5fd';
+  const CELL_SIZE_PX = 14;
+  const cellEls = [];
+  tablePickerGrid.style.display = 'grid';
+  tablePickerGrid.style.gap = \`\${CELL_GAP_PX}px\`;
+  tablePickerGrid.style.justifyContent = 'space-between';
+  tablePickerGrid.style.gridTemplateColumns = \`repeat(\${GRID_COLS}, \${CELL_SIZE_PX}px)\`;
+  tablePickerGrid.style.gridTemplateRows = \`repeat(\${GRID_ROWS}, \${CELL_SIZE_PX}px)\`;
+  tableGridScroller.appendChild(tablePickerGrid);
+
+  // Fit: la hauteur du volet doit dépendre du contenu, pas l'inverse.
+  // On fixe la hauteur du scroller pour éviter d'étirer le menu avec un "bottom".
+  const tableGridHeightPx = GRID_ROWS * CELL_SIZE_PX + (GRID_ROWS - 1) * CELL_GAP_PX;
+  tableGridScroller.style.height = \`\${tableGridHeightPx}px\`;
+
+  const setAllCellsHoverState = (hoveredIndex) => {
+    const hasHover = Number.isFinite(Number(hoveredIndex));
+    const idxN = hasHover ? Number(hoveredIndex) : null;
+    const hoveredCol = hasHover ? (idxN % GRID_COLS) : null; // 0-based
+    const hoveredRow = hasHover ? Math.floor(idxN / GRID_COLS) : null; // 0-based
+    cellEls.forEach((el) => {
+      const idx = Number(el.dataset.tableIndex || 0);
+      const col = idx % GRID_COLS; // 0-based
+      const row = Math.floor(idx / GRID_COLS); // 0-based
+      const active = hasHover && col <= hoveredCol && row <= hoveredRow;
+      el.style.background = active ? ACTIVE_BG : DEFAULT_BG;
+      el.style.borderColor = active ? ACTIVE_BORDER : DEFAULT_BORDER;
+    });
+  };
+
+  // Taille des carrés fixe : pas de recalcul nécessaire.
+
+  const syncTableMenuPosition = () => {
+    const topBarH = ui.topBar ? ui.topBar.offsetHeight : 52;
+    tableMenu.style.top = \`\${topBarH + TABLE_PANEL_EDGE}px\`;
+    tableMenu.style.bottom = 'auto';
+    tableMenu.style.left = '62px';
+  };
+
+  for (let r = 1; r <= GRID_ROWS; r++) {
+    for (let c = 1; c <= GRID_COLS; c++) {
+      const cell = document.createElement('div');
+      const index = (r - 1) * GRID_COLS + (c - 1);
+      cell.dataset.tableIndex = String(index);
+      cell.style.width = \`\${CELL_SIZE_PX}px\`;
+      cell.style.height = \`\${CELL_SIZE_PX}px\`;
+      cell.style.border = '1px solid transparent';
+      cell.style.borderColor = DEFAULT_BORDER;
+      cell.style.borderRadius = '3px';
+      cell.style.background = DEFAULT_BG;
+      cell.style.cursor = 'pointer';
+      cell.style.boxSizing = 'border-box';
+      cell.addEventListener('mouseenter', () => {
+        tableSizeLabel.textContent = \`\${c} x \${r}\`;
+        setAllCellsHoverState(index);
+      });
+      cell.addEventListener('click', () => {
+        tableMenu.style.display = 'none';
+        addTableGrid(c, r);
+      });
+      tablePickerGrid.appendChild(cell);
+      cellEls.push(cell);
+    }
+  }
+
+  tablePickerGrid.addEventListener('mouseleave', () => setAllCellsHoverState(null));
+
+  ui.root.appendChild(tableMenu);
+  instance.data.tableMenu = tableMenu;
+
+  const closeFloatingMenus = () => {
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
+    tableMenu.style.display = 'none';
+  };
+
   ui.shapeBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.shapeBtn);
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     shapeMenu.style.display = shapeMenu.style.display === 'none' ? 'flex' : 'none';
   });
   ui.iconBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.iconBtn);
     shapeMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const willOpen = iconMenu.style.display === 'none';
     iconMenu.style.display = willOpen ? 'flex' : 'none';
     if (willOpen) {
@@ -3904,6 +4732,23 @@ function buildFabricClipboardJsonString(targets) {
       iconSearch.focus();
     }
   });
+
+  ui.tableBtn.addEventListener('click', () => {
+    exitPanMode();
+    setToolMode('select');
+    shapeMenu.style.display = 'none';
+    iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
+    const willOpen = tableMenu.style.display === 'none';
+    tableMenu.style.display = willOpen ? 'flex' : 'none';
+    if (willOpen) {
+      syncTableMenuPosition();
+      setAllCellsHoverState(null);
+    } else {
+      setAllCellsHoverState(null);
+    }
+  });
+
   ui.penBtn.addEventListener('click', (event) => {
     if (event) {
       event.preventDefault();
@@ -3912,9 +4757,9 @@ function buildFabricClipboardJsonString(targets) {
     exitPanMode();
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'draw' ? 'select' : 'draw';
     setToolMode(nextMode);
-    setActiveToolButton(nextMode === 'draw' ? ui.penBtn : null);
   });
   ui.panBtn.addEventListener('click', (event) => {
     if (event) {
@@ -3923,9 +4768,9 @@ function buildFabricClipboardJsonString(targets) {
     }
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'pan' ? 'select' : 'pan';
     setToolMode(nextMode);
-    setActiveToolButton(nextMode === 'pan' ? ui.panBtn : null);
   });
 
   const imageFileInput = document.createElement('input');
@@ -3951,37 +4796,64 @@ function buildFabricClipboardJsonString(targets) {
       const rawName = typeof file.name === 'string' && file.name.trim() ? file.name.trim() : \`image\${ext}\`;
       const safeName = rawName.replace(/[^\\w.-]/g, '_') || \`image\${ext}\`;
 
-      let imageUrl = dataUrl;
       if (context && typeof context.uploadContent === 'function' && base64) {
-        imageUrl = await new Promise((resolve, reject) => {
-          context.uploadContent(safeName, base64, (err, url) => {
-            if (err) reject(err);
-            else resolve(url || dataUrl);
+        try {
+          const uploadedUrl = await new Promise((resolve, reject) => {
+            context.uploadContent(safeName, base64, (err, url) => {
+              if (err) reject(err);
+              else resolve(typeof url === 'string' ? url : '');
+            });
           });
-        });
+          const trimmed = String(uploadedUrl || '').trim();
+          const isHttpBubble = /^https?:\\/\\//i.test(trimmed);
+          if (isHttpBubble) {
+            await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+              forbidDataUrlFallback: true,
+              fallbackDataUrl: dataUrl,
+            });
+          } else {
+            console.warn('[FabricView image picker] uploadContent sans URL http(s) — data URL', trimmed || '(vide)');
+            await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+          }
+        } catch (uploadErr) {
+          console.error('[FabricView image picker] uploadContent erreur', uploadErr);
+          console.warn('[FabricView image picker] Repli data URL après échec upload');
+          await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
+        }
+      } else {
+        console.log('[FabricView image picker] Pas de context.uploadContent — data URL (local / sandbox)');
+        await addRasterImageFromUrl(instance, fabricLib, dataUrl, {});
       }
-
-      await addRasterImageFromUrl(instance, fabricLib, imageUrl, dataUrl);
     } catch (e) {
-      // Upload ou chargement refusé — pas d'état partiel à nettoyer.
+      console.error('[FabricView image picker] chargement image', e);
+    } finally {
+      syncToolButtonHighlightToMode();
     }
   });
 
   ui.imageBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.imageBtn);
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
     imageFileInput.click();
   });
 
   ui.bookmarkBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(ui.bookmarkBtn);
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    const willOpen = bookmarkMenu.style.display === 'none';
+    if (willOpen) {
+      syncBookmarkMenuPosition();
+      renderBookmarksPanel();
+      bookmarkMenu.style.display = 'flex';
+      bookmarkSearch.focus();
+    } else {
+      bookmarkMenu.style.display = 'none';
+    }
   });
 
   if (ui.alignToolbar) {
@@ -4044,14 +4916,17 @@ function buildFabricClipboardJsonString(targets) {
   };
   ui.zoomOutBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     applyZoomDelta(-0.1);
   });
   ui.zoomInBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     applyZoomDelta(0.1);
   });
   ui.fitBtn.addEventListener('click', () => {
     exitPanMode();
+    closeFloatingMenus();
     instance.data.zoomScale = 1;
     instance.data.panX = 0;
     instance.data.panY = 0;
@@ -4062,7 +4937,7 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardPrevBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
+    closeFloatingMenus();
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i <= 0) return;
     goToArtboard(instance, i - 1).then(() => {
@@ -4074,7 +4949,7 @@ function buildFabricClipboardJsonString(targets) {
     if (ui.artboardNextBtn.disabled) return;
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
+    closeFloatingMenus();
     const i = instance.data.activeArtboardIndex ?? 0;
     if (i >= 2) return;
     goToArtboard(instance, i + 1).then(() => {
@@ -4085,8 +4960,8 @@ function buildFabricClipboardJsonString(targets) {
   ui.artboardDownloadBtn.addEventListener('click', () => {
     exitPanMode();
     setToolMode('select');
-    setActiveToolButton(null);
-    triggerFoldedA4PdfDownload(instance).catch(() => {});
+    closeFloatingMenus();
+    void triggerFoldedA4PdfDownload(instance);
   });
   updateZoomButtons();
   fabricCanvas.on('mouse:wheel', (event) => {
@@ -4180,6 +5055,10 @@ function buildFabricClipboardJsonString(targets) {
     }
     applyStyleToSelection(instance, { strokeWidth });
   });
+  ui.opacityInput.addEventListener('input', () => {
+    const pct = Math.max(0, Math.min(100, Number(ui.opacityInput.value || 0)));
+    applyStyleToSelection(instance, { opacity: pct / 100 });
+  });
   ui.radiusInput.addEventListener('input', () => {
     const active = fabricCanvas.getActiveObject();
     if (!active) return;
@@ -4194,6 +5073,12 @@ function buildFabricClipboardJsonString(targets) {
           replacement.cornerRadiusPx = radius;
           updated.push(replacement);
         }
+        return;
+      }
+      if (isFabricRasterImage(target)) {
+        applyImageCornerRadiusPx(target, fabricLib, radius);
+        if (typeof target.setCoords === 'function') target.setCoords();
+        updated.push(target);
         return;
       }
       if (target.type === 'rect') {
@@ -4233,6 +5118,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
+    loadWebFontsThenRedraw(fabricCanvas, targets);
   });
   ui.fontFamilySelect.addEventListener('change', () => {
     const nextFamily = ui.fontFamilySelect.value;
@@ -4248,6 +5134,7 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.requestRenderAll();
     publishCanvasJson(instance);
     updateTopBarForSelection(instance);
+    loadWebFontsThenRedraw(fabricCanvas, targets);
   });
 
   const onSelectionChanged = () => {
@@ -4275,7 +5162,10 @@ function buildFabricClipboardJsonString(targets) {
   fabricCanvas.on('selection:updated', onSelectionChanged);
   fabricCanvas.on('selection:cleared', onSelectionCleared);
   fabricCanvas.on('mouse:down', (opt) => {
+    instance.data._canvasPointerGestureId = (Number(instance.data._canvasPointerGestureId) || 0) + 1;
     instance.data.altKeyAtMouseDown = false;
+    instance.data._altDupDownClientX = null;
+    instance.data._altDupDownClientY = null;
     if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
     const t = opt.target;
     if (!t || t.isArtboard || t.isSafeZone) return;
@@ -4283,10 +5173,18 @@ function buildFabricClipboardJsonString(targets) {
     if (!active) return;
     if (!isPartOfActiveObject(active, t)) return;
     instance.data.altKeyAtMouseDown = !!opt.e.altKey;
+    if (opt.e && instance.data.altKeyAtMouseDown) {
+      instance.data._altDupDownClientX = Number(opt.e.clientX) || 0;
+      instance.data._altDupDownClientY = Number(opt.e.clientY) || 0;
+    }
   });
   fabricCanvas.on('object:moving', (e) => {
     if (instance.data.toolMode === 'pan' || instance.data.toolMode === 'draw') return;
     if (!instance.data.altKeyAtMouseDown) return;
+    const gid = Number(instance.data._canvasPointerGestureId) || 0;
+    if (Number.isFinite(instance.data._altDupClonedGestureId) && instance.data._altDupClonedGestureId === gid) {
+      return;
+    }
     if (instance.data._altDuplicateDone) return;
     performAltDuplicateDrag(instance, fabricCanvas, e);
   });
@@ -4329,6 +5227,13 @@ function buildFabricClipboardJsonString(targets) {
     instance.data.isPanning = false;
     ui.board.style.cursor = instance.data.toolMode === 'pan' ? 'grab' : '';
   });
+  const onWindowPointerUp = () => {
+    instance.data.altKeyAtMouseDown = false;
+    instance.data._altDuplicateDone = false;
+  };
+  window.addEventListener('pointerup', onWindowPointerUp, true);
+  instance.data._altDupWindowPointerUp = onWindowPointerUp;
+
   fabricCanvas.on('mouse:up', () => {
     instance.data.altKeyAtMouseDown = false;
     instance.data._altDuplicateDone = false;
@@ -4382,6 +5287,13 @@ function buildFabricClipboardJsonString(targets) {
       applyRectCornerRadiusPx(target, lockedRadiusPx);
     }
 
+    if (isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
+      const lockedPx = original && Number.isFinite(Number(original.cornerRadiusPx))
+        ? Math.max(0, Number(original.cornerRadiusPx))
+        : Math.max(0, Number(target.cornerRadiusPx));
+      applyImageCornerRadiusPx(target, fabricLib, lockedPx);
+    }
+
     if (original && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
       const sxFinal = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
       const syFinal = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);
@@ -4408,7 +5320,7 @@ function buildFabricClipboardJsonString(targets) {
       target.set({ strokeUniform: true });
     }
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
   });
   fabricCanvas.on('object:modified', (event) => {
     let target = event && event.target ? event.target : null;
@@ -4416,6 +5328,9 @@ function buildFabricClipboardJsonString(targets) {
     if (target && target.type === 'rect' && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
       const lockedRadiusPx = getRectCornerRadiusPx(target);
       applyRectCornerRadiusPx(target, lockedRadiusPx);
+    }
+    if (target && isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
+      applyImageCornerRadiusPx(target, instance.data.fabricLib, Number(target.cornerRadiusPx));
     }
     if (target && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
       if (!Number.isFinite(Number(target.cornerRadiusPx))) {
@@ -4435,12 +5350,12 @@ function buildFabricClipboardJsonString(targets) {
     }
     syncGuideLayers(instance);
     fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
   fabricCanvas.on('object:removed', () => {
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
   });
   fabricCanvas.on('path:created', () => {
     const path = fabricCanvas.getActiveObject();
@@ -4479,7 +5394,7 @@ function buildFabricClipboardJsonString(targets) {
       }
     }
     syncGuideLayers(instance);
-    publishCanvasJson(instance);
+    schedulePublishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });
 
@@ -4490,9 +5405,16 @@ function buildFabricClipboardJsonString(targets) {
     const clickedMenu = shapeMenu.contains(target);
     const clickedIconTrigger = ui.iconBtn.contains(target);
     const clickedIconMenu = iconMenu.contains(target);
-    if (clickedShapeTrigger || clickedMenu || clickedIconTrigger || clickedIconMenu) return;
+    const clickedBookmarkTrigger = ui.bookmarkBtn.contains(target);
+    const clickedBookmarkMenu = bookmarkMenu.contains(target);
+    const clickedTableTrigger = ui.tableBtn.contains(target);
+    const clickedTableMenu = tableMenu.contains(target);
+    if (clickedShapeTrigger || clickedMenu || clickedIconTrigger || clickedIconMenu
+        || clickedBookmarkTrigger || clickedBookmarkMenu || clickedTableTrigger || clickedTableMenu) return;
     shapeMenu.style.display = 'none';
     iconMenu.style.display = 'none';
+    bookmarkMenu.style.display = 'none';
+    tableMenu.style.display = 'none';
   }, true);
 
   if (window.ResizeObserver) {
@@ -4525,7 +5447,7 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
   instance.data.loadWrappedCanvasJson = (jsonString) => loadWrappedCanvasJson(instance, jsonString);
-  setActiveToolButton(null);
-  publishCanvasJson(instance);
+  syncToolButtonHighlightToMode();
+  /* Pas de publishCanvasJson ici : update() charge initial_json → loadWrappedCanvasJson lève _suppress puis publie (évite d’écraser Bubble avec les 3 pages vides du bootstrap). */
 }
 `;export{n as default};

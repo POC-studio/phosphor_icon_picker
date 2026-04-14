@@ -1,0 +1,23 @@
+{
+  "name": "Slider Button",
+  "use_bubble_size": true,
+  "events": ["button_slided"],
+  "properties": {
+    "text": {
+      "type": "text",
+      "default": "Slide to confirm"
+    },
+    "default_color": {
+      "type": "color",
+      "default": "#ef4444"
+    },
+    "success_color": {
+      "type": "color",
+      "default": "#22c55e"
+    },
+    "hold_duration_ms": {
+      "type": "integer",
+      "default": 500
+    }
+  }
+}

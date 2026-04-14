@@ -47,5 +47,32 @@ const n=`export default function(instance, properties, context) {
       }
     }
   }
+
+  const rawBookmarks = properties && properties.bookmarks_json;
+  if (typeof rawBookmarks === 'string' && rawBookmarks.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(rawBookmarks.trim());
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.bookmarks)) {
+        const next = parsed.bookmarks
+          .map((item) => {
+            const url = item && typeof item.image_url === 'string' ? item.image_url.trim() : '';
+            const contributor = item && typeof item.contributor === 'string' ? item.contributor.trim() : '';
+            return { image_url: url, contributor };
+          })
+          .filter((item) => item.image_url.length > 0);
+        instance.data.bookmarksList = next;
+        if (typeof instance.data.refreshBookmarksPanel === 'function') {
+          instance.data.refreshBookmarksPanel();
+        }
+      }
+    } catch (e) {
+      /* JSON invalide — on garde bookmarksList tel quel */
+    }
+  } else if (rawBookmarks === '' || rawBookmarks == null) {
+    instance.data.bookmarksList = [];
+    if (typeof instance.data.refreshBookmarksPanel === 'function') {
+      instance.data.refreshBookmarksPanel();
+    }
+  }
 }
 `;export{n as default};

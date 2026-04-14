@@ -187,6 +187,10 @@ async function initSandbox() {
       elementSelector.innerHTML = `
         <option value="fabric-view">Fabric View</option>
       `;
+    } else if (pluginSelector.value === 'slider-button') {
+      elementSelector.innerHTML = `
+        <option value="slider-button-view">Slider Button</option>
+      `;
     }
   }
 

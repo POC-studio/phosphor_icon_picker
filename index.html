@@ -41,6 +41,7 @@
       injectSharedFragment("./plugins/lucide-icon-picker/shared.html");
       injectSharedFragment("./plugins/word-cloud/shared.html");
       injectSharedFragment("./plugins/fabric/shared.html");
+      injectSharedFragment("./plugins/slider-button/shared.html");
     </script>
     <link rel="stylesheet" href="./style.css" />
   </head>
@@ -59,6 +60,7 @@
             <option value="avatar">Avatar</option>
             <option value="word-cloud">Word Cloud</option>
             <option value="fabric">Fabric</option>
+            <option value="slider-button">Slider Button</option>
           </select>
           <select id="element-selector">
             <option value="icon-picker">Icon Picker</option>
@@ -70,7 +72,7 @@
           <h3>Bubble Layout (Size)</h3>
           <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
             <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
-              W: <input type="number" id="canvas-width-input" value="32" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+              W: <input type="number" id="canvas-width-input" value="200" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
             </label>
             <label style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
               H: <input type="number" id="canvas-height-input" value="32" style="width: 50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
