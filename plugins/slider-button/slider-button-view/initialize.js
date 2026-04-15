@@ -69,11 +69,19 @@ export default function (instance, context) {
   instance.data.defaultColor = '#ef4444';
   instance.data.successColor = '#22c55e';
   instance.data.holdDurationMs = 500;
+  instance.data.borderRadiusPx = 9999;
+  instance.data.paddingPx = 0;
+
+  function getPad() {
+    const p = instance.data.paddingPx;
+    return typeof p === 'number' && !isNaN(p) ? Math.max(0, p) : 0;
+  }
 
   function getMaxOffset() {
+    const pad = getPad();
     const w = track.clientWidth;
     const knobW = knob.offsetWidth || 36;
-    return Math.max(0, w - knobW);
+    return Math.max(0, w - 2 * pad - knobW);
   }
 
   function applyKnobTransform(offsetPx) {
@@ -109,8 +117,18 @@ export default function (instance, context) {
 
   function applyDefaultTrackStyle(color) {
     const c = color || instance.data.defaultColor;
-    track.style.background = 'linear-gradient(90deg,' + hexToRgba(c, 0.14) + ' 0%, rgba(255,255,255,0.06) 100%)';
+    track.style.background = hexToRgba(c, 0.14);
     knob.style.background = c;
+  }
+
+  /** Publie le % (0–100) et déclenche l’event Bubble `button_dragged`. */
+  function emitDragProgress() {
+    const max = getMaxOffset();
+    const x = instance.data.knobOffset;
+    const pct =
+      max <= 0 ? 0 : Math.min(100, Math.max(0, Math.round((x / max) * 100)));
+    instance.publishState('drag_completion_percent', pct);
+    instance.triggerEvent('button_dragged', undefined, pct);
   }
 
   function completeSuccess() {
@@ -118,12 +136,13 @@ export default function (instance, context) {
     instance.data.completed = true;
     clearHoldTimer();
     const ok = instance.data.successColor;
-    track.style.background = 'linear-gradient(90deg,' + hexToRgba(ok, 0.18) + ' 0%, rgba(255,255,255,0.06) 100%)';
+    track.style.background = hexToRgba(ok, 0.18);
     knob.style.background = ok;
     iconEl.className = 'ph ph-check';
     applyKnobTransform(getMaxOffset());
     knob.style.cursor = 'default';
     instance.triggerEvent('button_slided');
+    emitDragProgress();
   }
 
   function onPointerMove(ev) {
@@ -134,6 +153,7 @@ export default function (instance, context) {
     let next = instance.data.startOffset + dx;
     next = Math.max(0, Math.min(max, next));
     applyKnobTransform(next);
+    emitDragProgress();
     if (next < max - EPS) {
       clearHoldTimer();
     } else if (!instance.data.holdTimerId) {
@@ -161,6 +181,7 @@ export default function (instance, context) {
     }
     knob.style.cursor = 'grab';
     applyKnobTransform(0);
+    emitDragProgress();
   }
 
   knob.addEventListener('pointerdown', function (ev) {
@@ -180,6 +201,7 @@ export default function (instance, context) {
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerEnd);
     window.addEventListener('pointercancel', onPointerEnd);
+    emitDragProgress();
   });
 
   const ro = new ResizeObserver(function () {
@@ -194,12 +216,26 @@ export default function (instance, context) {
   });
   ro.observe(track);
 
+  function resetToInitial() {
+    clearHoldTimer();
+    instance.data.completed = false;
+    instance.data.dragging = false;
+    instance.data.activePointerId = null;
+    iconEl.className = 'ph ph-arrow-right';
+    applyDefaultTrackStyle(instance.data.defaultColor);
+    applyKnobTransform(0);
+    knob.style.cursor = 'grab';
+    instance.publishState('drag_completion_percent', 0);
+  }
+
   instance.data.resizeObserver = ro;
   instance.data.applyDefaultTrackStyle = applyDefaultTrackStyle;
   instance.data.applyKnobTransform = applyKnobTransform;
   instance.data.getMaxOffset = getMaxOffset;
   instance.data.clearHoldTimer = clearHoldTimer;
+  instance.data.resetToInitial = resetToInitial;
 
   applyDefaultTrackStyle(instance.data.defaultColor);
   applyKnobTransform(0);
+  instance.publishState('drag_completion_percent', 0);
 }

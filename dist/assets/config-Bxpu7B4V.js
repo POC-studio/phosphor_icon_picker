@@ -1,1 +1,0 @@
-const e="Slider Button",s=!0,t=["button_slided"],o={text:{type:"text",default:"Slide to confirm"},default_color:{type:"color",default:"#ef4444"},success_color:{type:"color",default:"#22c55e"},hold_duration_ms:{type:"integer",default:500}},l={name:e,use_bubble_size:!0,events:t,properties:o};export{l as default,t as events,e as name,o as properties,s as use_bubble_size};

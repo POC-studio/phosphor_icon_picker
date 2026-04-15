@@ -11,9 +11,19 @@ export default function (instance, properties, context) {
   const successColor = properties.success_color || '#22c55e';
   const holdMs = properties.hold_duration_ms != null ? parseInt(properties.hold_duration_ms, 10) : 500;
 
+  let borderRadius = properties.border_radius != null ? parseInt(properties.border_radius, 10) : 9999;
+  if (isNaN(borderRadius)) borderRadius = 9999;
+  if (borderRadius < 0) borderRadius = 0;
+
+  let padding = properties.padding != null ? parseInt(properties.padding, 10) : 0;
+  if (isNaN(padding)) padding = 0;
+  if (padding < 0) padding = 0;
+
   instance.data.defaultColor = defaultColor;
   instance.data.successColor = successColor;
   instance.data.holdDurationMs = isNaN(holdMs) ? 500 : holdMs;
+  instance.data.borderRadiusPx = borderRadius;
+  instance.data.paddingPx = padding;
 
   labelEl.textContent = text;
 
@@ -21,12 +31,20 @@ export default function (instance, properties, context) {
     instance.data.applyDefaultTrackStyle(defaultColor);
   }
 
+  track.style.boxSizing = 'border-box';
+  track.style.padding = padding + 'px';
+  track.style.borderRadius = borderRadius === 0 ? '0' : borderRadius + 'px';
+
+  const knobRadius = borderRadius === 0 ? 0 : Math.max(0, borderRadius - padding);
+  knob.style.borderRadius = knobRadius + 'px';
+
   const h = instance.canvas[0] ? instance.canvas[0].offsetHeight : track.clientHeight;
-  const knobSize = Math.max(28, Math.round(h - 8));
+  const innerH = Math.max(0, track.clientHeight - 2 * padding);
+  const knobSize = Math.max(28, Math.round(innerH > 0 ? innerH : h - 8));
   knob.style.width = knobSize + 'px';
   knob.style.height = knobSize + 'px';
   knob.style.top = '50%';
-  knob.style.left = '0';
+  knob.style.left = padding + 'px';
 
   const iconSize = Math.max(14, Math.round(knobSize * 0.38));
   iconEl.style.fontSize = iconSize + 'px';

@@ -330,6 +330,28 @@ async function loadPlugin(pluginName, elementName) {
     displayCode('update.js', toBubbleCode(updateRaw.default));
     displayCode('preview.js', previewRaw.default);
 
+    // Scripts d’actions d’élément (ex. actions/reset-button.js) : fichier brut pour copie dans Bubble
+    if (config.actions && Array.isArray(config.actions)) {
+      for (const action of config.actions) {
+        if (!action || !action.file) continue;
+        const actionRaw = await import(
+          /* @vite-ignore */ `./plugins/${pluginName}/${elementName}/${action.file}?raw`
+        ).catch(() => ({ default: '' }));
+        displayCode(action.file, actionRaw.default, { raw: true });
+      }
+    }
+
+    // Scripts d’actions du plugin (racine plugins/<id>/, ex. actions/update-icons.js)
+    if (pluginConfig.actions && Array.isArray(pluginConfig.actions)) {
+      for (const action of pluginConfig.actions) {
+        if (!action || !action.file) continue;
+        const actionRaw = await import(
+          /* @vite-ignore */ `./plugins/${pluginName}/${action.file}?raw`
+        ).catch(() => ({ default: '' }));
+        displayCode(action.file, actionRaw.default, { raw: true });
+      }
+    }
+
     // 3. Exécuter le code du plugin
     if (mode === 'preview') {
       // En mode Editeur (Preview)
@@ -681,7 +703,8 @@ function getMockProperties(config) {
 }
 
 // Afficher et permettre la copie du code source
-function displayCode(filename, code) {
+// options.raw : affiche le fichier tel quel (imports inclus), utile pour les actions d’élément à coller dans Bubble
+function displayCode(filename, code, options = {}) {
   const container = document.getElementById('code-exports');
   
   // On nettoie le conteneur si c'est le premier fichier (shared.html)
@@ -691,15 +714,19 @@ function displayCode(filename, code) {
   
   if (!code) return; // Si le fichier est vide ou n'existe pas
 
-  // On nettoie le code (on enlève les import/export locaux de la sandbox)
   let cleanCode = code;
-  // 1) Enlever tous les imports
-  cleanCode = cleanCode.replace(/import\s+.*?;?\n/g, '');
-  // 2) Enlever le mot-clé "export default"
-  cleanCode = cleanCode.replace(/export\s+default\s+/g, '');
-  // 3) Normaliser la signature des fonctions anonymes pour Bubble : "function(instance, ...)" sans espace
-  cleanCode = cleanCode.replace(/function\s+\(/g, 'function(');
-  cleanCode = cleanCode.trim();
+  if (!options.raw) {
+    // On nettoie le code (on enlève les import/export locaux de la sandbox)
+    // 1) Enlever tous les imports
+    cleanCode = cleanCode.replace(/import\s+.*?;?\n/g, '');
+    // 2) Enlever le mot-clé "export default"
+    cleanCode = cleanCode.replace(/export\s+default\s+/g, '');
+    // 3) Normaliser la signature des fonctions anonymes pour Bubble : "function(instance, ...)" sans espace
+    cleanCode = cleanCode.replace(/function\s+\(/g, 'function(');
+    cleanCode = cleanCode.trim();
+  } else {
+    cleanCode = String(cleanCode).trim();
+  }
 
   const wrapper = document.createElement('div');
   wrapper.className = 'code-block-wrapper';

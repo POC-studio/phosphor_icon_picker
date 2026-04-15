@@ -6,7 +6,6 @@ const n=`export default function (instance, context) {
     document.head.appendChild(script);
   }
 
-  const PAD = 4;
   const EPS = 3;
 
   const root = document.createElement('div');
@@ -19,7 +18,7 @@ const n=`export default function (instance, context) {
 
   const labelEl = document.createElement('div');
   labelEl.style.cssText =
-    'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:0 56px 0 16px;text-align:center;font-size:14px;font-weight:500;color:rgba(55,65,81,0.9);pointer-events:none;z-index:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    'position:absolute;inset:0;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:center;padding:0 10px;text-align:center;font-size:14px;font-weight:500;color:rgba(55,65,81,0.9);pointer-events:none;z-index:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
 
   const knob = document.createElement('div');
   knob.setAttribute('role', 'slider');
@@ -27,9 +26,7 @@ const n=`export default function (instance, context) {
   knob.setAttribute('aria-valuemax', '100');
   knob.setAttribute('aria-valuenow', '0');
   knob.style.cssText =
-    'position:absolute;left:' +
-    PAD +
-    'px;top:50%;aspect-ratio:1/1;width:36px;height:36px;min-width:28px;border-radius:9999px;display:flex;align-items:center;justify-content:center;cursor:grab;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.12);touch-action:none;user-select:none;';
+    'position:absolute;left:0;top:50%;aspect-ratio:1/1;width:36px;height:36px;min-width:28px;border-radius:9999px;display:flex;align-items:center;justify-content:center;cursor:grab;z-index:2;box-shadow:0 1px 3px rgba(0,0,0,0.12);touch-action:none;user-select:none;';
 
   const iconEl = document.createElement('i');
   iconEl.className = 'ph ph-arrow-right';
@@ -72,11 +69,19 @@ const n=`export default function (instance, context) {
   instance.data.defaultColor = '#ef4444';
   instance.data.successColor = '#22c55e';
   instance.data.holdDurationMs = 500;
+  instance.data.borderRadiusPx = 9999;
+  instance.data.paddingPx = 0;
+
+  function getPad() {
+    const p = instance.data.paddingPx;
+    return typeof p === 'number' && !isNaN(p) ? Math.max(0, p) : 0;
+  }
 
   function getMaxOffset() {
+    const pad = getPad();
     const w = track.clientWidth;
     const knobW = knob.offsetWidth || 36;
-    return Math.max(0, w - knobW - PAD * 2);
+    return Math.max(0, w - 2 * pad - knobW);
   }
 
   function applyKnobTransform(offsetPx) {
@@ -112,8 +117,18 @@ const n=`export default function (instance, context) {
 
   function applyDefaultTrackStyle(color) {
     const c = color || instance.data.defaultColor;
-    track.style.background = 'linear-gradient(90deg,' + hexToRgba(c, 0.14) + ' 0%, rgba(255,255,255,0.06) 100%)';
+    track.style.background = hexToRgba(c, 0.14);
     knob.style.background = c;
+  }
+
+  /** Publie le % (0–100) et déclenche l’event Bubble \`button_dragged\`. */
+  function emitDragProgress() {
+    const max = getMaxOffset();
+    const x = instance.data.knobOffset;
+    const pct =
+      max <= 0 ? 0 : Math.min(100, Math.max(0, Math.round((x / max) * 100)));
+    instance.publishState('drag_completion_percent', pct);
+    instance.triggerEvent('button_dragged', undefined, pct);
   }
 
   function completeSuccess() {
@@ -121,11 +136,12 @@ const n=`export default function (instance, context) {
     instance.data.completed = true;
     clearHoldTimer();
     const ok = instance.data.successColor;
-    track.style.background = 'linear-gradient(90deg,' + hexToRgba(ok, 0.18) + ' 0%, rgba(255,255,255,0.06) 100%)';
+    track.style.background = hexToRgba(ok, 0.18);
     knob.style.background = ok;
     iconEl.className = 'ph ph-check';
     applyKnobTransform(getMaxOffset());
     knob.style.cursor = 'default';
+    emitDragProgress();
     instance.triggerEvent('button_slided');
   }
 
@@ -137,6 +153,7 @@ const n=`export default function (instance, context) {
     let next = instance.data.startOffset + dx;
     next = Math.max(0, Math.min(max, next));
     applyKnobTransform(next);
+    emitDragProgress();
     if (next < max - EPS) {
       clearHoldTimer();
     } else if (!instance.data.holdTimerId) {
@@ -164,6 +181,7 @@ const n=`export default function (instance, context) {
     }
     knob.style.cursor = 'grab';
     applyKnobTransform(0);
+    emitDragProgress();
   }
 
   knob.addEventListener('pointerdown', function (ev) {
@@ -183,6 +201,7 @@ const n=`export default function (instance, context) {
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerEnd);
     window.addEventListener('pointercancel', onPointerEnd);
+    emitDragProgress();
   });
 
   const ro = new ResizeObserver(function () {
@@ -197,13 +216,26 @@ const n=`export default function (instance, context) {
   });
   ro.observe(track);
 
+  function resetToInitial() {
+    clearHoldTimer();
+    instance.data.completed = false;
+    instance.data.dragging = false;
+    instance.data.activePointerId = null;
+    iconEl.className = 'ph ph-arrow-right';
+    applyKnobTransform(0);
+    knob.style.cursor = 'grab';
+    instance.publishState('drag_completion_percent', 0);
+  }
+
   instance.data.resizeObserver = ro;
   instance.data.applyDefaultTrackStyle = applyDefaultTrackStyle;
   instance.data.applyKnobTransform = applyKnobTransform;
   instance.data.getMaxOffset = getMaxOffset;
   instance.data.clearHoldTimer = clearHoldTimer;
+  instance.data.resetToInitial = resetToInitial;
 
   applyDefaultTrackStyle(instance.data.defaultColor);
   applyKnobTransform(0);
+  instance.publishState('drag_completion_percent', 0);
 }
 `;export{n as default};
