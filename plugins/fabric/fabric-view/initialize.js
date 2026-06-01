@@ -2900,16 +2900,6 @@ function updateArtboardNavVisibility(instance) {
   ui.artboardNextBtn.style.cursor = nextDisabled ? 'not-allowed' : 'pointer';
 }
 
-function syncBookmarksUiVisibility(instance) {
-  const ui = instance && instance.data ? instance.data.ui : null;
-  if (!ui || !ui.bookmarkBtn) return;
-  const hasBookmarks = Array.isArray(instance.data.bookmarksList) && instance.data.bookmarksList.length > 0;
-  ui.bookmarkBtn.style.display = hasBookmarks ? 'inline-flex' : 'none';
-  if (!hasBookmarks && instance.data.bookmarkMenu) {
-    instance.data.bookmarkMenu.style.display = 'none';
-  }
-}
-
 function updateTopBarForSelection(instance) {
   const ui = instance.data.ui;
   if (!ui) return;
@@ -4646,8 +4636,6 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.refreshBookmarksPanel = renderBookmarksPanel;
   ui.root.appendChild(bookmarkMenu);
   instance.data.bookmarkMenu = bookmarkMenu;
-  instance.data.syncBookmarksUiVisibility = () => syncBookmarksUiVisibility(instance);
-  syncBookmarksUiVisibility(instance);
 
   const tableMenu = document.createElement('div');
   const TABLE_PANEL_EDGE = BOOKMARK_PANEL_EDGE;
@@ -4897,7 +4885,6 @@ function buildFabricClipboardJsonString(targets) {
   });
 
   ui.bookmarkBtn.addEventListener('click', () => {
-    if (!Array.isArray(instance.data.bookmarksList) || instance.data.bookmarksList.length === 0) return;
     exitPanMode();
     setToolMode('select');
     shapeMenu.style.display = 'none';

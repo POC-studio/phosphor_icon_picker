@@ -1,34 +1,70 @@
 export default function(instance, properties, context) {
-  const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-  const ui = instance && instance.data ? instance.data.ui : null;
-  if (!instance || !instance.data || !fabricCanvas || !ui || !ui.board) return;
+  if (!properties) {
+    return;
+  }
 
-  const nextTitleRaw = properties && typeof properties.document_title === 'string'
-    ? properties.document_title
-    : '';
+  var rawBookmarks = properties.bookmarks_json;
+  var bookmarksItems = null;
+  if (rawBookmarks && typeof rawBookmarks === 'object' && Array.isArray(rawBookmarks.bookmarks)) {
+    bookmarksItems = rawBookmarks.bookmarks;
+  } else if (typeof rawBookmarks === 'string' && rawBookmarks.trim().length > 0) {
+    try {
+      var parsedBookmarks = JSON.parse(rawBookmarks.trim());
+      if (parsedBookmarks && Array.isArray(parsedBookmarks.bookmarks)) {
+        bookmarksItems = parsedBookmarks.bookmarks;
+      }
+    } catch (e) {
+      bookmarksItems = null;
+    }
+  }
+
+  if (bookmarksItems) {
+    instance.data.bookmarksList = bookmarksItems
+      .map(function(item) {
+        var url = item && item.image_url != null ? String(item.image_url).trim() : '';
+        var contributor = item && item.contributor != null ? String(item.contributor).trim() : '';
+        return { image_url: url, contributor: contributor };
+      })
+      .filter(function(item) {
+        return item.image_url.length > 0;
+      });
+  } else if (rawBookmarks == null || rawBookmarks === '') {
+    instance.data.bookmarksList = [];
+  }
+  if (typeof instance.data.refreshBookmarksPanel === 'function') {
+    instance.data.refreshBookmarksPanel();
+  }
+
+  var fabricCanvas = instance.data ? instance.data.fabricCanvas : null;
+  var ui = instance.data ? instance.data.ui : null;
+  if (!fabricCanvas || !ui || !ui.board) {
+    return;
+  }
+
+  var nextTitleRaw = typeof properties.document_title === 'string' ? properties.document_title : '';
   instance.data.documentTitle = nextTitleRaw;
 
   if (typeof instance.data.ensureCanvasSize === 'function') {
     instance.data.ensureCanvasSize();
   } else {
-    const width = Math.max(ui.board.clientWidth || 1, 1);
-    const height = Math.max(ui.board.clientHeight || 1, 1);
-    fabricCanvas.setDimensions({ width, height });
+    var width = Math.max(ui.board.clientWidth || 1, 1);
+    var height = Math.max(ui.board.clientHeight || 1, 1);
+    fabricCanvas.setDimensions({ width: width, height: height });
     fabricCanvas.requestRenderAll();
   }
   if (typeof instance.data.refreshTopBar === 'function') {
     instance.data.refreshTopBar();
   }
 
-  const incomingCanvasJson = properties && properties.canvas_json;
-  const hasBubbleCanvasJson = typeof incomingCanvasJson === 'string' && incomingCanvasJson.length > 0;
+  var incomingCanvasJson = properties.canvas_json;
+  var hasBubbleCanvasJson = typeof incomingCanvasJson === 'string' && incomingCanvasJson.length > 0;
   if (hasBubbleCanvasJson) {
-    const last = instance.data._lastPublishedCanvasJson;
+    var last = instance.data._lastPublishedCanvasJson;
     if (incomingCanvasJson !== last && typeof instance.data.loadWrappedCanvasJson === 'function') {
       instance.data.loadWrappedCanvasJson(incomingCanvasJson);
     }
   } else {
-    const initialJson = properties && properties.initial_json;
+    var initialJson = properties.initial_json;
     if (
       typeof initialJson === 'string'
       && initialJson.trim().length > 0
@@ -36,8 +72,8 @@ export default function(instance, properties, context) {
       && typeof instance.data.loadWrappedCanvasJson === 'function'
     ) {
       try {
-        const trimmed = initialJson.trim();
-        const parsed = JSON.parse(trimmed);
+        var trimmed = initialJson.trim();
+        var parsed = JSON.parse(trimmed);
         if (parsed && Array.isArray(parsed.artboards) && parsed.artboards.length === 3) {
           instance.data._hydratedFromInitialJsonProperty = true;
           instance.data.loadWrappedCanvasJson(trimmed);
@@ -45,39 +81,6 @@ export default function(instance, properties, context) {
       } catch (e) {
         /* JSON invalide — on garde l’état issu de initialize */
       }
-    }
-  }
-
-  const rawBookmarks = properties && properties.bookmarks_json;
-  if (typeof rawBookmarks === 'string' && rawBookmarks.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(rawBookmarks.trim());
-      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.bookmarks)) {
-        const next = parsed.bookmarks
-          .map((item) => {
-            const url = item && typeof item.image_url === 'string' ? item.image_url.trim() : '';
-            const contributor = item && typeof item.contributor === 'string' ? item.contributor.trim() : '';
-            return { image_url: url, contributor };
-          })
-          .filter((item) => item.image_url.length > 0);
-        instance.data.bookmarksList = next;
-        if (typeof instance.data.refreshBookmarksPanel === 'function') {
-          instance.data.refreshBookmarksPanel();
-        }
-        if (typeof instance.data.syncBookmarksUiVisibility === 'function') {
-          instance.data.syncBookmarksUiVisibility();
-        }
-      }
-    } catch (e) {
-      /* JSON invalide — on garde bookmarksList tel quel */
-    }
-  } else if (rawBookmarks === '' || rawBookmarks == null) {
-    instance.data.bookmarksList = [];
-    if (typeof instance.data.refreshBookmarksPanel === 'function') {
-      instance.data.refreshBookmarksPanel();
-    }
-    if (typeof instance.data.syncBookmarksUiVisibility === 'function') {
-      instance.data.syncBookmarksUiVisibility();
     }
   }
 }
