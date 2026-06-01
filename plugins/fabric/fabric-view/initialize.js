@@ -1269,6 +1269,9 @@ function publishCanvasJson(instance, options) {
   if (!silent && !suppressBubble) {
     instance.triggerEvent('json_changed');
   }
+  if (!suppressBubble) {
+    schedulePagePreviews(instance);
+  }
 }
 
 /** Regroupe les publications déclenchées par les events Fabric (collage, guides, etc.) pour limiter les rafales vers Bubble. */
@@ -1503,6 +1506,130 @@ function triggerFoldedA4PdfDownload(instance) {
     .finally(() => {
       setPdfDownloadButtonLoading(downloadBtn, false);
     });
+}
+
+function cropCanvasToDataUrl(sourceCanvas, sx, sy, sw, sh) {
+  const out = document.createElement('canvas');
+  out.width = sw;
+  out.height = sh;
+  const ctx = out.getContext('2d');
+  if (!ctx) return '';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, sw, sh);
+  ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+  return out.toDataURL('image/png');
+}
+
+/**
+ * Rend les 4 demi-pages en ordre naturel :
+ *  0 = page 0 (A5), 1 = page 1 moitié gauche, 2 = page 1 moitié droite, 3 = page 2 (A5).
+ * Page 1 (A4 paysage) est découpée en deux A5.
+ */
+function buildHalfPageDataUrls(fabricLib, snaps) {
+  return Promise.all([
+    renderArtboardSnapshotToDataUrl(fabricLib, 0, snaps[0]),
+    renderArtboardSnapshotToDataUrl(fabricLib, 1, snaps[1]),
+    renderArtboardSnapshotToDataUrl(fabricLib, 2, snaps[2]),
+  ]).then((urls) => {
+    const du0 = urls[0];
+    const du1 = urls[1];
+    const du2 = urls[2];
+    return dataUrlToImageCanvas(du1).then((mid) => {
+      const halfW = Math.round(ARTBOARD_PRESETS[1].width / 2);
+      const h = mid.height;
+      const leftUrl = cropCanvasToDataUrl(mid, 0, 0, halfW, h);
+      const rightUrl = cropCanvasToDataUrl(mid, halfW, 0, mid.width - halfW, h);
+      return [du0, leftUrl, rightUrl, du2];
+    });
+  });
+}
+
+/**
+ * Génère et publie les previews des demi-pages dans le state `page_previews`,
+ * puis déclenche l'event `page_previews_ready`. Renvoie la Promise des URLs
+ * (utilisable comme « Result of step » côté action Bubble).
+ * Toujours exécutée à fond (pas de skip) : l'appel manuel doit régénérer.
+ */
+function createPagePreviews(instance) {
+  if (!instance || !instance.data || !instance.data.fabricCanvas) {
+    return Promise.resolve([]);
+  }
+  const fabricLib = instance.data.fabricLib;
+  if (!fabricLib || typeof fabricLib.Canvas !== 'function') {
+    return Promise.resolve([]);
+  }
+  syncCurrentCanvasToPageSnapshots(instance);
+  if (!Array.isArray(instance.data.pageSnapshots) || instance.data.pageSnapshots.length < 3) {
+    return Promise.resolve([]);
+  }
+  const snaps = instance.data.pageSnapshots.slice();
+  const base = pdfDownloadBaseName(instance);
+  const runId = (instance.data._pagePreviewsRunId || 0) + 1;
+  instance.data._pagePreviewsRunId = runId;
+
+  const uploadOne = (name, dataUrl) => {
+    const base64 = dataUrlToBase64(dataUrl);
+    if (context && typeof context.uploadContent === 'function' && base64) {
+      return new Promise((resolve) => {
+        try {
+          context.uploadContent(name, base64, (err, url) => {
+            if (err || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
+              resolve(dataUrl);
+            } else {
+              resolve(url);
+            }
+          });
+        } catch (e) {
+          resolve(dataUrl);
+        }
+      });
+    }
+    return Promise.resolve(dataUrl);
+  };
+
+  const run = async () => {
+    if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.ready !== 'undefined') {
+      try {
+        await document.fonts.ready;
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    const halfUrls = await buildHalfPageDataUrls(fabricLib, snaps);
+    const uploaded = await Promise.all(halfUrls.map((dataUrl, i) => {
+      const safeName = `${base}-preview-${i + 1}.png`.replace(/[^\w.-]/g, '_') || `preview-${i + 1}.png`;
+      return uploadOne(safeName, dataUrl);
+    }));
+    if (instance.data._pagePreviewsRunId !== runId) {
+      return uploaded;
+    }
+    instance.data._lastPreviewedContentKey = JSON.stringify(snaps);
+    instance.publishState('page_previews', uploaded);
+    instance.triggerEvent('page_previews_ready');
+    return uploaded;
+  };
+
+  return run().catch((err) => {
+    console.error('Fabric View: create_page_previews', err);
+    return [];
+  });
+}
+
+/** Régénère les previews après un changement de contenu (debounce + skip si contenu identique). */
+function schedulePagePreviews(instance) {
+  if (!instance || !instance.data) return;
+  const d = instance.data;
+  if (d._suppressCanvasJsonPublish === true) return;
+  if (d._schedulePagePreviewsTimer) {
+    clearTimeout(d._schedulePagePreviewsTimer);
+  }
+  d._schedulePagePreviewsTimer = setTimeout(() => {
+    d._schedulePagePreviewsTimer = null;
+    if (!Array.isArray(d.pageSnapshots)) return;
+    const contentKey = JSON.stringify(d.pageSnapshots);
+    if (contentKey === d._lastPreviewedContentKey) return;
+    createPagePreviews(instance);
+  }, 1500);
 }
 
 function getDocumentSize(instance) {
@@ -5491,6 +5618,7 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.ensureCanvasSize = () => ensureCanvasSize(instance);
   instance.data.refreshTopBar = () => updateTopBarForSelection(instance);
   instance.data.loadWrappedCanvasJson = (jsonString) => loadWrappedCanvasJson(instance, jsonString);
+  instance.data.createPagePreviews = () => createPagePreviews(instance);
   syncToolButtonHighlightToMode();
   /* Pas de publishCanvasJson ici : update() charge initial_json → loadWrappedCanvasJson lève _suppress puis publie (évite d’écraser Bubble avec les 3 pages vides du bootstrap). */
 }

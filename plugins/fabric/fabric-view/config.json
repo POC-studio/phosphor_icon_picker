@@ -5,7 +5,8 @@
     "new_color_selected",
     "json_changed",
     "pdf_ready",
-    "contribution_added"
+    "contribution_added",
+    "page_previews_ready"
   ],
   "states": {
     "pdf_url": {
@@ -15,6 +16,11 @@
     "contribution_id": {
       "label": "ID de la dernière contribution (bookmark)",
       "type": "text"
+    },
+    "page_previews": {
+      "label": "Previews des demi-pages (URLs, ordre naturel)",
+      "type": "text",
+      "is_list": true
     }
   },
   "properties": {
