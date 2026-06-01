@@ -62,6 +62,7 @@ function createRandomSeedObjects(fabricLib, canvasWidth, canvasHeight) {
     strokeUniform: true,
     angle: randomInt(-10, 10),
   });
+  applyTextboxEditingControls(text);
 
   return [rect, circle, text];
 }
@@ -89,7 +90,7 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
   if (!fabricLib) return null;
   const maxW = Math.max(canvasWidth || 900, 600);
   const maxH = Math.max(canvasHeight || 520, 360);
-  return new fabricLib.Textbox('Edit me', {
+  const textbox = new fabricLib.Textbox('Edit me', {
     left: Math.round(maxW * 0.5 - 90),
     top: Math.round(maxH * 0.5 - 20),
     width: 180,
@@ -101,6 +102,8 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
     strokeWidth: 0,
     strokeUniform: true,
   });
+  applyTextboxEditingControls(textbox);
+  return textbox;
 }
 
 function ensureHexColor(value, fallback) {
@@ -1113,6 +1116,31 @@ function isTextLikeObject(target) {
   return t === 'textbox' || t === 'text' || t === 'iText';
 }
 
+/**
+ * Restreint les poignées de redimensionnement d'un objet texte : on retire les
+ * poignées milieu verticales (mt/mb) qui déforment les glyphes, et on bloque le
+ * skew. Restent les poignées latérales (largeur de wrap) et les coins (scale uniforme).
+ */
+function applyTextboxEditingControls(target) {
+  if (!isTextLikeObject(target)) return;
+  if (typeof target.setControlsVisibility === 'function') {
+    target.setControlsVisibility({
+      mt: false,
+      mb: false,
+      ml: true,
+      mr: true,
+      tl: true,
+      tr: true,
+      bl: true,
+      br: true,
+      mtr: true,
+    });
+  }
+  if (typeof target.set === 'function') {
+    target.set({ lockSkewingX: true, lockSkewingY: true });
+  }
+}
+
 function isRoundedPolygonShape(target) {
   if (!target) return false;
   return target.shapeKind === 'triangle' || target.shapeKind === 'star';
@@ -1568,6 +1596,13 @@ function finalizeAfterArtboardLoad(instance, fabricLib) {
   ensureCanvasSize(instance);
   const canvas = instance.data.fabricCanvas;
   if (canvas) syncImageCornerRadiusClipsOnCanvas(canvas, fabricLib);
+  // Textes rechargés depuis le JSON : on applique la config de poignées et on
+  // remesure une fois les web fonts prêtes (sinon métriques fallback => curseur décalé).
+  if (canvas && typeof canvas.getObjects === 'function') {
+    const textObjects = canvas.getObjects().filter((o) => isTextLikeObject(o));
+    textObjects.forEach((t) => applyTextboxEditingControls(t));
+    if (textObjects.length > 0) loadWebFontsThenRedraw(canvas, textObjects);
+  }
 }
 
 function goToArtboard(instance, targetIndex, opts) {
@@ -2467,6 +2502,7 @@ function normalizeObjectScale(target) {
     }
     target.set({ scaleX: 1, scaleY: 1 });
     if (typeof target.initDimensions === 'function') target.initDimensions();
+    if (typeof target.setCoords === 'function') target.setCoords();
     return;
   }
   if (Number.isFinite(Number(target.width))) {
@@ -2862,6 +2898,16 @@ function updateArtboardNavVisibility(instance) {
   ui.artboardNextBtn.style.opacity = nextDisabled ? '0.45' : '';
   ui.artboardPrevBtn.style.cursor = prevDisabled ? 'not-allowed' : 'pointer';
   ui.artboardNextBtn.style.cursor = nextDisabled ? 'not-allowed' : 'pointer';
+}
+
+function syncBookmarksUiVisibility(instance) {
+  const ui = instance && instance.data ? instance.data.ui : null;
+  if (!ui || !ui.bookmarkBtn) return;
+  const hasBookmarks = Array.isArray(instance.data.bookmarksList) && instance.data.bookmarksList.length > 0;
+  ui.bookmarkBtn.style.display = hasBookmarks ? 'inline-flex' : 'none';
+  if (!hasBookmarks && instance.data.bookmarkMenu) {
+    instance.data.bookmarkMenu.style.display = 'none';
+  }
 }
 
 function updateTopBarForSelection(instance) {
@@ -3503,6 +3549,11 @@ function buildFabricClipboardJsonString(targets) {
     centeredRotation: false,
   });
   instance.data.fabricCanvas = fabricCanvas;
+  // Précharge la font texte par défaut pour que le tout premier textbox soit
+  // déjà mesuré avec les bonnes métriques (curseur bien placé dès l'ajout).
+  if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.load === 'function') {
+    document.fonts.load(`36px ${DEFAULT_TEXT_FONT_FAMILY}`).catch(() => {});
+  }
   instance.publishState('new_color', '');
   instance.publishState('contribution_id', '');
   instance.publishState('pdf_url', '');
@@ -4200,6 +4251,9 @@ function buildFabricClipboardJsonString(targets) {
     fabricCanvas.setActiveObject(text);
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
+    // La web font (display=swap) n'est pas forcément prête à la création : on
+    // remesure une fois la face chargée pour fiabiliser le placement du curseur.
+    loadWebFontsThenRedraw(fabricCanvas, [text]);
   });
 
   const shapeMenu = document.createElement('div');
@@ -4592,6 +4646,8 @@ function buildFabricClipboardJsonString(targets) {
   instance.data.refreshBookmarksPanel = renderBookmarksPanel;
   ui.root.appendChild(bookmarkMenu);
   instance.data.bookmarkMenu = bookmarkMenu;
+  instance.data.syncBookmarksUiVisibility = () => syncBookmarksUiVisibility(instance);
+  syncBookmarksUiVisibility(instance);
 
   const tableMenu = document.createElement('div');
   const TABLE_PANEL_EDGE = BOOKMARK_PANEL_EDGE;
@@ -4841,6 +4897,7 @@ function buildFabricClipboardJsonString(targets) {
   });
 
   ui.bookmarkBtn.addEventListener('click', () => {
+    if (!Array.isArray(instance.data.bookmarksList) || instance.data.bookmarksList.length === 0) return;
     exitPanMode();
     setToolMode('select');
     shapeMenu.style.display = 'none';

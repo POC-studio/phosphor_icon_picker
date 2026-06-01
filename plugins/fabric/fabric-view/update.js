@@ -64,6 +64,9 @@ export default function(instance, properties, context) {
         if (typeof instance.data.refreshBookmarksPanel === 'function') {
           instance.data.refreshBookmarksPanel();
         }
+        if (typeof instance.data.syncBookmarksUiVisibility === 'function') {
+          instance.data.syncBookmarksUiVisibility();
+        }
       }
     } catch (e) {
       /* JSON invalide — on garde bookmarksList tel quel */
@@ -72,6 +75,9 @@ export default function(instance, properties, context) {
     instance.data.bookmarksList = [];
     if (typeof instance.data.refreshBookmarksPanel === 'function') {
       instance.data.refreshBookmarksPanel();
+    }
+    if (typeof instance.data.syncBookmarksUiVisibility === 'function') {
+      instance.data.syncBookmarksUiVisibility();
     }
   }
 }
