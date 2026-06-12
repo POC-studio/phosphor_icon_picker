@@ -1,4 +1,7 @@
 {
   "name": "Fabric",
-  "description": "A full-size canvas editor for Bubble powered by Fabric.js v6. Add and edit text and shapes with an intuitive toolbar-driven interface."
+  "description": "A full-size canvas editor for Bubble powered by Fabric.js v6. Add and edit text and shapes with an intuitive toolbar-driven interface.",
+  "bundles": [
+    { "entry": "fabric-view/src/index.js", "output": "fabric-view/initialize.js" }
+  ]
 }

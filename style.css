@@ -277,6 +277,24 @@ body.sidebars-hidden #canvas-container {
   color: #10b981;
 }
 
+/* Build en cours : copie bloquée, icône spinner qui tourne */
+.copy-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.copy-btn.building i {
+  display: inline-block;
+  animation: copy-btn-spin 0.8s linear infinite;
+}
+
+@keyframes copy-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 pre {
   background-color: #1e1e1e;
   color: #d4d4d4;

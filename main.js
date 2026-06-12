@@ -773,5 +773,22 @@ function displayCode(filename, code, options = {}) {
   container.appendChild(wrapper);
 }
 
+// Indicateur de build des plugins bundlés : pendant un rebuild esbuild (events
+// HMR custom envoyés par vite.config.js), on bloque la copie du code — il serait
+// périmé — et on fait tourner les icônes "copier".
+function setCopyButtonsBuilding(isBuilding) {
+  document.querySelectorAll('.copy-btn').forEach((btn) => {
+    btn.disabled = isBuilding;
+    btn.classList.toggle('building', isBuilding);
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = isBuilding ? 'ph ph-spinner' : 'ph ph-copy';
+  });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.on('plugin-build:start', () => setCopyButtonsBuilding(true));
+  import.meta.hot.on('plugin-build:end', () => setCopyButtonsBuilding(false));
+}
+
 // Lancer l'app
 document.addEventListener('DOMContentLoaded', initSandbox);
