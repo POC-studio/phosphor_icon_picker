@@ -1,9 +1,18 @@
 import { buildClipboardDataFromNavigatorRead, clipboardHasPastableContent, isTypingContext, runCanvasPasteFromClipboardData } from '../clipboard.js';
+import { PX_PER_MM } from '../constants.js';
 import { applyZOrderToSelection, getActiveSelectionTargets, isSelectionContainer } from '../objects.js';
-import { buildFabricClipboardJsonString, publishCanvasJson } from '../serialize.js';
+import { buildFabricClipboardJsonString, publishCanvasJson, schedulePublishCanvasJson } from '../serialize.js';
 import { updateTopBarForSelection } from './toolbar-sync.js';
 
-/** Menu contextuel (clic droit) + suppression au clavier (Backspace). */
+/** Déplacement au clavier : flèche = 1 mm, Shift+flèche = 10 mm (document à 300 dpi). */
+const NUDGE_DIRECTIONS = {
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+};
+
+/** Menu contextuel (clic droit) + clavier : suppression (Backspace) et déplacement (flèches). */
 export function setupContextMenu(app) {
   const { instance, context, fabricCanvas, fabricLib, ui, groupSelection, isGroupObject, ungroupSelection, duplicateSelection } = app;
 
@@ -107,6 +116,25 @@ export function setupContextMenu(app) {
   document.body.appendChild(contextMenu);
 
   const onKeyDown = (event) => {
+    const nudgeDir = NUDGE_DIRECTIONS[event.key];
+    if (nudgeDir) {
+      if (isTypingContext(event.target)) return;
+      if (!fabricCanvas) return;
+      const active = fabricCanvas.getActiveObject();
+      if (!active || active.isEditing) return;
+      event.preventDefault();
+      const stepPx = (event.shiftKey ? 10 : 1) * PX_PER_MM;
+      active.set({
+        left: active.left + nudgeDir[0] * stepPx,
+        top: active.top + nudgeDir[1] * stepPx,
+      });
+      active.setCoords();
+      fabricCanvas.requestRenderAll();
+      // Debounce : la répétition de touche (flèche maintenue) déclenche une rafale de keydown.
+      schedulePublishCanvasJson(instance);
+      updateTopBarForSelection(instance);
+      return;
+    }
     if (event.key !== 'Backspace') return;
     if (isTypingContext(event.target)) return;
     if (!fabricCanvas) return;

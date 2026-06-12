@@ -3328,6 +3328,12 @@ var __pluginInit = (() => {
   }
 
   // plugins/fabric/fabric-view/src/ui/context-menu.js
+  var NUDGE_DIRECTIONS = {
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0]
+  };
   function setupContextMenu(app) {
     const { instance, context, fabricCanvas, fabricLib, ui, groupSelection, isGroupObject, ungroupSelection, duplicateSelection } = app;
     const contextMenu = document.createElement("div");
@@ -3425,6 +3431,24 @@ var __pluginInit = (() => {
     };
     document.body.appendChild(contextMenu);
     const onKeyDown = (event) => {
+      const nudgeDir = NUDGE_DIRECTIONS[event.key];
+      if (nudgeDir) {
+        if (isTypingContext(event.target)) return;
+        if (!fabricCanvas) return;
+        const active2 = fabricCanvas.getActiveObject();
+        if (!active2 || active2.isEditing) return;
+        event.preventDefault();
+        const stepPx = (event.shiftKey ? 10 : 1) * PX_PER_MM;
+        active2.set({
+          left: active2.left + nudgeDir[0] * stepPx,
+          top: active2.top + nudgeDir[1] * stepPx
+        });
+        active2.setCoords();
+        fabricCanvas.requestRenderAll();
+        schedulePublishCanvasJson(instance);
+        updateTopBarForSelection(instance);
+        return;
+      }
       if (event.key !== "Backspace") return;
       if (isTypingContext(event.target)) return;
       if (!fabricCanvas) return;
