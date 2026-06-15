@@ -151,6 +151,48 @@ function firstNumber(value) {
 }
 
 
+/** Écrit stroke-width en respectant l'emplacement existant (style inline prioritaire sur l'attribut). */
+function setSvgStrokeWidth(el, width) {
+  const value = Number.isFinite(width) ? String(width) : '0';
+  const style = el.getAttribute('style');
+  if (style && /(?:^|;)\s*stroke-width\s*:/.test(style)) {
+    el.setAttribute('style', style.replace(/((?:^|;)\s*stroke-width\s*:\s*)[^;]+/, `$1${value}`));
+  } else {
+    el.setAttribute('stroke-width', value);
+  }
+}
+
+
+/**
+ * svg2pdf n'honore pas `vector-effect="non-scaling-stroke"` : il applique le scale de
+ * la matrice de l'objet au trait. On « cuit » donc l'épaisseur (stroke-width / scale cumulé)
+ * et on retire l'attribut, pour que la remise à l'échelle de svg2pdf redonne l'épaisseur voulue
+ * (= rendu identique à la chaîne PNG, où strokeUniform garde un trait constant).
+ * Le SVG de page doit être attaché au DOM (getCTM) au moment de l'appel.
+ */
+function bakeNonScalingStrokes(rootSvg) {
+  const els = Array.from(rootSvg.querySelectorAll('[vector-effect="non-scaling-stroke"]'));
+  els.forEach((el) => {
+    let scale = 1;
+    try {
+      const ctm = typeof el.getCTM === 'function' ? el.getCTM() : null;
+      if (ctm) {
+        const det = ctm.a * ctm.d - ctm.b * ctm.c;
+        const s = Math.sqrt(Math.abs(det));
+        if (Number.isFinite(s) && s > 0) scale = s;
+      }
+    } catch (e) {
+      /* garde scale = 1 */
+    }
+    el.removeAttribute('vector-effect');
+    if (scale === 1) return;
+    const sw = parseFloat(readSvgProp(el, 'stroke-width'));
+    const width = Number.isFinite(sw) ? sw : 1;
+    setSvgStrokeWidth(el, width / scale);
+  });
+}
+
+
 /** Remplace un <text> Fabric par des <path> (contours opentype) dans le même repère local. */
 async function outlineOneTextElement(instance, textEl) {
   const family = readFontFamily(textEl);
@@ -363,15 +405,35 @@ function portraitRotateTransform() {
 }
 
 
-/** Importe les enfants d'un SVG d'artboard dans un groupe (translaté), avec id préfixés. */
-function appendArtboardChildren(parentGroup, artboardSvgEl, translateX, idPrefix) {
+/**
+ * Importe les enfants d'un SVG d'artboard dans un groupe (translaté), avec id préfixés,
+ * et CLIPPE le contenu au cadre de l'artboard (clipW x clipH) pour qu'un élément qui
+ * déborde du canvas n'apparaisse pas sur le montage (ex. jointure des deux A5).
+ */
+function appendArtboardChildren(parentGroup, artboardSvgEl, translateX, idPrefix, clipW, clipH) {
   if (!artboardSvgEl) return;
   prefixSvgIds(artboardSvgEl, idPrefix);
-  const g = makeGroup(translateX ? `translate(${translateX},0)` : null);
+  const outer = makeGroup(translateX ? `translate(${translateX},0)` : null);
+
+  const clipId = `${idPrefix}clip`;
+  const clipPath = document.createElementNS(SVG_NS, 'clipPath');
+  clipPath.setAttribute('id', clipId);
+  clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
+  const rect = document.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('x', '0');
+  rect.setAttribute('y', '0');
+  rect.setAttribute('width', String(clipW));
+  rect.setAttribute('height', String(clipH));
+  clipPath.appendChild(rect);
+  outer.appendChild(clipPath);
+
+  const inner = makeGroup(null);
+  inner.setAttribute('clip-path', `url(#${clipId})`);
   Array.from(artboardSvgEl.childNodes).forEach((node) => {
-    g.appendChild(document.importNode(node, true));
+    inner.appendChild(document.importNode(node, true));
   });
-  parentGroup.appendChild(g);
+  outer.appendChild(inner);
+  parentGroup.appendChild(outer);
 }
 
 
@@ -383,8 +445,8 @@ async function buildOutsidePageSvg(instance, fabricLib, snaps) {
   ]);
   const svg = createPageSvg();
   const rot = makeGroup(portraitRotateTransform());
-  appendArtboardChildren(rot, artBack, 0, 'pdfBack_');
-  appendArtboardChildren(rot, artFront, ARTBOARD_PRESETS[2].width, 'pdfFront_');
+  appendArtboardChildren(rot, artBack, 0, 'pdfBack_', ARTBOARD_PRESETS[2].width, ARTBOARD_PRESETS[2].height);
+  appendArtboardChildren(rot, artFront, ARTBOARD_PRESETS[2].width, 'pdfFront_', ARTBOARD_PRESETS[0].width, ARTBOARD_PRESETS[0].height);
   svg.appendChild(rot);
   return svg;
 }
@@ -401,7 +463,7 @@ async function buildInsidePageSvg(instance, fabricLib, snaps) {
     parent = flip;
   }
   const rot = makeGroup(portraitRotateTransform());
-  appendArtboardChildren(rot, artInside, 0, 'pdfInside_');
+  appendArtboardChildren(rot, artInside, 0, 'pdfInside_', ARTBOARD_PRESETS[1].width, ARTBOARD_PRESETS[1].height);
   parent.appendChild(rot);
   return svg;
 }
@@ -414,6 +476,8 @@ async function renderSvgToPdfPage(doc, svgEl) {
   svgEl.style.top = '0';
   document.body.appendChild(svgEl);
   try {
+    // Doit être fait une fois le SVG dans le DOM (getCTM) et avant le rendu svg2pdf.
+    bakeNonScalingStrokes(svgEl);
     if (typeof doc.svg === 'function') {
       await doc.svg(svgEl, { x: 0, y: 0, width: 210, height: 297 });
     } else if (typeof window !== 'undefined' && typeof window.svg2pdf === 'function') {

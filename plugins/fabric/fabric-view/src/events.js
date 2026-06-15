@@ -1,6 +1,6 @@
 import { handleClipboardPasteEvent, insertImageFileOnCanvas, shouldBlockFabricCopyShortcut } from './clipboard.js';
 import { ensureCanvasSize, syncGuideLayers } from './guides.js';
-import { applyStrokeUniformDeep, getActiveSelectionTargets, isCornerControl, isFabricGroupObject, isFabricRasterImage, isPartOfActiveObject, isRoundedPolygonShape, isSelectionContainer, isShapeObject, normalizeObjectScale, oppositeOriginForCorner, performAltDuplicateDrag } from './objects.js';
+import { applyStrokeUniformDeep, getActiveSelectionTargets, isCornerControl, isFabricGroupObject, isFabricRasterImage, isPartOfActiveObject, isRoundedPolygonShape, isSelectionContainer, isShapeObject, isTextLikeObject, normalizeObjectScale, oppositeOriginForCorner, performAltDuplicateDrag } from './objects.js';
 import { buildFabricClipboardJsonString, publishCanvasJson, schedulePublishCanvasJson } from './serialize.js';
 import { applyImageCornerRadiusPx, applyRectCornerRadiusPx, getRectCornerRadiusPx, replaceRoundedPolygon } from './shapes.js';
 import { updateTopBarForSelection } from './ui/toolbar-sync.js';
@@ -159,7 +159,8 @@ export function wireCanvasEvents(app) {
   fabricCanvas.on('object:scaling', (event) => {
     const target = event && event.target ? event.target : null;
     const transform = event && event.transform ? event.transform : null;
-    if (!target || !isShapeObject(target) || !transform) return;
+    // Le texte est autorisé pour forcer le scaling uniforme de ses coins (cf. bloc isCornerControl).
+    if (!target || (!isShapeObject(target) && !isTextLikeObject(target)) || !transform) return;
     // Keep stroke visually stable during live scaling (not only after drop).
     applyStrokeUniformDeep(target);
     const original = transform.original && typeof transform.original === 'object'
@@ -242,6 +243,19 @@ export function wireCanvasEvents(app) {
   });
   fabricCanvas.on('object:modified', (event) => {
     let target = event && event.target ? event.target : null;
+    if (target && isTextLikeObject(target)) {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn('[TXTMODIFIED]', {
+          type: target.type,
+          action: event && event.action,
+          scaleX: target.scaleX,
+          scaleY: target.scaleY,
+          width: target.width,
+          fontSize: target.fontSize,
+        });
+      } catch (e) { /* noop */ }
+    }
     normalizeObjectScale(target);
     if (target && target.type === 'rect' && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
       const lockedRadiusPx = getRectCornerRadiusPx(target);

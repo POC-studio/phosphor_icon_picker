@@ -525,13 +525,35 @@ function normalizeObjectScale(target) {
   }
 
   if (isTextLikeObject(target)) {
+    try {
+      // eslint-disable-next-line no-console
+      console.warn('[TXTRESIZE]', {
+        type,
+        scaleX,
+        scaleY,
+        width: target.width,
+        fontSize: target.fontSize,
+        text: typeof target.text === 'string' ? target.text.slice(0, 20) : null,
+      });
+    } catch (e) { /* noop */ }
+    // Corner resize only reaches here (side handles use changeWidth, which keeps scale at 1).
+    // Bake ONE factor into BOTH width and fontSize so the box stays proportional (same aspect/
+    // wrapping) instead of reflowing. We tie everything to scaleY (the true vertical/font scale):
+    // this is robust even if a drag ends up non-uniform (scaleX >> scaleY), which otherwise makes
+    // the width explode while the font stays small -> text collapses onto a single line.
+    const factor = Math.abs(scaleY) || 1;
     const currentFontSize = Number.isFinite(Number(target.fontSize)) ? Number(target.fontSize) : 16;
-    // Text resize should update glyph size while keeping control box stable.
-    const nextFontSize = Math.max(1, Math.round(currentFontSize * scaleY));
+    const nextFontSize = Math.max(1, Math.round(currentFontSize * factor));
     target.set('fontSize', nextFontSize);
-    // For textbox, horizontal resize controls wrapping width.
-    if (type === 'textbox' && Number.isFinite(Number(target.width))) {
-      target.set('width', Math.max(1, Number(target.width) * scaleX));
+    if (type === 'textbox') {
+      // La largeur de wrap DOIT rester finie : un Textbox sans width valide arrête
+      // de wrapper et tout le texte part sur une seule ligne (boîte qui explose).
+      let baseWidth = Number(target.width);
+      if (!Number.isFinite(baseWidth) || baseWidth <= 0) {
+        baseWidth = typeof target.calcTextWidth === 'function' ? Number(target.calcTextWidth()) : 0;
+      }
+      if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = currentFontSize * 4;
+      target.set('width', Math.max(1, baseWidth * factor));
     }
     target.set({ scaleX: 1, scaleY: 1 });
     if (typeof target.initDimensions === 'function') target.initDimensions();

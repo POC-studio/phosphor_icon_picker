@@ -1095,11 +1095,28 @@ var __pluginInit = (() => {
       return;
     }
     if (isTextLikeObject(target)) {
+      try {
+        console.warn("[TXTRESIZE]", {
+          type,
+          scaleX,
+          scaleY,
+          width: target.width,
+          fontSize: target.fontSize,
+          text: typeof target.text === "string" ? target.text.slice(0, 20) : null
+        });
+      } catch (e) {
+      }
+      const factor = Math.abs(scaleY) || 1;
       const currentFontSize = Number.isFinite(Number(target.fontSize)) ? Number(target.fontSize) : 16;
-      const nextFontSize = Math.max(1, Math.round(currentFontSize * scaleY));
+      const nextFontSize = Math.max(1, Math.round(currentFontSize * factor));
       target.set("fontSize", nextFontSize);
-      if (type === "textbox" && Number.isFinite(Number(target.width))) {
-        target.set("width", Math.max(1, Number(target.width) * scaleX));
+      if (type === "textbox") {
+        let baseWidth = Number(target.width);
+        if (!Number.isFinite(baseWidth) || baseWidth <= 0) {
+          baseWidth = typeof target.calcTextWidth === "function" ? Number(target.calcTextWidth()) : 0;
+        }
+        if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = currentFontSize * 4;
+        target.set("width", Math.max(1, baseWidth * factor));
       }
       target.set({ scaleX: 1, scaleY: 1 });
       if (typeof target.initDimensions === "function") target.initDimensions();
@@ -1225,6 +1242,35 @@ var __pluginInit = (() => {
   function firstNumber(value) {
     if (value == null) return NaN;
     return parseFloat(String(value).trim().split(/\s+/)[0]);
+  }
+  function setSvgStrokeWidth(el, width) {
+    const value = Number.isFinite(width) ? String(width) : "0";
+    const style = el.getAttribute("style");
+    if (style && /(?:^|;)\s*stroke-width\s*:/.test(style)) {
+      el.setAttribute("style", style.replace(/((?:^|;)\s*stroke-width\s*:\s*)[^;]+/, `$1${value}`));
+    } else {
+      el.setAttribute("stroke-width", value);
+    }
+  }
+  function bakeNonScalingStrokes(rootSvg) {
+    const els = Array.from(rootSvg.querySelectorAll('[vector-effect="non-scaling-stroke"]'));
+    els.forEach((el) => {
+      let scale = 1;
+      try {
+        const ctm = typeof el.getCTM === "function" ? el.getCTM() : null;
+        if (ctm) {
+          const det = ctm.a * ctm.d - ctm.b * ctm.c;
+          const s = Math.sqrt(Math.abs(det));
+          if (Number.isFinite(s) && s > 0) scale = s;
+        }
+      } catch (e) {
+      }
+      el.removeAttribute("vector-effect");
+      if (scale === 1) return;
+      const sw = parseFloat(readSvgProp(el, "stroke-width"));
+      const width = Number.isFinite(sw) ? sw : 1;
+      setSvgStrokeWidth(el, width / scale);
+    });
   }
   async function outlineOneTextElement(instance, textEl) {
     const family = readFontFamily(textEl);
@@ -1403,14 +1449,28 @@ var __pluginInit = (() => {
   function portraitRotateTransform() {
     return PDF_ROTATE_CLOCKWISE ? `translate(${PDF_PAGE_W_PX},0) rotate(90)` : `translate(0,${PDF_PAGE_H_PX}) rotate(-90)`;
   }
-  function appendArtboardChildren(parentGroup, artboardSvgEl, translateX, idPrefix) {
+  function appendArtboardChildren(parentGroup, artboardSvgEl, translateX, idPrefix, clipW, clipH) {
     if (!artboardSvgEl) return;
     prefixSvgIds(artboardSvgEl, idPrefix);
-    const g = makeGroup(translateX ? `translate(${translateX},0)` : null);
+    const outer = makeGroup(translateX ? `translate(${translateX},0)` : null);
+    const clipId = `${idPrefix}clip`;
+    const clipPath = document.createElementNS(SVG_NS, "clipPath");
+    clipPath.setAttribute("id", clipId);
+    clipPath.setAttribute("clipPathUnits", "userSpaceOnUse");
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", "0");
+    rect.setAttribute("y", "0");
+    rect.setAttribute("width", String(clipW));
+    rect.setAttribute("height", String(clipH));
+    clipPath.appendChild(rect);
+    outer.appendChild(clipPath);
+    const inner = makeGroup(null);
+    inner.setAttribute("clip-path", `url(#${clipId})`);
     Array.from(artboardSvgEl.childNodes).forEach((node) => {
-      g.appendChild(document.importNode(node, true));
+      inner.appendChild(document.importNode(node, true));
     });
-    parentGroup.appendChild(g);
+    outer.appendChild(inner);
+    parentGroup.appendChild(outer);
   }
   async function buildOutsidePageSvg(instance, fabricLib, snaps) {
     const [artBack, artFront] = await Promise.all([
@@ -1419,8 +1479,8 @@ var __pluginInit = (() => {
     ]);
     const svg = createPageSvg();
     const rot = makeGroup(portraitRotateTransform());
-    appendArtboardChildren(rot, artBack, 0, "pdfBack_");
-    appendArtboardChildren(rot, artFront, ARTBOARD_PRESETS[2].width, "pdfFront_");
+    appendArtboardChildren(rot, artBack, 0, "pdfBack_", ARTBOARD_PRESETS[2].width, ARTBOARD_PRESETS[2].height);
+    appendArtboardChildren(rot, artFront, ARTBOARD_PRESETS[2].width, "pdfFront_", ARTBOARD_PRESETS[0].width, ARTBOARD_PRESETS[0].height);
     svg.appendChild(rot);
     return svg;
   }
@@ -1434,7 +1494,7 @@ var __pluginInit = (() => {
       parent = flip;
     }
     const rot = makeGroup(portraitRotateTransform());
-    appendArtboardChildren(rot, artInside, 0, "pdfInside_");
+    appendArtboardChildren(rot, artInside, 0, "pdfInside_", ARTBOARD_PRESETS[1].width, ARTBOARD_PRESETS[1].height);
     parent.appendChild(rot);
     return svg;
   }
@@ -1444,6 +1504,7 @@ var __pluginInit = (() => {
     svgEl.style.top = "0";
     document.body.appendChild(svgEl);
     try {
+      bakeNonScalingStrokes(svgEl);
       if (typeof doc.svg === "function") {
         await doc.svg(svgEl, { x: 0, y: 0, width: 210, height: 297 });
       } else if (typeof window !== "undefined" && typeof window.svg2pdf === "function") {
@@ -5375,7 +5436,7 @@ var __pluginInit = (() => {
     fabricCanvas.on("object:scaling", (event) => {
       const target = event && event.target ? event.target : null;
       const transform = event && event.transform ? event.transform : null;
-      if (!target || !isShapeObject(target) || !transform) return;
+      if (!target || !isShapeObject(target) && !isTextLikeObject(target) || !transform) return;
       applyStrokeUniformDeep(target);
       const original = transform.original && typeof transform.original === "object" ? transform.original : null;
       if (isCornerControl(transform.corner)) {
@@ -5434,6 +5495,19 @@ var __pluginInit = (() => {
     });
     fabricCanvas.on("object:modified", (event) => {
       let target = event && event.target ? event.target : null;
+      if (target && isTextLikeObject(target)) {
+        try {
+          console.warn("[TXTMODIFIED]", {
+            type: target.type,
+            action: event && event.action,
+            scaleX: target.scaleX,
+            scaleY: target.scaleY,
+            width: target.width,
+            fontSize: target.fontSize
+          });
+        } catch (e) {
+        }
+      }
       normalizeObjectScale(target);
       if (target && target.type === "rect" && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
         const lockedRadiusPx = getRectCornerRadiusPx(target);
