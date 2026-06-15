@@ -250,7 +250,10 @@ export function wireCanvasEvents(app) {
     if (target && isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
       applyImageCornerRadiusPx(target, instance.data.fabricLib, Number(target.cornerRadiusPx));
     }
-    if (target && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
+    // Ne reconstruire le path arrondi que s'il y a réellement un rayon (> 0).
+    // Une étoile/triangle à angles vifs garde son Polygon : pas de swap d'objet
+    // à chaque resize/déplacement (source de duplications en rafale).
+    if (target && isRoundedPolygonShape(target) && Number(target.cornerRadius) > 0) {
       if (!Number.isFinite(Number(target.cornerRadiusPx))) {
         const sx = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
         const sy = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);

@@ -483,9 +483,9 @@ var __pluginInit = (() => {
     });
     const objects = canvas.getObjects();
     const index = objects.indexOf(target);
+    if (index < 0) return null;
     canvas.remove(target);
-    if (index >= 0) canvas.insertAt(index, replacement);
-    else canvas.add(replacement);
+    canvas.insertAt(index, replacement);
     return replacement;
   }
 
@@ -4974,7 +4974,7 @@ var __pluginInit = (() => {
       if (target && isFabricRasterImage(target) && Number.isFinite(Number(target.cornerRadiusPx)) && Number(target.cornerRadiusPx) > 0) {
         applyImageCornerRadiusPx(target, instance.data.fabricLib, Number(target.cornerRadiusPx));
       }
-      if (target && isRoundedPolygonShape(target) && Number.isFinite(Number(target.cornerRadius))) {
+      if (target && isRoundedPolygonShape(target) && Number(target.cornerRadius) > 0) {
         if (!Number.isFinite(Number(target.cornerRadiusPx))) {
           const sx = Math.max(Math.abs(Number(target.scaleX) || 1), 1e-6);
           const sy = Math.max(Math.abs(Number(target.scaleY) || 1), 1e-6);

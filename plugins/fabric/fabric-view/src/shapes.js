@@ -227,9 +227,12 @@ function replaceRoundedPolygon(instance, target, radius, fabricLib) {
 
   const objects = canvas.getObjects();
   const index = objects.indexOf(target);
+  // Garde anti-duplication : si la cible n'est plus sur le canvas (déjà remplacée
+  // par un événement précédent), ne PAS en ajouter une nouvelle — sinon on empile
+  // des copies à l'infini (le navigateur finit par planter).
+  if (index < 0) return null;
   canvas.remove(target);
-  if (index >= 0) canvas.insertAt(index, replacement);
-  else canvas.add(replacement);
+  canvas.insertAt(index, replacement);
   return replacement;
 }
 
