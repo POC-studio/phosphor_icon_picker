@@ -1163,6 +1163,339 @@ var __pluginInit = (() => {
     const mod = w && w.jspdf;
     return mod && typeof mod.jsPDF === "function" ? mod.jsPDF : null;
   }
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var XLINK_NS = "http://www.w3.org/1999/xlink";
+  var PDF_PAGE_W_PX = 2480;
+  var PDF_PAGE_H_PX = 3508;
+  var PDF_ROTATE_CLOCKWISE = true;
+  var PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
+  var PDF_FONT_BASE = "https://cdn.jsdelivr.net/npm/@expo-google-fonts";
+  var PDF_FONT_FACES = {
+    "jetbrains mono": {
+      pkg: "jetbrains-mono@0.4.1",
+      file: "JetBrainsMono",
+      weights: { 100: "100Thin", 200: "200ExtraLight", 300: "300Light", 400: "400Regular", 500: "500Medium", 600: "600SemiBold", 700: "700Bold", 800: "800ExtraBold" }
+    },
+    fraunces: {
+      pkg: "fraunces@0.4.1",
+      file: "Fraunces",
+      weights: { 100: "100Thin", 200: "200ExtraLight", 300: "300Light", 400: "400Regular", 500: "500Medium", 600: "600SemiBold", 700: "700Bold", 800: "800ExtraBold", 900: "900Black" }
+    },
+    schoolbell: {
+      pkg: "schoolbell@0.4.0",
+      file: "Schoolbell",
+      weights: { 400: "400Regular" }
+    },
+    "space grotesk": {
+      pkg: "space-grotesk@0.4.1",
+      file: "SpaceGrotesk",
+      weights: { 300: "300Light", 400: "400Regular", 500: "500Medium", 600: "600SemiBold", 700: "700Bold" }
+    },
+    ultra: {
+      pkg: "ultra@0.4.0",
+      file: "Ultra",
+      weights: { 400: "400Regular" }
+    }
+  };
+  function resolvePdfFontUrl(family, weight) {
+    const face = PDF_FONT_FACES[family];
+    if (!face) return null;
+    const wanted = Number(weight) || 400;
+    const available = Object.keys(face.weights).map(Number).sort((a, b) => a - b);
+    let chosen = available[0];
+    let bestDelta = Infinity;
+    available.forEach((w) => {
+      const delta = Math.abs(w - wanted);
+      if (delta < bestDelta) {
+        bestDelta = delta;
+        chosen = w;
+      }
+    });
+    const dir = face.weights[chosen];
+    return `${PDF_FONT_BASE}/${face.pkg}/${dir}/${face.file}_${dir}.ttf`;
+  }
+  function getPdfFontCache(instance) {
+    if (!instance.data._pdfFontCache || typeof instance.data._pdfFontCache.get !== "function") {
+      instance.data._pdfFontCache = /* @__PURE__ */ new Map();
+    }
+    return instance.data._pdfFontCache;
+  }
+  function loadOpentypeFont(instance, family, weight) {
+    const opentype = typeof window !== "undefined" ? window.opentype : null;
+    if (!opentype || typeof opentype.parse !== "function") return Promise.resolve(null);
+    const url = resolvePdfFontUrl(family, weight);
+    if (!url) return Promise.resolve(null);
+    const cache = getPdfFontCache(instance);
+    if (cache.has(url)) return cache.get(url);
+    const promise = (async () => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const buf = await res.arrayBuffer();
+        return opentype.parse(buf);
+      } catch (e) {
+        return null;
+      }
+    })();
+    cache.set(url, promise);
+    return promise;
+  }
+  function readSvgProp(el, name) {
+    if (!el || typeof el.getAttribute !== "function") return "";
+    const attr = el.getAttribute(name);
+    if (attr != null && attr !== "") return attr;
+    const style = el.getAttribute("style");
+    if (style) {
+      const match = style.match(new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`));
+      if (match) return match[1].trim();
+    }
+    return "";
+  }
+  function readFontWeight(el, fallbackEl) {
+    const raw = readSvgProp(el, "font-weight") || (fallbackEl ? readSvgProp(fallbackEl, "font-weight") : "");
+    if (!raw) return 400;
+    if (raw === "bold") return 700;
+    if (raw === "normal") return 400;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? n : 400;
+  }
+  function readFontFamily(el, fallbackEl) {
+    const raw = readSvgProp(el, "font-family") || (fallbackEl ? readSvgProp(fallbackEl, "font-family") : "");
+    return normalizeFontFamily(raw);
+  }
+  function firstNumber(value) {
+    if (value == null) return NaN;
+    return parseFloat(String(value).trim().split(/\s+/)[0]);
+  }
+  async function outlineOneTextElement(instance, textEl) {
+    const family = readFontFamily(textEl);
+    const baseWeight = readFontWeight(textEl);
+    const baseSize = firstNumber(textEl.getAttribute("font-size")) || 16;
+    const tspans = Array.from(textEl.querySelectorAll("tspan"));
+    const runs = tspans.length ? tspans : [textEl];
+    const fontPromises = /* @__PURE__ */ new Map();
+    runs.forEach((node) => {
+      const fam = readFontFamily(node, textEl) || family;
+      const weight = readFontWeight(node, textEl) || baseWeight;
+      const key = `${fam}|${weight}`;
+      if (!fontPromises.has(key)) {
+        fontPromises.set(key, loadOpentypeFont(instance, fam, weight));
+      }
+    });
+    const fonts = /* @__PURE__ */ new Map();
+    await Promise.all(Array.from(fontPromises.entries()).map(async ([key, p]) => {
+      fonts.set(key, await p);
+    }));
+    const fragment = document.createDocumentFragment();
+    let producedAny = false;
+    runs.forEach((node) => {
+      const text = node.textContent;
+      if (text == null || text === "") return;
+      const fam = readFontFamily(node, textEl) || family;
+      const weight = readFontWeight(node, textEl) || baseWeight;
+      const font = fonts.get(`${fam}|${weight}`);
+      if (!font) return;
+      const x = firstNumber(node.getAttribute("x"));
+      const y = firstNumber(node.getAttribute("y"));
+      const size = firstNumber(readSvgProp(node, "font-size")) || baseSize;
+      const fill = readSvgProp(node, "fill") || readSvgProp(textEl, "fill") || "#000000";
+      const fillOpacity = readSvgProp(node, "fill-opacity") || readSvgProp(textEl, "fill-opacity");
+      let pathData = "";
+      try {
+        pathData = font.getPath(text, Number.isFinite(x) ? x : 0, Number.isFinite(y) ? y : 0, size).toPathData(2);
+      } catch (e) {
+        pathData = "";
+      }
+      if (!pathData) return;
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", fill);
+      if (fillOpacity) path.setAttribute("fill-opacity", fillOpacity);
+      fragment.appendChild(path);
+      producedAny = true;
+    });
+    if (producedAny && textEl.parentNode) {
+      textEl.parentNode.replaceChild(fragment, textEl);
+    }
+  }
+  async function outlineTextInSvg(instance, svgEl) {
+    const texts = Array.from(svgEl.querySelectorAll("text"));
+    for (const textEl of texts) {
+      try {
+        await outlineOneTextElement(instance, textEl);
+      } catch (e) {
+      }
+    }
+  }
+  function inlineSvgImages(svgEl) {
+    const images = Array.from(svgEl.querySelectorAll("image"));
+    return Promise.all(images.map((node) => {
+      const href = node.getAttribute("href") || node.getAttributeNS(XLINK_NS, "href") || "";
+      if (!href || /^data:/i.test(href)) return Promise.resolve();
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth || firstNumber(node.getAttribute("width")) || 1;
+            const h = img.naturalHeight || firstNumber(node.getAttribute("height")) || 1;
+            const c = document.createElement("canvas");
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            const data = c.toDataURL("image/png");
+            node.setAttribute("href", data);
+            node.setAttributeNS(XLINK_NS, "href", data);
+          } catch (e) {
+          }
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = href;
+      });
+    }));
+  }
+  function parseSvgString(str) {
+    if (typeof str !== "string" || !str) return null;
+    const doc = new DOMParser().parseFromString(str, "image/svg+xml");
+    if (doc.querySelector("parsererror")) return null;
+    return doc.documentElement;
+  }
+  function prefixSvgIds(root, prefix) {
+    const idEls = Array.from(root.querySelectorAll("[id]"));
+    if (idEls.length === 0) return;
+    const ids = idEls.map((el) => el.getAttribute("id")).filter(Boolean);
+    const remapUrls = (value) => {
+      let out = value;
+      ids.forEach((id) => {
+        out = out.split(`url(#${id})`).join(`url(#${prefix}${id})`);
+        out = out.split(`url("#${id}")`).join(`url("#${prefix}${id}")`);
+        out = out.split(`url('#${id}')`).join(`url('#${prefix}${id}')`);
+      });
+      return out;
+    };
+    const idSet = new Set(ids);
+    idEls.forEach((el) => el.setAttribute("id", prefix + el.getAttribute("id")));
+    const all = [root, ...Array.from(root.querySelectorAll("*"))];
+    all.forEach((el) => {
+      if (!el.attributes) return;
+      Array.from(el.attributes).forEach((attr) => {
+        const name = attr.name;
+        const value = attr.value;
+        if ((name === "href" || name === "xlink:href") && value && value.charAt(0) === "#" && idSet.has(value.slice(1))) {
+          el.setAttribute(name, `#${prefix}${value.slice(1)}`);
+        } else if (value && value.indexOf("url(#") !== -1) {
+          el.setAttribute(name, remapUrls(value));
+        }
+      });
+    });
+  }
+  async function renderArtboardSnapshotToSvg(fabricLib, presetIndex, snapshot, instance) {
+    const preset = ARTBOARD_PRESETS[clampArtboardIndex(presetIndex)];
+    const w = preset.width;
+    const h = preset.height;
+    const el = document.createElement("canvas");
+    el.width = w;
+    el.height = h;
+    el.setAttribute("aria-hidden", "true");
+    el.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(el);
+    const c = new fabricLib.Canvas(el, { preserveObjectStacking: true });
+    c.setDimensions({ width: w, height: h });
+    c.backgroundColor = "#ffffff";
+    const loadInput = snapshot != null && typeof snapshot === "object" ? snapshot : { objects: [] };
+    try {
+      await loadFromJsonPromise(c, loadInput);
+      if (typeof c.requestRenderAll === "function") {
+        c.requestRenderAll();
+      } else if (typeof c.renderAll === "function") {
+        c.renderAll();
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      const svgString = c.toSVG();
+      const svgEl = parseSvgString(svgString);
+      if (!svgEl) return null;
+      await inlineSvgImages(svgEl);
+      if (instance) await outlineTextInSvg(instance, svgEl);
+      return svgEl;
+    } finally {
+      try {
+        c.dispose();
+      } catch (e) {
+      }
+      el.remove();
+    }
+  }
+  function createPageSvg() {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("xmlns", SVG_NS);
+    svg.setAttribute("xmlns:xlink", XLINK_NS);
+    svg.setAttribute("width", String(PDF_PAGE_W_PX));
+    svg.setAttribute("height", String(PDF_PAGE_H_PX));
+    svg.setAttribute("viewBox", `0 0 ${PDF_PAGE_W_PX} ${PDF_PAGE_H_PX}`);
+    return svg;
+  }
+  function makeGroup(transform) {
+    const g = document.createElementNS(SVG_NS, "g");
+    if (transform) g.setAttribute("transform", transform);
+    return g;
+  }
+  function portraitRotateTransform() {
+    return PDF_ROTATE_CLOCKWISE ? `translate(${PDF_PAGE_W_PX},0) rotate(90)` : `translate(0,${PDF_PAGE_H_PX}) rotate(-90)`;
+  }
+  function appendArtboardChildren(parentGroup, artboardSvgEl, translateX, idPrefix) {
+    if (!artboardSvgEl) return;
+    prefixSvgIds(artboardSvgEl, idPrefix);
+    const g = makeGroup(translateX ? `translate(${translateX},0)` : null);
+    Array.from(artboardSvgEl.childNodes).forEach((node) => {
+      g.appendChild(document.importNode(node, true));
+    });
+    parentGroup.appendChild(g);
+  }
+  async function buildOutsidePageSvg(instance, fabricLib, snaps) {
+    const [artBack, artFront] = await Promise.all([
+      renderArtboardSnapshotToSvg(fabricLib, 2, snaps[2], instance),
+      renderArtboardSnapshotToSvg(fabricLib, 0, snaps[0], instance)
+    ]);
+    const svg = createPageSvg();
+    const rot = makeGroup(portraitRotateTransform());
+    appendArtboardChildren(rot, artBack, 0, "pdfBack_");
+    appendArtboardChildren(rot, artFront, ARTBOARD_PRESETS[2].width, "pdfFront_");
+    svg.appendChild(rot);
+    return svg;
+  }
+  async function buildInsidePageSvg(instance, fabricLib, snaps) {
+    const artInside = await renderArtboardSnapshotToSvg(fabricLib, 1, snaps[1], instance);
+    const svg = createPageSvg();
+    let parent = svg;
+    if (PDF_DUPLEX_FLIP_INSIDE_PAGE) {
+      const flip = makeGroup(`rotate(180,${PDF_PAGE_W_PX / 2},${PDF_PAGE_H_PX / 2})`);
+      svg.appendChild(flip);
+      parent = flip;
+    }
+    const rot = makeGroup(portraitRotateTransform());
+    appendArtboardChildren(rot, artInside, 0, "pdfInside_");
+    parent.appendChild(rot);
+    return svg;
+  }
+  async function renderSvgToPdfPage(doc, svgEl) {
+    svgEl.style.position = "fixed";
+    svgEl.style.left = "-99999px";
+    svgEl.style.top = "0";
+    document.body.appendChild(svgEl);
+    try {
+      if (typeof doc.svg === "function") {
+        await doc.svg(svgEl, { x: 0, y: 0, width: 210, height: 297 });
+      } else if (typeof window !== "undefined" && typeof window.svg2pdf === "function") {
+        await window.svg2pdf(svgEl, doc, { x: 0, y: 0, width: 210, height: 297 });
+      } else {
+        throw new Error("svg2pdf indisponible");
+      }
+    } finally {
+      svgEl.remove();
+    }
+  }
   function dataUrlToImageCanvas(dataUrl) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -1181,35 +1514,6 @@ var __pluginInit = (() => {
       };
       img.onerror = () => reject(new Error("Image load failed"));
       img.src = dataUrl;
-    });
-  }
-  function rotateCanvas90Clockwise(sourceCanvas) {
-    const out = document.createElement("canvas");
-    out.width = sourceCanvas.height;
-    out.height = sourceCanvas.width;
-    const ctx = out.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, out.width, out.height);
-    ctx.translate(out.width, 0);
-    ctx.rotate(Math.PI / 2);
-    ctx.drawImage(sourceCanvas, 0, 0);
-    return out;
-  }
-  function compositeSpreadPage3LeftPage1Right(dataUrl3, dataUrl0) {
-    const pL = ARTBOARD_PRESETS[2];
-    const pR = ARTBOARD_PRESETS[0];
-    const cw = pL.width + pR.width;
-    const ch = Math.max(pL.height, pR.height);
-    return Promise.all([dataUrlToImageCanvas(dataUrl3), dataUrlToImageCanvas(dataUrl0)]).then(([cL, cR]) => {
-      const c = document.createElement("canvas");
-      c.width = cw;
-      c.height = ch;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.drawImage(cL, 0, 0);
-      ctx.drawImage(cR, pL.width, 0);
-      return rotateCanvas90Clockwise(c);
     });
   }
   function renderArtboardSnapshotToDataUrl(fabricLib, presetIndex, snapshot) {
@@ -1306,24 +1610,21 @@ var __pluginInit = (() => {
         } catch (e) {
         }
       }
-      const [du3, du0, du1] = await Promise.all([
-        renderArtboardSnapshotToDataUrl(fabricLib, 2, snaps[2]),
-        renderArtboardSnapshotToDataUrl(fabricLib, 0, snaps[0]),
-        renderArtboardSnapshotToDataUrl(fabricLib, 1, snaps[1])
-      ]);
-      const spreadRotated = await compositeSpreadPage3LeftPage1Right(du3, du0);
-      const spreadDataUrl = spreadRotated.toDataURL("image/png");
-      const middleCanvas = await dataUrlToImageCanvas(du1).then((can) => rotateCanvas90Clockwise(can));
-      const middleDataUrl = middleCanvas.toDataURL("image/png");
       const doc = new JsPDF({
         unit: "mm",
         format: "a4",
         orientation: "portrait",
         compress: true
       });
-      doc.addImage(spreadDataUrl, "PNG", 0, 0, 210, 297);
+      if (typeof doc.svg !== "function" && !(typeof window !== "undefined" && typeof window.svg2pdf === "function")) {
+        console.error("svg2pdf introuvable : ajoutez svg2pdf.umd.min.js dans shared.html (plugin Fabric).");
+        return;
+      }
+      const outsideSvg = await buildOutsidePageSvg(instance, fabricLib, snaps);
+      const insideSvg = await buildInsidePageSvg(instance, fabricLib, snaps);
+      await renderSvgToPdfPage(doc, outsideSvg);
       doc.addPage();
-      doc.addImage(middleDataUrl, "PNG", 0, 0, 210, 297);
+      await renderSvgToPdfPage(doc, insideSvg);
       const dataUri = typeof doc.output === "function" ? doc.output("datauristring") : "";
       const base64 = dataUri ? dataUrlToBase64(dataUri) : "";
       const safePdfName = `${base}.pdf`.replace(/[^\w.-]/g, "_") || "document.pdf";
