@@ -1,5 +1,6 @@
-import { DEFAULT_TEXT_FONT_FAMILY, FONT_PRESETS } from '../constants.js';
+import { DEFAULT_TEXT_FONT_FAMILY } from '../constants.js';
 import { createFlatColorPicker } from './color-picker.js';
+import { createFontPicker } from './font-picker.js';
 
 
 function buildShell() {
@@ -128,28 +129,7 @@ function buildShell() {
   opacityInput.value = '100';
   styleTopNumberInput(opacityInput);
 
-  const fontFamilySelect = document.createElement('select');
-  fontFamilySelect.setAttribute('aria-label', 'Font family');
-  fontFamilySelect.style.width = '148px';
-  fontFamilySelect.style.height = '28px';
-  fontFamilySelect.style.border = '1px solid #cbd5e1';
-  fontFamilySelect.style.borderRadius = '8px';
-  fontFamilySelect.style.padding = '0 8px';
-  fontFamilySelect.style.background = '#ffffff';
-  fontFamilySelect.style.color = '#0f172a';
-  fontFamilySelect.style.fontSize = '12px';
-  fontFamilySelect.style.fontWeight = '500';
-  fontFamilySelect.style.cursor = 'pointer';
-  fontFamilySelect.style.outline = 'none';
-  fontFamilySelect.style.boxSizing = 'border-box';
-  fontFamilySelect.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
-  FONT_PRESETS.forEach((p) => {
-    const o = document.createElement('option');
-    o.value = p.fontFamily;
-    o.textContent = p.label;
-    fontFamilySelect.appendChild(o);
-  });
-  fontFamilySelect.value = DEFAULT_TEXT_FONT_FAMILY;
+  const fontFamilyPicker = createFontPicker({ initial: DEFAULT_TEXT_FONT_FAMILY });
 
   const topFill = fillControl.root;
   const topStroke = strokeControl.root;
@@ -172,10 +152,7 @@ function buildShell() {
   topRadius.style.color = '#334155';
   topRadius.appendChild(radiusInput);
 
-  const topFontFamily = document.createElement('div');
-  topFontFamily.style.display = 'inline-flex';
-  topFontFamily.style.alignItems = 'center';
-  topFontFamily.appendChild(fontFamilySelect);
+  const topFontFamily = fontFamilyPicker.root;
 
   const topFontSize = document.createElement('label');
   topFontSize.textContent = 'Size';
@@ -363,7 +340,7 @@ function buildShell() {
     strokeControl,
     strokeWidthInput,
     radiusInput,
-    fontFamilySelect,
+    fontFamilyPicker,
     fontSizeInput,
     opacityInput,
     topFill,

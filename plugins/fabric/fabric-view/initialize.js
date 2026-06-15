@@ -104,144 +104,6 @@ var __pluginInit = (() => {
     }
   ];
 
-  // plugins/fabric/fabric-view/src/utils.js
-  function ensureHexColor(value, fallback) {
-    const safeFallback = fallback || "#111827";
-    if (!value || typeof value !== "string") return safeFallback;
-    const color = value.trim();
-    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(color)) return color;
-    const rgbMatch = color.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
-    if (rgbMatch) {
-      const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
-      const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
-      const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
-      const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
-      if (Number.isFinite(a) && a <= 0) return "transparent";
-      const toHex = (n) => n.toString(16).padStart(2, "0");
-      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    }
-    try {
-      const ctx = document.createElement("canvas").getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#000000";
-        ctx.fillStyle = color;
-        const normalized = String(ctx.fillStyle || "").trim();
-        if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(normalized)) return normalized;
-        const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
-        if (nMatch) {
-          const r = Math.max(0, Math.min(255, Number(nMatch[1])));
-          const g = Math.max(0, Math.min(255, Number(nMatch[2])));
-          const b = Math.max(0, Math.min(255, Number(nMatch[3])));
-          const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
-          if (Number.isFinite(a) && a <= 0) return "transparent";
-          const toHex = (n) => n.toString(16).padStart(2, "0");
-          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-        }
-      }
-    } catch (e) {
-    }
-    return color;
-  }
-  function isTransparentColor(value) {
-    if (typeof value !== "string") return false;
-    const v = value.trim().toLowerCase();
-    return v === "" || v === "none" || v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
-  }
-  function ensureHex(value, fallback) {
-    if (!value || typeof value !== "string") return fallback;
-    const v = value.trim();
-    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) return v;
-    const rgbMatch = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
-    if (rgbMatch) {
-      const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
-      const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
-      const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
-      const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
-      if (Number.isFinite(a) && a <= 0) return "transparent";
-      const toHex = (n) => n.toString(16).padStart(2, "0");
-      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    }
-    try {
-      const ctx = document.createElement("canvas").getContext("2d");
-      if (ctx) {
-        ctx.fillStyle = "#000000";
-        ctx.fillStyle = v;
-        const normalized = String(ctx.fillStyle || "").trim();
-        if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(normalized)) return normalized;
-        const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
-        if (nMatch) {
-          const r = Math.max(0, Math.min(255, Number(nMatch[1])));
-          const g = Math.max(0, Math.min(255, Number(nMatch[2])));
-          const b = Math.max(0, Math.min(255, Number(nMatch[3])));
-          const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
-          if (Number.isFinite(a) && a <= 0) return "transparent";
-          const toHex = (n) => n.toString(16).padStart(2, "0");
-          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-        }
-      }
-    } catch (e) {
-    }
-    return v;
-  }
-  function clampArtboardIndex(value) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return 0;
-    return Math.max(0, Math.min(2, Math.floor(n)));
-  }
-  function getSharedValue(items, getter) {
-    if (!Array.isArray(items) || items.length === 0) return { mixed: true, value: null };
-    const first = getter(items[0]);
-    for (let i = 1; i < items.length; i += 1) {
-      if (getter(items[i]) !== first) return { mixed: true, value: null };
-    }
-    return { mixed: false, value: first };
-  }
-  function normalizeFontFamily(value) {
-    if (value == null || typeof value !== "string") return "";
-    const first = value.split(",")[0].trim();
-    return first.replace(/\s+/g, " ").replace(/['"]/g, "").toLowerCase();
-  }
-  function normalizeCanvasColor(value, fallback) {
-    return isTransparentColor(value) ? "transparent" : ensureHexColor(value, fallback);
-  }
-  function shouldZeroStrokeWidth(colorValue) {
-    if (typeof colorValue !== "string") return false;
-    const v = colorValue.trim().toLowerCase();
-    return v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
-  }
-  function computeFit(boardWidth, boardHeight, docWidth, docHeight) {
-    const safeBoardW = Math.max(Number(boardWidth) || 1, 1);
-    const safeBoardH = Math.max(Number(boardHeight) || 1, 1);
-    const safeDocW = Math.max(Number(docWidth) || 1, 1);
-    const safeDocH = Math.max(Number(docHeight) || 1, 1);
-    const scale = Math.min(safeBoardW / safeDocW, safeBoardH / safeDocH);
-    const offsetX = (safeBoardW - safeDocW * scale) / 2;
-    const offsetY = (safeBoardH - safeDocH * scale) / 2;
-    return { scale, offsetX, offsetY };
-  }
-  function guessImageFileExtension(file) {
-    const t = String(file && file.type ? file.type : "").toLowerCase();
-    if (t === "image/jpeg") return ".jpg";
-    if (t === "image/png") return ".png";
-    if (t === "image/gif") return ".gif";
-    if (t === "image/webp") return ".webp";
-    if (t === "image/svg+xml") return ".svg";
-    return ".png";
-  }
-  function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
-      reader.readAsDataURL(file);
-    });
-  }
-  function dataUrlToBase64(dataUrl) {
-    if (typeof dataUrl !== "string") return "";
-    const idx = dataUrl.indexOf("base64,");
-    return idx >= 0 ? dataUrl.slice(idx + 7) : dataUrl;
-  }
-
   // plugins/fabric/fabric-view/src/text.js
   function loadWebFontsThenRedraw(fabricCanvas, targets) {
     if (!fabricCanvas || !Array.isArray(targets) || targets.length === 0) return;
@@ -272,41 +134,6 @@ var __pluginInit = (() => {
       if (typeof parent.triggerLayout === "function") parent.triggerLayout();
       if (typeof parent.setCoords === "function") parent.setCoords();
       parent = parent.group || parent.parent;
-    }
-  }
-  function syncFontFamilySelect(ui, rawFontFamily, mixed) {
-    const sel = ui.fontFamilySelect;
-    if (!sel) return;
-    while (sel.options.length > FONT_PRESETS.length) {
-      sel.remove(sel.options.length - 1);
-    }
-    if (mixed) {
-      sel.selectedIndex = -1;
-      sel.style.background = "#f1f5f9";
-      sel.style.color = "#64748b";
-      sel.style.borderColor = "#cbd5e1";
-      return;
-    }
-    sel.style.background = "#ffffff";
-    sel.style.color = "#0f172a";
-    sel.style.borderColor = "#cbd5e1";
-    const n = normalizeFontFamily(rawFontFamily);
-    let matched = false;
-    for (let i = 0; i < FONT_PRESETS.length; i += 1) {
-      if (normalizeFontFamily(FONT_PRESETS[i].fontFamily) === n) {
-        sel.value = FONT_PRESETS[i].fontFamily;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched && rawFontFamily && typeof rawFontFamily === "string" && rawFontFamily.trim()) {
-      const opt = document.createElement("option");
-      opt.value = rawFontFamily;
-      opt.textContent = "Autre";
-      sel.appendChild(opt);
-      sel.value = rawFontFamily;
-    } else if (!matched) {
-      sel.value = FONT_PRESETS[0].fontFamily;
     }
   }
   function applyTextboxEditingControls(target) {
@@ -489,6 +316,144 @@ var __pluginInit = (() => {
     return replacement;
   }
 
+  // plugins/fabric/fabric-view/src/utils.js
+  function ensureHexColor(value, fallback) {
+    const safeFallback = fallback || "#111827";
+    if (!value || typeof value !== "string") return safeFallback;
+    const color = value.trim();
+    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(color)) return color;
+    const rgbMatch = color.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (rgbMatch) {
+      const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
+      const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
+      const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
+      const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
+      if (Number.isFinite(a) && a <= 0) return "transparent";
+      const toHex = (n) => n.toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    try {
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#000000";
+        ctx.fillStyle = color;
+        const normalized = String(ctx.fillStyle || "").trim();
+        if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(normalized)) return normalized;
+        const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+        if (nMatch) {
+          const r = Math.max(0, Math.min(255, Number(nMatch[1])));
+          const g = Math.max(0, Math.min(255, Number(nMatch[2])));
+          const b = Math.max(0, Math.min(255, Number(nMatch[3])));
+          const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
+          if (Number.isFinite(a) && a <= 0) return "transparent";
+          const toHex = (n) => n.toString(16).padStart(2, "0");
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+      }
+    } catch (e) {
+    }
+    return color;
+  }
+  function isTransparentColor(value) {
+    if (typeof value !== "string") return false;
+    const v = value.trim().toLowerCase();
+    return v === "" || v === "none" || v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
+  }
+  function ensureHex(value, fallback) {
+    if (!value || typeof value !== "string") return fallback;
+    const v = value.trim();
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) return v;
+    const rgbMatch = v.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+    if (rgbMatch) {
+      const r = Math.max(0, Math.min(255, Number(rgbMatch[1])));
+      const g = Math.max(0, Math.min(255, Number(rgbMatch[2])));
+      const b = Math.max(0, Math.min(255, Number(rgbMatch[3])));
+      const a = rgbMatch[4] == null ? 1 : Number(rgbMatch[4]);
+      if (Number.isFinite(a) && a <= 0) return "transparent";
+      const toHex = (n) => n.toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    try {
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#000000";
+        ctx.fillStyle = v;
+        const normalized = String(ctx.fillStyle || "").trim();
+        if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(normalized)) return normalized;
+        const nMatch = normalized.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*([0-9.]+))?\s*\)$/i);
+        if (nMatch) {
+          const r = Math.max(0, Math.min(255, Number(nMatch[1])));
+          const g = Math.max(0, Math.min(255, Number(nMatch[2])));
+          const b = Math.max(0, Math.min(255, Number(nMatch[3])));
+          const a = nMatch[4] == null ? 1 : Number(nMatch[4]);
+          if (Number.isFinite(a) && a <= 0) return "transparent";
+          const toHex = (n) => n.toString(16).padStart(2, "0");
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+      }
+    } catch (e) {
+    }
+    return v;
+  }
+  function clampArtboardIndex(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(2, Math.floor(n)));
+  }
+  function getSharedValue(items, getter) {
+    if (!Array.isArray(items) || items.length === 0) return { mixed: true, value: null };
+    const first = getter(items[0]);
+    for (let i = 1; i < items.length; i += 1) {
+      if (getter(items[i]) !== first) return { mixed: true, value: null };
+    }
+    return { mixed: false, value: first };
+  }
+  function normalizeFontFamily(value) {
+    if (value == null || typeof value !== "string") return "";
+    const first = value.split(",")[0].trim();
+    return first.replace(/\s+/g, " ").replace(/['"]/g, "").toLowerCase();
+  }
+  function normalizeCanvasColor(value, fallback) {
+    return isTransparentColor(value) ? "transparent" : ensureHexColor(value, fallback);
+  }
+  function shouldZeroStrokeWidth(colorValue) {
+    if (typeof colorValue !== "string") return false;
+    const v = colorValue.trim().toLowerCase();
+    return v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
+  }
+  function computeFit(boardWidth, boardHeight, docWidth, docHeight) {
+    const safeBoardW = Math.max(Number(boardWidth) || 1, 1);
+    const safeBoardH = Math.max(Number(boardHeight) || 1, 1);
+    const safeDocW = Math.max(Number(docWidth) || 1, 1);
+    const safeDocH = Math.max(Number(docHeight) || 1, 1);
+    const scale = Math.min(safeBoardW / safeDocW, safeBoardH / safeDocH);
+    const offsetX = (safeBoardW - safeDocW * scale) / 2;
+    const offsetY = (safeBoardH - safeDocH * scale) / 2;
+    return { scale, offsetX, offsetY };
+  }
+  function guessImageFileExtension(file) {
+    const t = String(file && file.type ? file.type : "").toLowerCase();
+    if (t === "image/jpeg") return ".jpg";
+    if (t === "image/png") return ".png";
+    if (t === "image/gif") return ".gif";
+    if (t === "image/webp") return ".webp";
+    if (t === "image/svg+xml") return ".svg";
+    return ".png";
+  }
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
+      reader.readAsDataURL(file);
+    });
+  }
+  function dataUrlToBase64(dataUrl) {
+    if (typeof dataUrl !== "string") return "";
+    const idx = dataUrl.indexOf("base64,");
+    return idx >= 0 ? dataUrl.slice(idx + 7) : dataUrl;
+  }
+
   // plugins/fabric/fabric-view/src/ui/toolbar-sync.js
   function getToolbarVisibilityForTarget(target) {
     if (!target) return TOOLBAR_VISIBILITY_BY_TYPE.default;
@@ -561,11 +526,10 @@ var __pluginInit = (() => {
         ui.strokeWidthInput.disabled = true;
         ui.radiusInput.disabled = true;
         ui.fontSizeInput.disabled = true;
-        ui.fontFamilySelect.disabled = true;
+        ui.fontFamilyPicker.setDisabled(true);
         ui.strokeWidthInput.style.opacity = "0.55";
         ui.radiusInput.style.opacity = "0.55";
         ui.fontSizeInput.style.opacity = "0.55";
-        ui.fontFamilySelect.style.opacity = "0.55";
         ui.opacityInput.disabled = true;
         ui.opacityInput.style.opacity = "0.55";
         ui.topFill.style.display = "none";
@@ -586,11 +550,10 @@ var __pluginInit = (() => {
         ui.strokeWidthInput.disabled = true;
         ui.radiusInput.disabled = true;
         ui.fontSizeInput.disabled = true;
-        ui.fontFamilySelect.disabled = true;
+        ui.fontFamilyPicker.setDisabled(true);
         ui.strokeWidthInput.style.opacity = "0.55";
         ui.radiusInput.style.opacity = "0.55";
         ui.fontSizeInput.style.opacity = "0.55";
-        ui.fontFamilySelect.style.opacity = "0.55";
         ui.opacityInput.disabled = true;
         ui.opacityInput.style.opacity = "0.55";
         ui.topFill.style.display = "none";
@@ -641,10 +604,9 @@ var __pluginInit = (() => {
       ui.strokeWidthInput.disabled = false;
       ui.opacityInput.disabled = false;
       ui.fontSizeInput.disabled = !visibility.fontSize;
-      ui.fontFamilySelect.disabled = !visibility.fontSize;
+      ui.fontFamilyPicker.setDisabled(!visibility.fontSize);
       ui.strokeWidthInput.style.opacity = "1";
       ui.fontSizeInput.style.opacity = visibility.fontSize ? "1" : "0.55";
-      ui.fontFamilySelect.style.opacity = visibility.fontSize ? "1" : "0.55";
       ui.strokeWidthInput.style.background = "#ffffff";
       ui.strokeWidthInput.style.color = "#0f172a";
       ui.strokeWidthInput.style.borderColor = "#cbd5e1";
@@ -653,9 +615,6 @@ var __pluginInit = (() => {
       ui.fontSizeInput.style.color = "#0f172a";
       ui.fontSizeInput.style.borderColor = "#cbd5e1";
       ui.fontSizeInput.placeholder = "";
-      ui.fontFamilySelect.style.background = "#ffffff";
-      ui.fontFamilySelect.style.color = "#0f172a";
-      ui.fontFamilySelect.style.borderColor = "#cbd5e1";
       ui.radiusInput.style.background = "#ffffff";
       ui.radiusInput.style.color = "#0f172a";
       ui.radiusInput.style.borderColor = "#cbd5e1";
@@ -674,7 +633,7 @@ var __pluginInit = (() => {
           const size = Number.isFinite(Number(target.fontSize)) ? Math.round(Number(target.fontSize)) : 16;
           ui.fontSizeInput.value = String(Math.max(1, Math.min(400, size)));
           const rawFf = typeof target.fontFamily === "string" ? target.fontFamily : DEFAULT_TEXT_FONT_FAMILY;
-          syncFontFamilySelect(ui, rawFf, false);
+          ui.fontFamilyPicker.setValue(rawFf, false);
         }
         const supportsRadius = visibility.radius && (Number.isFinite(Number(target.rx)) || target.type === "rect" || isRoundedPolygonShape(target) || isFabricRasterImage(target));
         ui.radiusInput.disabled = !supportsRadius;
@@ -732,7 +691,7 @@ var __pluginInit = (() => {
       }
       if (visibility.fontSize) {
         ui.fontSizeInput.disabled = false;
-        ui.fontFamilySelect.disabled = false;
+        ui.fontFamilyPicker.setDisabled(false);
         if (fontSizeShared.mixed) {
           ui.fontSizeInput.value = "";
           ui.fontSizeInput.placeholder = "mix";
@@ -743,10 +702,10 @@ var __pluginInit = (() => {
           ui.fontSizeInput.value = String(fontSizeShared.value);
         }
         if (fontFamilyShared.mixed) {
-          syncFontFamilySelect(ui, "", true);
+          ui.fontFamilyPicker.setValue("", true);
         } else if (textTargets.length > 0) {
           const rawFf = typeof textTargets[0].fontFamily === "string" ? textTargets[0].fontFamily : DEFAULT_TEXT_FONT_FAMILY;
-          syncFontFamilySelect(ui, rawFf, false);
+          ui.fontFamilyPicker.setValue(rawFf, false);
         }
       }
       if (visibility.opacity) {
@@ -797,7 +756,7 @@ var __pluginInit = (() => {
     if (!fabricLib) return null;
     const maxW = Math.max(canvasWidth || 900, 600);
     const maxH = Math.max(canvasHeight || 520, 360);
-    const textbox = new fabricLib.Textbox("Edit me", {
+    const textbox = new fabricLib.Textbox("Modifier le texte", {
       left: Math.round(maxW * 0.5 - 90),
       top: Math.round(maxH * 0.5 - 20),
       width: 180,
@@ -2678,6 +2637,239 @@ var __pluginInit = (() => {
     };
   }
 
+  // plugins/fabric/fabric-view/src/ui/font-picker.js
+  var FALLBACK_UI_FONT = "'Inter', 'Helvetica Neue', Arial, sans-serif";
+  function cleanFamilyLabel(raw) {
+    if (typeof raw !== "string") return "";
+    const first = raw.split(",")[0].trim();
+    return first.replace(/^['"]|['"]$/g, "");
+  }
+  function createFontPicker(options = {}) {
+    let current = typeof options.initial === "string" && options.initial.trim() ? options.initial.trim() : DEFAULT_TEXT_FONT_FAMILY;
+    let disabled = false;
+    let mixed = false;
+    let onSelectHandler = null;
+    const root = document.createElement("div");
+    root.style.display = "inline-flex";
+    root.style.alignItems = "center";
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.setAttribute("aria-label", "Font family");
+    trigger.style.display = "inline-flex";
+    trigger.style.alignItems = "center";
+    trigger.style.justifyContent = "space-between";
+    trigger.style.gap = "6px";
+    trigger.style.width = "148px";
+    trigger.style.height = "28px";
+    trigger.style.border = "1px solid #cbd5e1";
+    trigger.style.borderRadius = "8px";
+    trigger.style.padding = "0 8px";
+    trigger.style.background = "#ffffff";
+    trigger.style.color = "#0f172a";
+    trigger.style.fontSize = "12px";
+    trigger.style.fontWeight = "500";
+    trigger.style.cursor = "pointer";
+    trigger.style.outline = "none";
+    trigger.style.boxSizing = "border-box";
+    const triggerLabel = document.createElement("span");
+    triggerLabel.style.flex = "1 1 auto";
+    triggerLabel.style.minWidth = "0";
+    triggerLabel.style.overflow = "hidden";
+    triggerLabel.style.textOverflow = "ellipsis";
+    triggerLabel.style.whiteSpace = "nowrap";
+    triggerLabel.style.textAlign = "left";
+    trigger.appendChild(triggerLabel);
+    const caret = document.createElement("i");
+    caret.className = "ph ph-caret-down";
+    caret.style.fontSize = "14px";
+    caret.style.color = "#64748b";
+    caret.style.flex = "0 0 auto";
+    trigger.appendChild(caret);
+    root.appendChild(trigger);
+    const popover = document.createElement("div");
+    popover.style.position = "fixed";
+    popover.style.zIndex = "2147483647";
+    popover.style.display = "none";
+    popover.style.background = "#ffffff";
+    popover.style.border = "1px solid #e2e8f0";
+    popover.style.borderRadius = "12px";
+    popover.style.padding = "6px";
+    popover.style.boxShadow = "0 12px 30px rgba(15, 23, 42, 0.16)";
+    popover.style.width = "200px";
+    popover.style.maxHeight = "280px";
+    popover.style.overflowY = "auto";
+    popover.style.boxSizing = "border-box";
+    let extraItem = null;
+    function makeItem(label, family) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.dataset.family = family;
+      item.textContent = label;
+      item.style.display = "block";
+      item.style.width = "100%";
+      item.style.textAlign = "left";
+      item.style.border = "none";
+      item.style.borderRadius = "8px";
+      item.style.padding = "8px 10px";
+      item.style.background = "transparent";
+      item.style.color = "#0f172a";
+      item.style.fontSize = "15px";
+      item.style.lineHeight = "1.2";
+      item.style.cursor = "pointer";
+      item.style.whiteSpace = "nowrap";
+      item.style.overflow = "hidden";
+      item.style.textOverflow = "ellipsis";
+      item.style.boxSizing = "border-box";
+      item.style.fontFamily = family;
+      item.addEventListener("mouseenter", () => {
+        if (!isCurrentFamily(family)) item.style.background = "#f1f5f9";
+      });
+      item.addEventListener("mouseleave", () => {
+        applyItemHighlight();
+      });
+      item.addEventListener("click", () => {
+        if (disabled) return;
+        select(family);
+      });
+      return item;
+    }
+    const presetItems = FONT_PRESETS.map((p) => makeItem(p.label, p.fontFamily));
+    presetItems.forEach((it) => popover.appendChild(it));
+    function allItems() {
+      const arr = [];
+      if (extraItem) arr.push(extraItem);
+      presetItems.forEach((it) => arr.push(it));
+      return arr;
+    }
+    function isCurrentFamily(family) {
+      if (mixed) return false;
+      return normalizeFontFamily(family) === normalizeFontFamily(current);
+    }
+    function applyItemHighlight() {
+      allItems().forEach((it) => {
+        const match = isCurrentFamily(it.dataset.family);
+        it.style.background = match ? "#eef2ff" : "transparent";
+        it.style.fontWeight = match ? "600" : "400";
+      });
+    }
+    function setExtra(family) {
+      if (extraItem) {
+        popover.removeChild(extraItem);
+        extraItem = null;
+      }
+      if (!family) return;
+      extraItem = makeItem(cleanFamilyLabel(family) || "Autre", family);
+      popover.insertBefore(extraItem, popover.firstChild);
+    }
+    function updateTrigger() {
+      if (mixed) {
+        triggerLabel.textContent = "Plusieurs polices";
+        triggerLabel.style.fontFamily = FALLBACK_UI_FONT;
+        trigger.style.color = "#64748b";
+        return;
+      }
+      trigger.style.color = disabled ? "#94a3b8" : "#0f172a";
+      const preset = FONT_PRESETS.find(
+        (p) => normalizeFontFamily(p.fontFamily) === normalizeFontFamily(current)
+      );
+      const label = preset ? preset.label : cleanFamilyLabel(current);
+      triggerLabel.textContent = label || cleanFamilyLabel(DEFAULT_TEXT_FONT_FAMILY);
+      triggerLabel.style.fontFamily = current;
+    }
+    function setValue(raw, isMixed) {
+      mixed = !!isMixed;
+      if (mixed) {
+        updateTrigger();
+        applyItemHighlight();
+        return;
+      }
+      let next = typeof raw === "string" && raw.trim() ? raw.trim() : DEFAULT_TEXT_FONT_FAMILY;
+      const preset = FONT_PRESETS.find(
+        (p) => normalizeFontFamily(p.fontFamily) === normalizeFontFamily(next)
+      );
+      if (preset) {
+        next = preset.fontFamily;
+        setExtra(null);
+      } else {
+        setExtra(next);
+      }
+      current = next;
+      updateTrigger();
+      applyItemHighlight();
+    }
+    function select(family) {
+      setValue(family, false);
+      if (typeof onSelectHandler === "function") onSelectHandler(family);
+      close();
+    }
+    function placePopover() {
+      const rect = trigger.getBoundingClientRect();
+      const width = 200;
+      const left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.left));
+      const top = rect.bottom + 8;
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    }
+    function preloadFonts() {
+      const doc = typeof document !== "undefined" ? document : null;
+      if (!doc || !doc.fonts || typeof doc.fonts.load !== "function") return;
+      FONT_PRESETS.forEach((p) => {
+        doc.fonts.load(`16px ${p.fontFamily}`).catch(() => {
+        });
+      });
+    }
+    function open() {
+      if (disabled) return;
+      preloadFonts();
+      applyItemHighlight();
+      popover.style.display = "block";
+      placePopover();
+    }
+    function close() {
+      popover.style.display = "none";
+    }
+    function setDisabled(next) {
+      disabled = !!next;
+      trigger.disabled = disabled;
+      trigger.style.opacity = disabled ? "0.55" : "1";
+      trigger.style.cursor = disabled ? "default" : "pointer";
+      if (!mixed) trigger.style.color = disabled ? "#94a3b8" : "#0f172a";
+      if (disabled) close();
+    }
+    function setVisible(next) {
+      root.style.display = next ? "inline-flex" : "none";
+      if (!next) close();
+    }
+    function onSelect(fn) {
+      onSelectHandler = typeof fn === "function" ? fn : null;
+    }
+    trigger.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (popover.style.display === "none") open();
+      else close();
+    });
+    document.addEventListener("click", (event) => {
+      if (popover.style.display === "none") return;
+      const t = event.target;
+      if (t && (popover.contains(t) || trigger.contains(t))) return;
+      close();
+    }, true);
+    window.addEventListener("resize", () => {
+      if (popover.style.display !== "none") placePopover();
+    });
+    document.body.appendChild(popover);
+    setValue(current, false);
+    return {
+      root,
+      setValue,
+      setDisabled,
+      setVisible,
+      onSelect,
+      close
+    };
+  }
+
   // plugins/fabric/fabric-view/src/ui/shell.js
   function buildShell() {
     const styleTopNumberInput = (input) => {
@@ -2795,28 +2987,7 @@ var __pluginInit = (() => {
     opacityInput.step = "1";
     opacityInput.value = "100";
     styleTopNumberInput(opacityInput);
-    const fontFamilySelect = document.createElement("select");
-    fontFamilySelect.setAttribute("aria-label", "Font family");
-    fontFamilySelect.style.width = "148px";
-    fontFamilySelect.style.height = "28px";
-    fontFamilySelect.style.border = "1px solid #cbd5e1";
-    fontFamilySelect.style.borderRadius = "8px";
-    fontFamilySelect.style.padding = "0 8px";
-    fontFamilySelect.style.background = "#ffffff";
-    fontFamilySelect.style.color = "#0f172a";
-    fontFamilySelect.style.fontSize = "12px";
-    fontFamilySelect.style.fontWeight = "500";
-    fontFamilySelect.style.cursor = "pointer";
-    fontFamilySelect.style.outline = "none";
-    fontFamilySelect.style.boxSizing = "border-box";
-    fontFamilySelect.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
-    FONT_PRESETS.forEach((p) => {
-      const o = document.createElement("option");
-      o.value = p.fontFamily;
-      o.textContent = p.label;
-      fontFamilySelect.appendChild(o);
-    });
-    fontFamilySelect.value = DEFAULT_TEXT_FONT_FAMILY;
+    const fontFamilyPicker = createFontPicker({ initial: DEFAULT_TEXT_FONT_FAMILY });
     const topFill = fillControl.root;
     const topStroke = strokeControl.root;
     const topStrokeWidth = document.createElement("label");
@@ -2835,10 +3006,7 @@ var __pluginInit = (() => {
     topRadius.style.fontSize = "12px";
     topRadius.style.color = "#334155";
     topRadius.appendChild(radiusInput);
-    const topFontFamily = document.createElement("div");
-    topFontFamily.style.display = "inline-flex";
-    topFontFamily.style.alignItems = "center";
-    topFontFamily.appendChild(fontFamilySelect);
+    const topFontFamily = fontFamilyPicker.root;
     const topFontSize = document.createElement("label");
     topFontSize.textContent = "Size";
     topFontSize.style.display = "inline-flex";
@@ -3004,7 +3172,7 @@ var __pluginInit = (() => {
       strokeControl,
       strokeWidthInput,
       radiusInput,
-      fontFamilySelect,
+      fontFamilyPicker,
       fontSizeInput,
       opacityInput,
       topFill,
@@ -5062,8 +5230,7 @@ var __pluginInit = (() => {
     };
     ui.fontSizeInput.addEventListener("input", (event) => applyFontSizeFromInput(!(event && event.isTrusted)));
     ui.fontSizeInput.addEventListener("change", () => applyFontSizeFromInput(true));
-    ui.fontFamilySelect.addEventListener("change", () => {
-      const nextFamily = ui.fontFamilySelect.value;
+    ui.fontFamilyPicker.onSelect((nextFamily) => {
       if (!nextFamily) return;
       const targets = getToolbarStyleTargets(fabricCanvas).filter((item) => isTextLikeObject(item));
       applyTextCommand(instance, targets, { fontFamily: nextFamily });

@@ -150,8 +150,7 @@ export function setupToolbarInputs(app) {
   // c'est un pas délibéré, on l'applique immédiatement même sous 8.
   ui.fontSizeInput.addEventListener('input', (event) => applyFontSizeFromInput(!(event && event.isTrusted)));
   ui.fontSizeInput.addEventListener('change', () => applyFontSizeFromInput(true));
-  ui.fontFamilySelect.addEventListener('change', () => {
-    const nextFamily = ui.fontFamilySelect.value;
+  ui.fontFamilyPicker.onSelect((nextFamily) => {
     if (!nextFamily) return;
     const targets = getToolbarStyleTargets(fabricCanvas).filter((item) => isTextLikeObject(item));
     applyTextCommand(instance, targets, { fontFamily: nextFamily });

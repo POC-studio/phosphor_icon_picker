@@ -1,7 +1,6 @@
 import { DEFAULT_TEXT_FONT_FAMILY, TOOLBAR_VISIBILITY_BY_TYPE } from '../constants.js';
 import { getObjectStyle, getToolbarStyleTargets, isFabricGroupObject, isFabricRasterImage, isRoundedPolygonShape, isTextLikeObject } from '../objects.js';
 import { getRectCornerRadiusPx } from '../shapes.js';
-import { syncFontFamilySelect } from '../text.js';
 import { clampArtboardIndex, getSharedValue, normalizeFontFamily, shouldZeroStrokeWidth } from '../utils.js';
 
 
@@ -86,11 +85,10 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.disabled = true;
     ui.radiusInput.disabled = true;
     ui.fontSizeInput.disabled = true;
-    ui.fontFamilySelect.disabled = true;
+    ui.fontFamilyPicker.setDisabled(true);
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
-    ui.fontFamilySelect.style.opacity = '0.55';
     ui.opacityInput.disabled = true;
     ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
@@ -111,11 +109,10 @@ function updateTopBarForSelection(instance) {
     ui.strokeWidthInput.disabled = true;
     ui.radiusInput.disabled = true;
     ui.fontSizeInput.disabled = true;
-    ui.fontFamilySelect.disabled = true;
+    ui.fontFamilyPicker.setDisabled(true);
     ui.strokeWidthInput.style.opacity = '0.55';
     ui.radiusInput.style.opacity = '0.55';
     ui.fontSizeInput.style.opacity = '0.55';
-    ui.fontFamilySelect.style.opacity = '0.55';
     ui.opacityInput.disabled = true;
     ui.opacityInput.style.opacity = '0.55';
     ui.topFill.style.display = 'none';
@@ -167,10 +164,9 @@ function updateTopBarForSelection(instance) {
   ui.strokeWidthInput.disabled = false;
   ui.opacityInput.disabled = false;
   ui.fontSizeInput.disabled = !visibility.fontSize;
-  ui.fontFamilySelect.disabled = !visibility.fontSize;
+  ui.fontFamilyPicker.setDisabled(!visibility.fontSize);
   ui.strokeWidthInput.style.opacity = '1';
   ui.fontSizeInput.style.opacity = visibility.fontSize ? '1' : '0.55';
-  ui.fontFamilySelect.style.opacity = visibility.fontSize ? '1' : '0.55';
   ui.strokeWidthInput.style.background = '#ffffff';
   ui.strokeWidthInput.style.color = '#0f172a';
   ui.strokeWidthInput.style.borderColor = '#cbd5e1';
@@ -179,9 +175,6 @@ function updateTopBarForSelection(instance) {
   ui.fontSizeInput.style.color = '#0f172a';
   ui.fontSizeInput.style.borderColor = '#cbd5e1';
   ui.fontSizeInput.placeholder = '';
-  ui.fontFamilySelect.style.background = '#ffffff';
-  ui.fontFamilySelect.style.color = '#0f172a';
-  ui.fontFamilySelect.style.borderColor = '#cbd5e1';
   ui.radiusInput.style.background = '#ffffff';
   ui.radiusInput.style.color = '#0f172a';
   ui.radiusInput.style.borderColor = '#cbd5e1';
@@ -201,7 +194,7 @@ function updateTopBarForSelection(instance) {
       const size = Number.isFinite(Number(target.fontSize)) ? Math.round(Number(target.fontSize)) : 16;
       ui.fontSizeInput.value = String(Math.max(1, Math.min(400, size)));
       const rawFf = typeof target.fontFamily === 'string' ? target.fontFamily : DEFAULT_TEXT_FONT_FAMILY;
-      syncFontFamilySelect(ui, rawFf, false);
+      ui.fontFamilyPicker.setValue(rawFf, false);
     }
     const supportsRadius = visibility.radius
       && (Number.isFinite(Number(target.rx)) || target.type === 'rect' || isRoundedPolygonShape(target) || isFabricRasterImage(target));
@@ -266,7 +259,7 @@ function updateTopBarForSelection(instance) {
 
   if (visibility.fontSize) {
     ui.fontSizeInput.disabled = false;
-    ui.fontFamilySelect.disabled = false;
+    ui.fontFamilyPicker.setDisabled(false);
     if (fontSizeShared.mixed) {
       ui.fontSizeInput.value = '';
       ui.fontSizeInput.placeholder = 'mix';
@@ -277,12 +270,12 @@ function updateTopBarForSelection(instance) {
       ui.fontSizeInput.value = String(fontSizeShared.value);
     }
     if (fontFamilyShared.mixed) {
-      syncFontFamilySelect(ui, '', true);
+      ui.fontFamilyPicker.setValue('', true);
     } else if (textTargets.length > 0) {
       const rawFf = typeof textTargets[0].fontFamily === 'string'
         ? textTargets[0].fontFamily
         : DEFAULT_TEXT_FONT_FAMILY;
-      syncFontFamilySelect(ui, rawFf, false);
+      ui.fontFamilyPicker.setValue(rawFf, false);
     }
   }
 

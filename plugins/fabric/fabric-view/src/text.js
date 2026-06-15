@@ -1,6 +1,4 @@
-import { FONT_PRESETS } from './constants.js';
 import { isTextLikeObject } from './objects.js';
-import { normalizeFontFamily } from './utils.js';
 
 
 /** Après changement de fontFamily : attend la face web puis remesure + redraw (évite le rendu en fallback générique). */
@@ -45,43 +43,6 @@ function relayoutParentGroups(target) {
 // applyTextMutation a migré dans commands.js (applyTextCommand, command layer unique).
 
 
-function syncFontFamilySelect(ui, rawFontFamily, mixed) {
-  const sel = ui.fontFamilySelect;
-  if (!sel) return;
-  while (sel.options.length > FONT_PRESETS.length) {
-    sel.remove(sel.options.length - 1);
-  }
-  if (mixed) {
-    sel.selectedIndex = -1;
-    sel.style.background = '#f1f5f9';
-    sel.style.color = '#64748b';
-    sel.style.borderColor = '#cbd5e1';
-    return;
-  }
-  sel.style.background = '#ffffff';
-  sel.style.color = '#0f172a';
-  sel.style.borderColor = '#cbd5e1';
-  const n = normalizeFontFamily(rawFontFamily);
-  let matched = false;
-  for (let i = 0; i < FONT_PRESETS.length; i += 1) {
-    if (normalizeFontFamily(FONT_PRESETS[i].fontFamily) === n) {
-      sel.value = FONT_PRESETS[i].fontFamily;
-      matched = true;
-      break;
-    }
-  }
-  if (!matched && rawFontFamily && typeof rawFontFamily === 'string' && rawFontFamily.trim()) {
-    const opt = document.createElement('option');
-    opt.value = rawFontFamily;
-    opt.textContent = 'Autre';
-    sel.appendChild(opt);
-    sel.value = rawFontFamily;
-  } else if (!matched) {
-    sel.value = FONT_PRESETS[0].fontFamily;
-  }
-}
-
-
 /**
  * Restreint les poignées de redimensionnement d'un objet texte : on retire les
  * poignées milieu verticales (mt/mb) qui déforment les glyphes, et on bloque le
@@ -110,6 +71,5 @@ function applyTextboxEditingControls(target) {
 export {
   loadWebFontsThenRedraw,
   relayoutParentGroups,
-  syncFontFamilySelect,
   applyTextboxEditingControls,
 };

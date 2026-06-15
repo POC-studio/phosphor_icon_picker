@@ -79,7 +79,7 @@ function createDefaultTextbox(fabricLib, canvasWidth, canvasHeight) {
   if (!fabricLib) return null;
   const maxW = Math.max(canvasWidth || 900, 600);
   const maxH = Math.max(canvasHeight || 520, 360);
-  const textbox = new fabricLib.Textbox('Edit me', {
+  const textbox = new fabricLib.Textbox('Modifier le texte', {
     left: Math.round(maxW * 0.5 - 90),
     top: Math.round(maxH * 0.5 - 20),
     width: 180,
