@@ -457,41 +457,6 @@ var __pluginInit = (() => {
     commands.push("Z");
     return commands.join(" ");
   }
-  function extractPathPoints(pathObject) {
-    if (!pathObject || !Array.isArray(pathObject.path)) return [];
-    const points = [];
-    for (const cmd of pathObject.path) {
-      if (!Array.isArray(cmd) || cmd.length < 3) continue;
-      const op = String(cmd[0] || "").toUpperCase();
-      if (op === "M" || op === "L") {
-        points.push({ x: Number(cmd[1]), y: Number(cmd[2]) });
-      } else if (op === "Q" && cmd.length >= 5) {
-        points.push({ x: Number(cmd[3]), y: Number(cmd[4]) });
-      } else if (op === "C" && cmd.length >= 7) {
-        points.push({ x: Number(cmd[5]), y: Number(cmd[6]) });
-      }
-    }
-    return points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
-  }
-  function buildSmoothFreehandPath(points, smoothing = 0.22) {
-    if (!Array.isArray(points) || points.length === 0) return "";
-    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-    if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
-    const tension = Math.max(0.05, Math.min(0.45, Number(smoothing) || 0.22));
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i - 1] || points[i];
-      const p1 = points[i];
-      const p2 = points[i + 1];
-      const p3 = points[i + 2] || p2;
-      const c1x = p1.x + (p2.x - p0.x) * tension;
-      const c1y = p1.y + (p2.y - p0.y) * tension;
-      const c2x = p2.x - (p3.x - p1.x) * tension;
-      const c2y = p2.y - (p3.y - p1.y) * tension;
-      d += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
-    }
-    return d;
-  }
   function replaceRoundedPolygon(instance, target, radius, fabricLib) {
     if (!target || !fabricLib || !instance || !instance.data || !instance.data.fabricCanvas) return null;
     const canvas = instance.data.fabricCanvas;
@@ -4992,40 +4957,13 @@ var __pluginInit = (() => {
     });
     fabricCanvas.on("path:created", (opt) => {
       const path = opt && opt.path ? opt.path : fabricCanvas.getActiveObject();
-      let finalPath = path && path.type === "path" ? path : null;
-      if (path && path.type === "path") {
-        const points = extractPathPoints(path);
-        if (points.length >= 3) {
-          const smoothedPathData = buildSmoothFreehandPath(points, 0.45);
-          if (smoothedPathData) {
-            const smoothed = new fabricLib.Path(smoothedPathData, {
-              left: path.left,
-              top: path.top,
-              angle: path.angle,
-              scaleX: path.scaleX,
-              scaleY: path.scaleY,
-              originX: path.originX,
-              originY: path.originY,
-              fill: "",
-              stroke: path.stroke,
-              strokeWidth: path.strokeWidth,
-              strokeUniform: true,
-              strokeLineCap: "round",
-              strokeLineJoin: "round"
-            });
-            const objects = fabricCanvas.getObjects();
-            const index = objects.indexOf(path);
-            fabricCanvas.remove(path);
-            if (index >= 0) fabricCanvas.insertAt(index, smoothed);
-            else fabricCanvas.add(smoothed);
-            finalPath = smoothed;
-          }
-        } else if (typeof path.set === "function") {
-          path.set({
-            strokeLineCap: "round",
-            strokeLineJoin: "round"
-          });
-        }
+      const finalPath = path && path.type === "path" ? path : null;
+      if (finalPath && typeof finalPath.set === "function") {
+        finalPath.set({
+          strokeUniform: true,
+          strokeLineCap: "round",
+          strokeLineJoin: "round"
+        });
       }
       if (finalPath && typeof app.setToolMode === "function") {
         app.setToolMode("select");

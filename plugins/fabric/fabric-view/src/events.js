@@ -2,7 +2,7 @@ import { handleClipboardPasteEvent, insertImageFileOnCanvas, shouldBlockFabricCo
 import { ensureCanvasSize, syncGuideLayers } from './guides.js';
 import { applyStrokeUniformDeep, getActiveSelectionTargets, isCornerControl, isFabricGroupObject, isFabricRasterImage, isPartOfActiveObject, isRoundedPolygonShape, isSelectionContainer, isShapeObject, normalizeObjectScale, oppositeOriginForCorner, performAltDuplicateDrag } from './objects.js';
 import { buildFabricClipboardJsonString, publishCanvasJson, schedulePublishCanvasJson } from './serialize.js';
-import { applyImageCornerRadiusPx, applyRectCornerRadiusPx, buildSmoothFreehandPath, extractPathPoints, getRectCornerRadiusPx, replaceRoundedPolygon } from './shapes.js';
+import { applyImageCornerRadiusPx, applyRectCornerRadiusPx, getRectCornerRadiusPx, replaceRoundedPolygon } from './shapes.js';
 import { updateTopBarForSelection } from './ui/toolbar-sync.js';
 
 /** Câblage des events Fabric (sélection, pan, alt-dup, scaling, modified, path) + listeners document. */
@@ -279,40 +279,15 @@ export function wireCanvasEvents(app) {
     // Fabric ajoute le path mais ne le sélectionne pas : il faut le lire sur l'event,
     // getActiveObject() est null en mode dessin.
     const path = opt && opt.path ? opt.path : fabricCanvas.getActiveObject();
-    let finalPath = path && path.type === 'path' ? path : null;
-    if (path && path.type === 'path') {
-      const points = extractPathPoints(path);
-      if (points.length >= 3) {
-        const smoothedPathData = buildSmoothFreehandPath(points, 0.45);
-        if (smoothedPathData) {
-          const smoothed = new fabricLib.Path(smoothedPathData, {
-            left: path.left,
-            top: path.top,
-            angle: path.angle,
-            scaleX: path.scaleX,
-            scaleY: path.scaleY,
-            originX: path.originX,
-            originY: path.originY,
-            fill: '',
-            stroke: path.stroke,
-            strokeWidth: path.strokeWidth,
-            strokeUniform: true,
-            strokeLineCap: 'round',
-            strokeLineJoin: 'round',
-          });
-          const objects = fabricCanvas.getObjects();
-          const index = objects.indexOf(path);
-          fabricCanvas.remove(path);
-          if (index >= 0) fabricCanvas.insertAt(index, smoothed);
-          else fabricCanvas.add(smoothed);
-          finalPath = smoothed;
-        }
-      } else if (typeof path.set === 'function') {
-        path.set({
-          strokeLineCap: 'round',
-          strokeLineJoin: 'round',
-        });
-      }
+    const finalPath = path && path.type === 'path' ? path : null;
+    // On garde le tracé natif de Fabric (déjà lissé) : juste les extrémités arrondies,
+    // pas de re-lissage maison (qui rendait le trait moins doux).
+    if (finalPath && typeof finalPath.set === 'function') {
+      finalPath.set({
+        strokeUniform: true,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+      });
     }
     // Fin du tracé : on quitte le mode crayon et on sélectionne le dessin pour
     // permettre d'en éditer immédiatement la couleur / l'épaisseur.
