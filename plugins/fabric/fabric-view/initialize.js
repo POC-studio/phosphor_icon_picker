@@ -3507,6 +3507,91 @@ var __pluginInit = (() => {
     return { closeContextMenu };
   }
 
+  // plugins/fabric/fabric-view/src/commands.js
+  function finalizeCanvasMutation(instance) {
+    const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
+    if (!fabricCanvas) return;
+    fabricCanvas.requestRenderAll();
+    publishCanvasJson(instance);
+    updateTopBarForSelection(instance);
+  }
+  function applyCommand(instance, command) {
+    if (!instance || !instance.data || !command || !command.props) return;
+    const fabricCanvas = instance.data.fabricCanvas;
+    if (!fabricCanvas) return;
+    const targets = Array.isArray(command.targets) ? command.targets : getToolbarStyleTargets(fabricCanvas);
+    if (targets.length === 0) return;
+    const activeObject = fabricCanvas.getActiveObject();
+    const textTargets = [];
+    targets.forEach((target) => {
+      if (!target || typeof target.set !== "function") return;
+      const patch = command.normalizePatch ? command.normalizePatch(target, { ...command.props }) : { ...command.props };
+      if (!patch) return;
+      target.set(patch);
+      target.dirty = true;
+      if (isTextLikeObject(target)) {
+        if (typeof target.initDimensions === "function") target.initDimensions();
+        textTargets.push(target);
+      }
+      if (typeof target.setCoords === "function") target.setCoords();
+      relayoutParentGroups(target);
+    });
+    if (isFabricGroupObject(activeObject)) {
+      activeObject.set("dirty", true);
+      if (typeof activeObject.triggerLayout === "function") {
+        activeObject.triggerLayout();
+      } else if (typeof activeObject.setCoords === "function") {
+        activeObject.setCoords();
+      }
+    }
+    finalizeCanvasMutation(instance);
+    if (textTargets.length > 0 && (command.props.fontFamily != null || command.props.fontSize != null)) {
+      loadWebFontsThenRedraw(fabricCanvas, textTargets);
+    }
+  }
+  function applyTextCommand(instance, targets, props) {
+    const textTargets = (Array.isArray(targets) ? targets : []).filter((t) => isTextLikeObject(t));
+    if (textTargets.length === 0) return;
+    applyCommand(instance, { targets: textTargets, props });
+  }
+  function applyStyleToSelection(instance, patch) {
+    applyCommand(instance, {
+      props: patch,
+      normalizePatch: (target, nextPatch) => {
+        if (nextPatch.stroke != null || nextPatch.strokeWidth != null) {
+          nextPatch.strokeUniform = true;
+        }
+        const nextStrokeColor = typeof nextPatch.stroke === "string" ? nextPatch.stroke : typeof target.stroke === "string" ? target.stroke : "";
+        const hasVisibleStrokeColor = !shouldZeroStrokeWidth(nextStrokeColor);
+        const currentStrokeWidth = Number.isFinite(Number(target.strokeWidth)) ? Number(target.strokeWidth) : 0;
+        if (nextPatch.stroke != null && hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
+          nextPatch.strokeWidth = 1;
+        }
+        if (isTextLikeObject(target) && (nextPatch.stroke != null || nextPatch.strokeWidth != null)) {
+          const nextStrokeWidth = nextPatch.strokeWidth != null ? Number(nextPatch.strokeWidth) : currentStrokeWidth;
+          const wantsTransparentStroke = shouldZeroStrokeWidth(nextStrokeColor);
+          if (wantsTransparentStroke) {
+            nextPatch.strokeWidth = 0;
+          } else if (!Number.isFinite(nextStrokeWidth) || nextStrokeWidth <= 0) {
+            nextPatch.strokeWidth = 1;
+          }
+          if (nextPatch.stroke == null && !wantsTransparentStroke) {
+            const currentStroke = typeof target.stroke === "string" ? target.stroke.trim() : "";
+            if (!currentStroke || currentStroke === "#00000000" || currentStroke.toLowerCase() === "transparent") {
+              nextPatch.stroke = "#000000";
+            }
+          }
+          nextPatch.paintFirst = "stroke";
+          nextPatch.strokeLineJoin = "round";
+        }
+        if (isFabricRasterImage(target) && nextPatch.fill != null) {
+          delete nextPatch.fill;
+        }
+        return nextPatch;
+      }
+    });
+  }
+
   // plugins/fabric/fabric-view/src/icons.js
   function stripStyleSuffix(iconFileName, style) {
     if (typeof iconFileName !== "string") return "";
@@ -3561,7 +3646,32 @@ var __pluginInit = (() => {
   // plugins/fabric/fabric-view/src/inserts.js
   function setupInserts(app) {
     const { instance, fabricCanvas, fabricLib, syncToolButtonHighlightToMode } = app;
+    const buildInheritPatch = (style) => {
+      const strokeTransparent = style.stroke === "transparent";
+      return {
+        fill: style.fill === "transparent" ? "" : style.fill,
+        stroke: strokeTransparent ? "" : style.stroke,
+        strokeWidth: strokeTransparent ? 0 : Number.isFinite(style.strokeWidth) ? style.strokeWidth : 0
+      };
+    };
+    const captureShapeStyleFromSelection = () => {
+      const active = fabricCanvas.getActiveObject();
+      if (!active || active.iconKind) return null;
+      const type = String(active.type || "").toLowerCase();
+      const isShape = type === "rect" || type === "circle" || type === "ellipse" || type === "triangle" || type === "polygon" || isRoundedPolygonShape(active);
+      if (!isShape) return null;
+      return getObjectStyle(active);
+    };
+    const captureIconFillFromSelection = () => {
+      const active = fabricCanvas.getActiveObject();
+      if (!active || !active.iconKind) return null;
+      const kids = flattenStyleTargetsFromGroup(active);
+      const child = kids.find((c) => c && typeof c.fill === "string" && c.fill) || kids[0];
+      const fill = child && typeof child.fill === "string" ? child.fill : typeof active.fill === "string" ? active.fill : null;
+      return fill ? { fill } : null;
+    };
     const addShapeByType = (shapeType) => {
+      const inheritStyle = captureShapeStyleFromSelection();
       const center = getDocumentCenter(instance);
       const baseLeft = Math.round(center.x - 60);
       const baseTop = Math.round(center.y - 60);
@@ -3636,6 +3746,9 @@ var __pluginInit = (() => {
       if (!shape) return;
       fabricCanvas.add(shape);
       fabricCanvas.setActiveObject(shape);
+      if (inheritStyle) {
+        applyStyleToSelection(instance, buildInheritPatch(inheritStyle));
+      }
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
       syncToolButtonHighlightToMode();
@@ -3707,6 +3820,7 @@ var __pluginInit = (() => {
     };
     const addPhosphorSvg = async (iconName, style = "regular") => {
       if (!iconName || typeof fabricLib.loadSVGFromURL !== "function") return;
+      const inheritIconFill = captureIconFillFromSelection();
       const safeStyle = PHOSPHOR_STYLES.includes(style) ? style : "regular";
       const fileName = getStyleAssetFileName(iconName, safeStyle);
       if (!fileName) return;
@@ -3785,6 +3899,9 @@ var __pluginInit = (() => {
       });
       fabricCanvas.add(grouped);
       fabricCanvas.setActiveObject(grouped);
+      if (inheritIconFill) {
+        applyStyleToSelection(instance, { fill: inheritIconFill.fill });
+      }
       fabricCanvas.requestRenderAll();
       updateTopBarForSelection(instance);
       syncToolButtonHighlightToMode();
@@ -4311,6 +4428,18 @@ var __pluginInit = (() => {
       iconMenu.style.display = "none";
       bookmarkMenu.style.display = "none";
       const nextMode = instance.data.toolMode === "draw" ? "select" : "draw";
+      if (nextMode === "draw") {
+        const active = fabricCanvas.getActiveObject();
+        if (active && String(active.type || "").toLowerCase() === "path" && !active.shapeKind && !active.iconKind) {
+          const style = getObjectStyle(active);
+          if (style.stroke && style.stroke !== "transparent") {
+            instance.data.penColor = style.stroke;
+          }
+          if (Number.isFinite(style.strokeWidth) && style.strokeWidth > 0) {
+            instance.data.penWidth = style.strokeWidth;
+          }
+        }
+      }
       setToolMode(nextMode);
     });
     ui.panBtn.addEventListener("click", (event) => {
@@ -4491,91 +4620,6 @@ var __pluginInit = (() => {
       applyZoomAtViewerPoint(next, e.clientX, e.clientY);
     });
     return { updateZoomButtons, applyZoomDelta, applyZoomAtViewerPoint };
-  }
-
-  // plugins/fabric/fabric-view/src/commands.js
-  function finalizeCanvasMutation(instance) {
-    const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-    if (!fabricCanvas) return;
-    fabricCanvas.requestRenderAll();
-    publishCanvasJson(instance);
-    updateTopBarForSelection(instance);
-  }
-  function applyCommand(instance, command) {
-    if (!instance || !instance.data || !command || !command.props) return;
-    const fabricCanvas = instance.data.fabricCanvas;
-    if (!fabricCanvas) return;
-    const targets = Array.isArray(command.targets) ? command.targets : getToolbarStyleTargets(fabricCanvas);
-    if (targets.length === 0) return;
-    const activeObject = fabricCanvas.getActiveObject();
-    const textTargets = [];
-    targets.forEach((target) => {
-      if (!target || typeof target.set !== "function") return;
-      const patch = command.normalizePatch ? command.normalizePatch(target, { ...command.props }) : { ...command.props };
-      if (!patch) return;
-      target.set(patch);
-      target.dirty = true;
-      if (isTextLikeObject(target)) {
-        if (typeof target.initDimensions === "function") target.initDimensions();
-        textTargets.push(target);
-      }
-      if (typeof target.setCoords === "function") target.setCoords();
-      relayoutParentGroups(target);
-    });
-    if (isFabricGroupObject(activeObject)) {
-      activeObject.set("dirty", true);
-      if (typeof activeObject.triggerLayout === "function") {
-        activeObject.triggerLayout();
-      } else if (typeof activeObject.setCoords === "function") {
-        activeObject.setCoords();
-      }
-    }
-    finalizeCanvasMutation(instance);
-    if (textTargets.length > 0 && (command.props.fontFamily != null || command.props.fontSize != null)) {
-      loadWebFontsThenRedraw(fabricCanvas, textTargets);
-    }
-  }
-  function applyTextCommand(instance, targets, props) {
-    const textTargets = (Array.isArray(targets) ? targets : []).filter((t) => isTextLikeObject(t));
-    if (textTargets.length === 0) return;
-    applyCommand(instance, { targets: textTargets, props });
-  }
-  function applyStyleToSelection(instance, patch) {
-    applyCommand(instance, {
-      props: patch,
-      normalizePatch: (target, nextPatch) => {
-        if (nextPatch.stroke != null || nextPatch.strokeWidth != null) {
-          nextPatch.strokeUniform = true;
-        }
-        const nextStrokeColor = typeof nextPatch.stroke === "string" ? nextPatch.stroke : typeof target.stroke === "string" ? target.stroke : "";
-        const hasVisibleStrokeColor = !shouldZeroStrokeWidth(nextStrokeColor);
-        const currentStrokeWidth = Number.isFinite(Number(target.strokeWidth)) ? Number(target.strokeWidth) : 0;
-        if (nextPatch.stroke != null && hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
-          nextPatch.strokeWidth = 1;
-        }
-        if (isTextLikeObject(target) && (nextPatch.stroke != null || nextPatch.strokeWidth != null)) {
-          const nextStrokeWidth = nextPatch.strokeWidth != null ? Number(nextPatch.strokeWidth) : currentStrokeWidth;
-          const wantsTransparentStroke = shouldZeroStrokeWidth(nextStrokeColor);
-          if (wantsTransparentStroke) {
-            nextPatch.strokeWidth = 0;
-          } else if (!Number.isFinite(nextStrokeWidth) || nextStrokeWidth <= 0) {
-            nextPatch.strokeWidth = 1;
-          }
-          if (nextPatch.stroke == null && !wantsTransparentStroke) {
-            const currentStroke = typeof target.stroke === "string" ? target.stroke.trim() : "";
-            if (!currentStroke || currentStroke === "#00000000" || currentStroke.toLowerCase() === "transparent") {
-              nextPatch.stroke = "#000000";
-            }
-          }
-          nextPatch.paintFirst = "stroke";
-          nextPatch.strokeLineJoin = "round";
-        }
-        if (isFabricRasterImage(target) && nextPatch.fill != null) {
-          delete nextPatch.fill;
-        }
-        return nextPatch;
-      }
-    });
   }
 
   // plugins/fabric/fabric-view/src/ui/toolbar-inputs.js

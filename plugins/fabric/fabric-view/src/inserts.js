@@ -1,6 +1,8 @@
+import { applyStyleToSelection } from './commands.js';
 import { DEFAULT_TEXT_FONT_FAMILY, PHOSPHOR_STYLES } from './constants.js';
 import { getDocumentCenter, getDocumentSize } from './guides.js';
 import { getStyleAssetFileName } from './icons.js';
+import { flattenStyleTargetsFromGroup, getObjectStyle, isRoundedPolygonShape } from './objects.js';
 import { createRegularPolygonPoints, createStarPoints } from './shapes.js';
 import { updateTopBarForSelection } from './ui/toolbar-sync.js';
 
@@ -8,7 +10,43 @@ import { updateTopBarForSelection } from './ui/toolbar-sync.js';
 export function setupInserts(app) {
   const { instance, fabricCanvas, fabricLib, syncToolButtonHighlightToMode } = app;
 
+  // Héritage de style « même catégorie » : un nouvel objet reprend le style de
+  // l'objet précédemment sélectionné s'il appartient à la même famille.
+  const buildInheritPatch = (style) => {
+    const strokeTransparent = style.stroke === 'transparent';
+    return {
+      fill: style.fill === 'transparent' ? '' : style.fill,
+      stroke: strokeTransparent ? '' : style.stroke,
+      strokeWidth: strokeTransparent ? 0 : (Number.isFinite(style.strokeWidth) ? style.strokeWidth : 0),
+    };
+  };
+
+  // Style d'une « forme » sélectionnée (rect/cercle/ellipse/triangle/polygone/
+  // polygone arrondi). Exclut splines (path nu), icônes, images et textes.
+  const captureShapeStyleFromSelection = () => {
+    const active = fabricCanvas.getActiveObject();
+    if (!active || active.iconKind) return null;
+    const type = String(active.type || '').toLowerCase();
+    const isShape = type === 'rect' || type === 'circle' || type === 'ellipse'
+      || type === 'triangle' || type === 'polygon' || isRoundedPolygonShape(active);
+    if (!isShape) return null;
+    return getObjectStyle(active);
+  };
+
+  // Couleur d'une icône sélectionnée : lue sur un enfant du groupe car le
+  // recolorage applique le fill aux enfants, pas à group.fill (qui reste périmé).
+  const captureIconFillFromSelection = () => {
+    const active = fabricCanvas.getActiveObject();
+    if (!active || !active.iconKind) return null;
+    const kids = flattenStyleTargetsFromGroup(active);
+    const child = kids.find((c) => c && typeof c.fill === 'string' && c.fill) || kids[0];
+    const fill = child && typeof child.fill === 'string' ? child.fill
+      : (typeof active.fill === 'string' ? active.fill : null);
+    return fill ? { fill } : null;
+  };
+
   const addShapeByType = (shapeType) => {
+    const inheritStyle = captureShapeStyleFromSelection();
     const center = getDocumentCenter(instance);
     const baseLeft = Math.round(center.x - 60);
     const baseTop = Math.round(center.y - 60);
@@ -85,6 +123,9 @@ export function setupInserts(app) {
     if (!shape) return;
     fabricCanvas.add(shape);
     fabricCanvas.setActiveObject(shape);
+    if (inheritStyle) {
+      applyStyleToSelection(instance, buildInheritPatch(inheritStyle));
+    }
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
     syncToolButtonHighlightToMode();
@@ -168,6 +209,7 @@ export function setupInserts(app) {
 
   const addPhosphorSvg = async (iconName, style = 'regular') => {
     if (!iconName || typeof fabricLib.loadSVGFromURL !== 'function') return;
+    const inheritIconFill = captureIconFillFromSelection();
     const safeStyle = PHOSPHOR_STYLES.includes(style) ? style : 'regular';
     const fileName = getStyleAssetFileName(iconName, safeStyle);
     if (!fileName) return;
@@ -253,6 +295,9 @@ export function setupInserts(app) {
     });
     fabricCanvas.add(grouped);
     fabricCanvas.setActiveObject(grouped);
+    if (inheritIconFill) {
+      applyStyleToSelection(instance, { fill: inheritIconFill.fill });
+    }
     fabricCanvas.requestRenderAll();
     updateTopBarForSelection(instance);
     syncToolButtonHighlightToMode();

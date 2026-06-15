@@ -2,7 +2,7 @@ import { addRasterImageFromUrl, insertImageFileOnCanvas } from '../clipboard.js'
 import { PHOSPHOR_REGULAR_ICONS_FALLBACK, PHOSPHOR_STYLES } from '../constants.js';
 import { alignSelectionToDocument, getDocumentSize } from '../guides.js';
 import { fetchAllPhosphorIconsByStyle } from '../icons.js';
-import { createDefaultTextbox } from '../objects.js';
+import { createDefaultTextbox, getObjectStyle } from '../objects.js';
 import { loadWebFontsThenRedraw } from '../text.js';
 import { updateTopBarForSelection } from './toolbar-sync.js';
 
@@ -583,6 +583,21 @@ export function setupMenus(app) {
     iconMenu.style.display = 'none';
     bookmarkMenu.style.display = 'none';
     const nextMode = instance.data.toolMode === 'draw' ? 'select' : 'draw';
+    // Héritage « même catégorie » : reprendre le style de la spline sélectionnée
+    // (path nu, ni polygone arrondi ni icône) avant de passer en mode dessin.
+    if (nextMode === 'draw') {
+      const active = fabricCanvas.getActiveObject();
+      if (active && String(active.type || '').toLowerCase() === 'path'
+          && !active.shapeKind && !active.iconKind) {
+        const style = getObjectStyle(active);
+        if (style.stroke && style.stroke !== 'transparent') {
+          instance.data.penColor = style.stroke;
+        }
+        if (Number.isFinite(style.strokeWidth) && style.strokeWidth > 0) {
+          instance.data.penWidth = style.strokeWidth;
+        }
+      }
+    }
     setToolMode(nextMode);
   });
   ui.panBtn.addEventListener('click', (event) => {
