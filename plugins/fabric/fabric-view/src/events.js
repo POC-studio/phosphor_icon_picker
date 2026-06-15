@@ -275,8 +275,11 @@ export function wireCanvasEvents(app) {
     syncGuideLayers(instance);
     schedulePublishCanvasJson(instance);
   });
-  fabricCanvas.on('path:created', () => {
-    const path = fabricCanvas.getActiveObject();
+  fabricCanvas.on('path:created', (opt) => {
+    // Fabric ajoute le path mais ne le sélectionne pas : il faut le lire sur l'event,
+    // getActiveObject() est null en mode dessin.
+    const path = opt && opt.path ? opt.path : fabricCanvas.getActiveObject();
+    let finalPath = path && path.type === 'path' ? path : null;
     if (path && path.type === 'path') {
       const points = extractPathPoints(path);
       if (points.length >= 3) {
@@ -302,7 +305,7 @@ export function wireCanvasEvents(app) {
           fabricCanvas.remove(path);
           if (index >= 0) fabricCanvas.insertAt(index, smoothed);
           else fabricCanvas.add(smoothed);
-          fabricCanvas.setActiveObject(smoothed);
+          finalPath = smoothed;
         }
       } else if (typeof path.set === 'function') {
         path.set({
@@ -311,7 +314,14 @@ export function wireCanvasEvents(app) {
         });
       }
     }
+    // Fin du tracé : on quitte le mode crayon et on sélectionne le dessin pour
+    // permettre d'en éditer immédiatement la couleur / l'épaisseur.
+    if (finalPath && typeof app.setToolMode === 'function') {
+      app.setToolMode('select');
+      fabricCanvas.setActiveObject(finalPath);
+    }
     syncGuideLayers(instance);
+    fabricCanvas.requestRenderAll();
     schedulePublishCanvasJson(instance);
     updateTopBarForSelection(instance);
   });

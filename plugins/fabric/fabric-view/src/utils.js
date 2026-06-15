@@ -53,7 +53,8 @@ function ensureHexColor(value, fallback) {
 function isTransparentColor(value) {
   if (typeof value !== 'string') return false;
   const v = value.trim().toLowerCase();
-  return v === 'transparent' || v === '#00000000' || v === 'rgba(0,0,0,0)' || v === 'rgba(0, 0, 0, 0)';
+  // '' / 'none' = pas de remplissage côté Fabric (ex. tracé main levée) → afficher transparent.
+  return v === '' || v === 'none' || v === 'transparent' || v === '#00000000' || v === 'rgba(0,0,0,0)' || v === 'rgba(0, 0, 0, 0)';
 }
 
 

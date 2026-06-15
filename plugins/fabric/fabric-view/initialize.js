@@ -145,7 +145,7 @@ var __pluginInit = (() => {
   function isTransparentColor(value) {
     if (typeof value !== "string") return false;
     const v = value.trim().toLowerCase();
-    return v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
+    return v === "" || v === "none" || v === "transparent" || v === "#00000000" || v === "rgba(0,0,0,0)" || v === "rgba(0, 0, 0, 0)";
   }
   function ensureHex(value, fallback) {
     if (!value || typeof value !== "string") return fallback;
@@ -4990,8 +4990,9 @@ var __pluginInit = (() => {
       syncGuideLayers(instance);
       schedulePublishCanvasJson(instance);
     });
-    fabricCanvas.on("path:created", () => {
-      const path = fabricCanvas.getActiveObject();
+    fabricCanvas.on("path:created", (opt) => {
+      const path = opt && opt.path ? opt.path : fabricCanvas.getActiveObject();
+      let finalPath = path && path.type === "path" ? path : null;
       if (path && path.type === "path") {
         const points = extractPathPoints(path);
         if (points.length >= 3) {
@@ -5017,7 +5018,7 @@ var __pluginInit = (() => {
             fabricCanvas.remove(path);
             if (index >= 0) fabricCanvas.insertAt(index, smoothed);
             else fabricCanvas.add(smoothed);
-            fabricCanvas.setActiveObject(smoothed);
+            finalPath = smoothed;
           }
         } else if (typeof path.set === "function") {
           path.set({
@@ -5026,7 +5027,12 @@ var __pluginInit = (() => {
           });
         }
       }
+      if (finalPath && typeof app.setToolMode === "function") {
+        app.setToolMode("select");
+        fabricCanvas.setActiveObject(finalPath);
+      }
       syncGuideLayers(instance);
+      fabricCanvas.requestRenderAll();
       schedulePublishCanvasJson(instance);
       updateTopBarForSelection(instance);
     });
