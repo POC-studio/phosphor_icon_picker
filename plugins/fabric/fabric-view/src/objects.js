@@ -352,7 +352,6 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   const cloneSource = active;
   const done = (cloned) => {
     if (!cloned) {
-      console.warn('[FabricView alt-drag] clone vide — duplication ignorée pour ce geste');
       return;
     }
     // Comportement type Illustrator inversé : le clone reste à la position de départ,
@@ -380,13 +379,13 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
     const result = cloneSource.clone();
     if (result && typeof result.then === 'function') {
       result.then(done).catch((err) => {
-        console.warn('[FabricView alt-drag] clone échoué', err);
+        console.error('[FabricView alt-drag] clone échoué', err);
       });
     } else {
       done(result);
     }
   } catch (err) {
-    console.warn('[FabricView alt-drag] clone échoué (exception)', err);
+    console.error('[FabricView alt-drag] clone échoué (exception)', err);
   }
 }
 
@@ -525,34 +524,21 @@ function normalizeObjectScale(target) {
   }
 
   if (isTextLikeObject(target)) {
-    try {
-      // eslint-disable-next-line no-console
-      console.warn('[TXTRESIZE]', {
-        type,
-        scaleX,
-        scaleY,
-        width: target.width,
-        fontSize: target.fontSize,
-        text: typeof target.text === 'string' ? target.text.slice(0, 20) : null,
-      });
-    } catch (e) { /* noop */ }
     // Corner resize only reaches here (side handles use changeWidth, which keeps scale at 1).
     // Bake ONE factor into BOTH width and fontSize so the box stays proportional (same aspect/
-    // wrapping) instead of reflowing. We tie everything to scaleY (the true vertical/font scale):
-    // this is robust even if a drag ends up non-uniform (scaleX >> scaleY), which otherwise makes
-    // the width explode while the font stays small -> text collapses onto a single line.
+    // wrapping) instead of reflowing. We tie everything to scaleY (the true vertical/font scale).
     const factor = Math.abs(scaleY) || 1;
     const currentFontSize = Number.isFinite(Number(target.fontSize)) ? Number(target.fontSize) : 16;
     const nextFontSize = Math.max(1, Math.round(currentFontSize * factor));
+    // CRUCIAL : lire la largeur AVANT de toucher fontSize. set('fontSize') déclenche un
+    // initDimensions interne qui regonfle déjà width (au plus long mot du nouveau corps).
+    // Si on lisait width après, on multiplierait une largeur DÉJÀ gonflée par factor =>
+    // la boîte explose et le texte part sur une seule ligne.
+    let baseWidth = Number(target.width);
+    if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = nextFontSize * 6;
     target.set('fontSize', nextFontSize);
     if (type === 'textbox') {
-      // La largeur de wrap DOIT rester finie : un Textbox sans width valide arrête
-      // de wrapper et tout le texte part sur une seule ligne (boîte qui explose).
-      let baseWidth = Number(target.width);
-      if (!Number.isFinite(baseWidth) || baseWidth <= 0) {
-        baseWidth = typeof target.calcTextWidth === 'function' ? Number(target.calcTextWidth()) : 0;
-      }
-      if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = currentFontSize * 4;
+      // Réécrit la largeur de wrap proportionnelle (écrase tout regonflage par set('fontSize')).
       target.set('width', Math.max(1, baseWidth * factor));
     }
     target.set({ scaleX: 1, scaleY: 1 });

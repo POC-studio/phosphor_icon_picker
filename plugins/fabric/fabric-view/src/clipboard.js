@@ -48,7 +48,6 @@ async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
   const log = '[FabricView image]';
   if (!fabricCanvas || !fabricLib || !primaryUrl) {
-    console.warn(log, 'canvas, fabric ou primaryUrl manquant');
     return undefined;
   }
   const opts = options || {};
@@ -61,7 +60,6 @@ async function addRasterImageFromUrl(instance, fabricLib, primaryUrl, options) {
     console.error(log, 'Échec chargement depuis l’URL Bubble (repli data URL désactivé en prod Bubble)', primaryUrl);
   }
   if (!img && !forbidFallback && fallbackDataUrl && fallbackDataUrl !== primaryUrl) {
-    console.warn(log, 'Repli data URL après échec URL primaire (sandbox ou secours)');
     img = await loadFabricImageFromUrl(ImageApi, fallbackDataUrl);
   }
   if (!img) {
@@ -142,15 +140,12 @@ async function insertImageFileOnCanvas(instance, fabricLib, context, file, optio
             fallbackDataUrl: dataUrl,
           });
         }
-        console.warn(log, 'uploadContent sans URL http(s) — utilisation data URL', trimmed || '(vide)');
         return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
       } catch (uploadErr) {
         console.error(log, 'uploadContent erreur', uploadErr);
-        console.warn(log, 'Repli data URL après échec upload');
         return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
       }
     }
-    console.log(log, 'Pas de context.uploadContent — data URL (local / sandbox)');
     return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
   } catch (e) {
     console.error(log, 'chargement image', e);

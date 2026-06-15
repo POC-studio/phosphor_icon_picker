@@ -968,7 +968,6 @@ var __pluginInit = (() => {
     const cloneSource = active;
     const done = (cloned) => {
       if (!cloned) {
-        console.warn("[FabricView alt-drag] clone vide \u2014 duplication ignor\xE9e pour ce geste");
         return;
       }
       applyStateFromTransformOriginal(cloned, orig);
@@ -991,13 +990,13 @@ var __pluginInit = (() => {
       const result = cloneSource.clone();
       if (result && typeof result.then === "function") {
         result.then(done).catch((err) => {
-          console.warn("[FabricView alt-drag] clone \xE9chou\xE9", err);
+          console.error("[FabricView alt-drag] clone \xE9chou\xE9", err);
         });
       } else {
         done(result);
       }
     } catch (err) {
-      console.warn("[FabricView alt-drag] clone \xE9chou\xE9 (exception)", err);
+      console.error("[FabricView alt-drag] clone \xE9chou\xE9 (exception)", err);
     }
   }
   function moveCanvasObjectToFinalIndex(fabricCanvas, object, from, dest) {
@@ -1095,27 +1094,13 @@ var __pluginInit = (() => {
       return;
     }
     if (isTextLikeObject(target)) {
-      try {
-        console.warn("[TXTRESIZE]", {
-          type,
-          scaleX,
-          scaleY,
-          width: target.width,
-          fontSize: target.fontSize,
-          text: typeof target.text === "string" ? target.text.slice(0, 20) : null
-        });
-      } catch (e) {
-      }
       const factor = Math.abs(scaleY) || 1;
       const currentFontSize = Number.isFinite(Number(target.fontSize)) ? Number(target.fontSize) : 16;
       const nextFontSize = Math.max(1, Math.round(currentFontSize * factor));
+      let baseWidth = Number(target.width);
+      if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = nextFontSize * 6;
       target.set("fontSize", nextFontSize);
       if (type === "textbox") {
-        let baseWidth = Number(target.width);
-        if (!Number.isFinite(baseWidth) || baseWidth <= 0) {
-          baseWidth = typeof target.calcTextWidth === "function" ? Number(target.calcTextWidth()) : 0;
-        }
-        if (!Number.isFinite(baseWidth) || baseWidth <= 0) baseWidth = currentFontSize * 4;
         target.set("width", Math.max(1, baseWidth * factor));
       }
       target.set({ scaleX: 1, scaleY: 1 });
@@ -1817,7 +1802,7 @@ var __pluginInit = (() => {
         instance.publishState("canvas_json", payload);
       }
     } catch (e) {
-      console.warn("Fabric View: publishCanvasJson ignor\xE9 (toJSON / stringify)", e);
+      console.error("Fabric View: publishCanvasJson ignor\xE9 (toJSON / stringify)", e);
     }
     if (!silent && !suppressBubble) {
       instance.triggerEvent("json_changed");
@@ -3476,7 +3461,6 @@ var __pluginInit = (() => {
     const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
     const log = "[FabricView image]";
     if (!fabricCanvas || !fabricLib || !primaryUrl) {
-      console.warn(log, "canvas, fabric ou primaryUrl manquant");
       return void 0;
     }
     const opts = options || {};
@@ -3488,7 +3472,6 @@ var __pluginInit = (() => {
       console.error(log, "\xC9chec chargement depuis l\u2019URL Bubble (repli data URL d\xE9sactiv\xE9 en prod Bubble)", primaryUrl);
     }
     if (!img && !forbidFallback && fallbackDataUrl && fallbackDataUrl !== primaryUrl) {
-      console.warn(log, "Repli data URL apr\xE8s \xE9chec URL primaire (sandbox ou secours)");
       img = await loadFabricImageFromUrl(ImageApi, fallbackDataUrl);
     }
     if (!img) {
@@ -3552,15 +3535,12 @@ var __pluginInit = (() => {
               fallbackDataUrl: dataUrl
             });
           }
-          console.warn(log, "uploadContent sans URL http(s) \u2014 utilisation data URL", trimmed || "(vide)");
           return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
         } catch (uploadErr) {
           console.error(log, "uploadContent erreur", uploadErr);
-          console.warn(log, "Repli data URL apr\xE8s \xE9chec upload");
           return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
         }
       }
-      console.log(log, "Pas de context.uploadContent \u2014 data URL (local / sandbox)");
       return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
     } catch (e) {
       console.error(log, "chargement image", e);
@@ -5495,19 +5475,6 @@ var __pluginInit = (() => {
     });
     fabricCanvas.on("object:modified", (event) => {
       let target = event && event.target ? event.target : null;
-      if (target && isTextLikeObject(target)) {
-        try {
-          console.warn("[TXTMODIFIED]", {
-            type: target.type,
-            action: event && event.action,
-            scaleX: target.scaleX,
-            scaleY: target.scaleY,
-            width: target.width,
-            fontSize: target.fontSize
-          });
-        } catch (e) {
-        }
-      }
       normalizeObjectScale(target);
       if (target && target.type === "rect" && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
         const lockedRadiusPx = getRectCornerRadiusPx(target);

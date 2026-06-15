@@ -49,7 +49,7 @@ function publishCanvasJson(instance, options) {
     }
   } catch (e) {
     /* Ne jamais publier '{}' : un workflow Bubble qui écrit canvas_json en base effacerait la donnée (ex. collage image + toJSON échoue). */
-    console.warn('Fabric View: publishCanvasJson ignoré (toJSON / stringify)', e);
+    console.error('Fabric View: publishCanvasJson ignoré (toJSON / stringify)', e);
   }
   if (!silent && !suppressBubble) {
     instance.triggerEvent('json_changed');

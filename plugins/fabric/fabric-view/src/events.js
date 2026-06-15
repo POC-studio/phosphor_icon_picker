@@ -243,19 +243,6 @@ export function wireCanvasEvents(app) {
   });
   fabricCanvas.on('object:modified', (event) => {
     let target = event && event.target ? event.target : null;
-    if (target && isTextLikeObject(target)) {
-      try {
-        // eslint-disable-next-line no-console
-        console.warn('[TXTMODIFIED]', {
-          type: target.type,
-          action: event && event.action,
-          scaleX: target.scaleX,
-          scaleY: target.scaleY,
-          width: target.width,
-          fontSize: target.fontSize,
-        });
-      } catch (e) { /* noop */ }
-    }
     normalizeObjectScale(target);
     if (target && target.type === 'rect' && Number.isFinite(Number(target.rx)) && Number.isFinite(Number(target.ry))) {
       const lockedRadiusPx = getRectCornerRadiusPx(target);
