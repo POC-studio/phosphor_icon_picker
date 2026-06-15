@@ -108,6 +108,12 @@ function finalizeAfterArtboardLoad(instance, fabricLib) {
 }
 
 
+function setBoardLoading(instance, loading) {
+  const overlay = instance && instance.data && instance.data.ui ? instance.data.ui.loadingOverlay : null;
+  if (overlay) overlay.style.display = loading ? 'flex' : 'none';
+}
+
+
 function goToArtboard(instance, targetIndex, opts) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
   const fabricLib = instance && instance.data ? instance.data.fabricLib : null;
@@ -136,11 +142,13 @@ function goToArtboard(instance, targetIndex, opts) {
   instance.data.canvasHeight = preset.height;
   const snap = instance.data.pageSnapshots[idx];
   const loadInput = snap != null ? snap : { objects: [] };
+  setBoardLoading(instance, true);
   const p = loadFromJsonPromise(fabricCanvas, loadInput);
   return p
     .then(() => finalizeAfterArtboardLoad(instance, fabricLib))
     .finally(() => {
       instance.data._artboardSwapInProgress = false;
+      setBoardLoading(instance, false);
     });
 }
 

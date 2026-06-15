@@ -275,6 +275,25 @@ function buildShell() {
 
   canvasHost.appendChild(canvasEl);
   board.appendChild(canvasHost);
+
+  // Overlay de chargement (affiché pendant le rendu d'une page : attente des images).
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.style.position = 'absolute';
+  loadingOverlay.style.inset = '0';
+  loadingOverlay.style.display = 'none';
+  loadingOverlay.style.alignItems = 'center';
+  loadingOverlay.style.justifyContent = 'center';
+  loadingOverlay.style.background = 'rgba(229, 231, 235, 0.6)';
+  loadingOverlay.style.zIndex = '20';
+  loadingOverlay.style.pointerEvents = 'none';
+  const loadingSpinner = document.createElement('i');
+  loadingSpinner.className = 'ph ph-circle-notch';
+  loadingSpinner.style.fontSize = '40px';
+  loadingSpinner.style.color = '#475569';
+  loadingSpinner.style.animation = 'fabric-view-spin 0.7s linear infinite';
+  loadingOverlay.appendChild(loadingSpinner);
+  board.appendChild(loadingOverlay);
+
   body.appendChild(leftBar);
   body.appendChild(board);
   root.appendChild(topBar);
@@ -367,6 +386,7 @@ function buildShell() {
     fitBtn,
     shapeBtn,
     board,
+    loadingOverlay,
   };
 }
 

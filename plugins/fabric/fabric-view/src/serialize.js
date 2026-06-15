@@ -28,6 +28,7 @@ function publishCanvasJson(instance, options) {
   if (!instance || !instance.data || !instance.data.fabricCanvas) return;
   const silent = (options && options.silent)
     || (instance.data._artboardSwapInProgress === true);
+  const skipPreviews = options && options.skipPreviews === true;
   const forceBubble = options && options.forcePublishToBubble === true;
   const suppressBubble = instance.data._suppressCanvasJsonPublish === true && !forceBubble;
   const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
@@ -53,7 +54,7 @@ function publishCanvasJson(instance, options) {
   if (!silent && !suppressBubble) {
     instance.triggerEvent('json_changed');
   }
-  if (!suppressBubble) {
+  if (!suppressBubble && !skipPreviews) {
     schedulePagePreviews(instance);
   }
 }
@@ -143,7 +144,9 @@ function loadWrappedCanvasJson(instance, jsonString) {
   goToArtboard(instance, idx, { skipSave: true })
     .then(() => {
       instance.data._suppressCanvasJsonPublish = false;
-      publishCanvasJson(instance);
+      // Hydrate initial : publie le doc à Bubble mais ne régénère pas les previews
+      // des 3 pages (coûteux : rendu + upload). Elles seront générées à la 1re modif.
+      publishCanvasJson(instance, { skipPreviews: true });
       updateTopBarForSelection(instance);
     })
     .catch(() => {

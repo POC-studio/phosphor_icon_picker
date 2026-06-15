@@ -1486,7 +1486,7 @@ var __pluginInit = (() => {
     const d = instance.data;
     if (d._suppressCanvasJsonPublish === true) return;
     const PAGE_PREVIEWS_DEBOUNCE_MS = 1500;
-    const PAGE_PREVIEWS_COOLDOWN_MS = 1e4;
+    const PAGE_PREVIEWS_COOLDOWN_MS = 3e4;
     const sinceLast = Date.now() - (d._lastPagePreviewsAt || 0);
     const delay = sinceLast < PAGE_PREVIEWS_COOLDOWN_MS ? Math.max(PAGE_PREVIEWS_DEBOUNCE_MS, PAGE_PREVIEWS_COOLDOWN_MS - sinceLast) : PAGE_PREVIEWS_DEBOUNCE_MS;
     if (d._schedulePagePreviewsTimer) {
@@ -1517,6 +1517,7 @@ var __pluginInit = (() => {
   function publishCanvasJson(instance, options) {
     if (!instance || !instance.data || !instance.data.fabricCanvas) return;
     const silent = options && options.silent || instance.data._artboardSwapInProgress === true;
+    const skipPreviews = options && options.skipPreviews === true;
     const forceBubble = options && options.forcePublishToBubble === true;
     const suppressBubble = instance.data._suppressCanvasJsonPublish === true && !forceBubble;
     const idx = clampArtboardIndex(instance.data.activeArtboardIndex);
@@ -1541,7 +1542,7 @@ var __pluginInit = (() => {
     if (!silent && !suppressBubble) {
       instance.triggerEvent("json_changed");
     }
-    if (!suppressBubble) {
+    if (!suppressBubble && !skipPreviews) {
       schedulePagePreviews(instance);
     }
   }
@@ -1614,7 +1615,7 @@ var __pluginInit = (() => {
     instance.data.activeArtboardIndex = idx;
     goToArtboard(instance, idx, { skipSave: true }).then(() => {
       instance.data._suppressCanvasJsonPublish = false;
-      publishCanvasJson(instance);
+      publishCanvasJson(instance, { skipPreviews: true });
       updateTopBarForSelection(instance);
     }).catch(() => {
       instance.data._suppressCanvasJsonPublish = false;
@@ -1733,6 +1734,10 @@ var __pluginInit = (() => {
       if (textObjects.length > 0) loadWebFontsThenRedraw(canvas, textObjects);
     }
   }
+  function setBoardLoading(instance, loading) {
+    const overlay = instance && instance.data && instance.data.ui ? instance.data.ui.loadingOverlay : null;
+    if (overlay) overlay.style.display = loading ? "flex" : "none";
+  }
   function goToArtboard(instance, targetIndex, opts) {
     const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
     const fabricLib = instance && instance.data ? instance.data.fabricLib : null;
@@ -1760,9 +1765,11 @@ var __pluginInit = (() => {
     instance.data.canvasHeight = preset.height;
     const snap = instance.data.pageSnapshots[idx];
     const loadInput = snap != null ? snap : { objects: [] };
+    setBoardLoading(instance, true);
     const p = loadFromJsonPromise(fabricCanvas, loadInput);
     return p.then(() => finalizeAfterArtboardLoad(instance, fabricLib)).finally(() => {
       instance.data._artboardSwapInProgress = false;
+      setBoardLoading(instance, false);
     });
   }
   function ensureMarginGuidesAtFront(instance) {
@@ -2659,6 +2666,22 @@ var __pluginInit = (() => {
     canvasEl.style.display = "block";
     canvasHost.appendChild(canvasEl);
     board.appendChild(canvasHost);
+    const loadingOverlay = document.createElement("div");
+    loadingOverlay.style.position = "absolute";
+    loadingOverlay.style.inset = "0";
+    loadingOverlay.style.display = "none";
+    loadingOverlay.style.alignItems = "center";
+    loadingOverlay.style.justifyContent = "center";
+    loadingOverlay.style.background = "rgba(229, 231, 235, 0.6)";
+    loadingOverlay.style.zIndex = "20";
+    loadingOverlay.style.pointerEvents = "none";
+    const loadingSpinner = document.createElement("i");
+    loadingSpinner.className = "ph ph-circle-notch";
+    loadingSpinner.style.fontSize = "40px";
+    loadingSpinner.style.color = "#475569";
+    loadingSpinner.style.animation = "fabric-view-spin 0.7s linear infinite";
+    loadingOverlay.appendChild(loadingSpinner);
+    board.appendChild(loadingOverlay);
     body.appendChild(leftBar);
     body.appendChild(board);
     root.appendChild(topBar);
@@ -2743,7 +2766,8 @@ var __pluginInit = (() => {
       zoomInBtn,
       fitBtn,
       shapeBtn,
-      board
+      board,
+      loadingOverlay
     };
   }
 
@@ -5059,6 +5083,7 @@ var __pluginInit = (() => {
     const fabricLib = resolveFabric();
     ensureFabricImageIdSerialization(fabricLib);
     const ui = buildShell();
+    ensureFabricViewPdfSpinStyle();
     instance.data.ui = ui;
     instance.data.fabricLib = fabricLib;
     instance.data.bubbleContext = context || null;

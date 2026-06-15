@@ -1,7 +1,7 @@
 import { ARTBOARD_PRESETS, DEFAULT_TEXT_FONT_FAMILY } from './constants.js';
 import { ensureCanvasSize } from './guides.js';
 import { ensureFabricImageIdSerialization, resolveFabric } from './objects.js';
-import { createPagePreviews } from './previews.js';
+import { createPagePreviews, ensureFabricViewPdfSpinStyle } from './previews.js';
 import { loadWrappedCanvasJson, publishCanvasJson } from './serialize.js';
 import { buildShell } from './ui/shell.js';
 import { updateTopBarForSelection } from './ui/toolbar-sync.js';
@@ -18,6 +18,7 @@ export default function initializeFabricView(instance, context) {
   const fabricLib = resolveFabric();
   ensureFabricImageIdSerialization(fabricLib);
   const ui = buildShell();
+  ensureFabricViewPdfSpinStyle();
   instance.data.ui = ui;
   instance.data.fabricLib = fabricLib;
   // Contexte Bubble accessible aux modules (uploadContent pour PDF / previews).

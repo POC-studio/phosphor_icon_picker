@@ -350,7 +350,7 @@ function createPagePreviews(instance) {
 
 /**
  * Régénère les previews après un changement de contenu.
- * Debounce 1500 ms + cooldown : si une génération a eu lieu il y a moins de
+ * Debounce 1500 ms + cooldown 30 s : si une génération a eu lieu il y a moins de
  * PAGE_PREVIEWS_COOLDOWN_MS, on repousse à la fin du cooldown (au lieu d'en relancer une).
  * Skip si le contenu n'a pas changé. L'action manuelle (createPagePreviews) n'est pas bridée.
  */
@@ -359,7 +359,7 @@ function schedulePagePreviews(instance) {
   const d = instance.data;
   if (d._suppressCanvasJsonPublish === true) return;
   const PAGE_PREVIEWS_DEBOUNCE_MS = 1500;
-  const PAGE_PREVIEWS_COOLDOWN_MS = 10000;
+  const PAGE_PREVIEWS_COOLDOWN_MS = 30000;
   const sinceLast = Date.now() - (d._lastPagePreviewsAt || 0);
   const delay = sinceLast < PAGE_PREVIEWS_COOLDOWN_MS
     ? Math.max(PAGE_PREVIEWS_DEBOUNCE_MS, PAGE_PREVIEWS_COOLDOWN_MS - sinceLast)
