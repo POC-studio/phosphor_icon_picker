@@ -108,7 +108,9 @@ function applyStyleToSelection(instance, patch) {
         : (typeof target.stroke === 'string' ? target.stroke : '');
       const hasVisibleStrokeColor = !shouldZeroStrokeWidth(nextStrokeColor);
       const currentStrokeWidth = Number.isFinite(Number(target.strokeWidth)) ? Number(target.strokeWidth) : 0;
-      if (hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
+      // Ne bumper la largeur à 1 que lorsqu'on applique réellement une couleur de stroke.
+      // Sinon un simple changement de fill réactiverait un stroke à 1 sur une forme à 0.
+      if (nextPatch.stroke != null && hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
         nextPatch.strokeWidth = 1;
       }
 

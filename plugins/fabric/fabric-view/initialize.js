@@ -4585,7 +4585,7 @@ var __pluginInit = (() => {
         const nextStrokeColor = typeof nextPatch.stroke === "string" ? nextPatch.stroke : typeof target.stroke === "string" ? target.stroke : "";
         const hasVisibleStrokeColor = !shouldZeroStrokeWidth(nextStrokeColor);
         const currentStrokeWidth = Number.isFinite(Number(target.strokeWidth)) ? Number(target.strokeWidth) : 0;
-        if (hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
+        if (nextPatch.stroke != null && hasVisibleStrokeColor && nextPatch.strokeWidth == null && currentStrokeWidth <= 0) {
           nextPatch.strokeWidth = 1;
         }
         if (isTextLikeObject(target) && (nextPatch.stroke != null || nextPatch.strokeWidth != null)) {
