@@ -9,6 +9,11 @@ import { updateTopBarForSelection } from './ui/toolbar-sync.js';
 export function wireCanvasEvents(app) {
   const { instance, context, fabricCanvas, fabricLib, ui, shapeMenu, iconMenu, bookmarkMenu, tableMenu } = app;
 
+  // Garde anti double-binding : si initialize est rappelé, on ne réempile pas les
+  // listeners (sinon object:moving cloné N fois → risque d'emballement Alt+drag).
+  if (instance.data._eventsWired === true) return;
+  instance.data._eventsWired = true;
+
   const onSelectionChanged = () => {
     updateTopBarForSelection(instance);
     // Ne pas appeler publishCanvasJson ici : ajouter un objet déclenche déjà object:added

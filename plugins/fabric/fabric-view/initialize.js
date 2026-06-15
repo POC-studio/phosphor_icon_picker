@@ -1039,14 +1039,12 @@ var __pluginInit = (() => {
       }
     }
     const orig = transform.original;
-    const prevCommitted = instance.data._altDupClonedGestureId;
     instance.data._altDupClonedGestureId = gid;
     instance.data._altDuplicateDone = true;
     const cloneSource = active;
     const done = (cloned) => {
       if (!cloned) {
-        instance.data._altDupClonedGestureId = prevCommitted;
-        instance.data._altDuplicateDone = false;
+        console.warn("[FabricView alt-drag] clone vide \u2014 duplication ignor\xE9e pour ce geste");
         return;
       }
       applyStateFromTransformOriginal(cloned, orig);
@@ -1063,23 +1061,19 @@ var __pluginInit = (() => {
       updateTopBarForSelection(instance);
     };
     if (typeof cloneSource.clone !== "function") {
-      instance.data._altDupClonedGestureId = prevCommitted;
-      instance.data._altDuplicateDone = false;
       return;
     }
     try {
       const result = cloneSource.clone();
       if (result && typeof result.then === "function") {
-        result.then(done).catch(() => {
-          instance.data._altDupClonedGestureId = prevCommitted;
-          instance.data._altDuplicateDone = false;
+        result.then(done).catch((err) => {
+          console.warn("[FabricView alt-drag] clone \xE9chou\xE9", err);
         });
       } else {
         done(result);
       }
     } catch (err) {
-      instance.data._altDupClonedGestureId = prevCommitted;
-      instance.data._altDuplicateDone = false;
+      console.warn("[FabricView alt-drag] clone \xE9chou\xE9 (exception)", err);
     }
   }
   function moveCanvasObjectToFinalIndex(fabricCanvas, object, from, dest) {
@@ -4770,6 +4764,8 @@ var __pluginInit = (() => {
   // plugins/fabric/fabric-view/src/events.js
   function wireCanvasEvents(app) {
     const { instance, context, fabricCanvas, fabricLib, ui, shapeMenu, iconMenu, bookmarkMenu, tableMenu } = app;
+    if (instance.data._eventsWired === true) return;
+    instance.data._eventsWired = true;
     const onSelectionChanged = () => {
       updateTopBarForSelection(instance);
     };

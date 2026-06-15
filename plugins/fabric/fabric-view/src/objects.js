@@ -343,15 +343,16 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
 
   const orig = transform.original;
 
-  const prevCommitted = instance.data._altDupClonedGestureId;
+  // Déduplication irréversible : ce geste a « consommé » son clone. On ne rétablit
+  // jamais ces drapeaux en cas d'échec (sinon le verrou se rouvre dans le même geste
+  // et on empile des centaines de copies). Reset uniquement au prochain mouse:down.
   instance.data._altDupClonedGestureId = gid;
   instance.data._altDuplicateDone = true;
 
   const cloneSource = active;
   const done = (cloned) => {
     if (!cloned) {
-      instance.data._altDupClonedGestureId = prevCommitted;
-      instance.data._altDuplicateDone = false;
+      console.warn('[FabricView alt-drag] clone vide — duplication ignorée pour ce geste');
       return;
     }
     // Comportement type Illustrator inversé : le clone reste à la position de départ,
@@ -371,24 +372,21 @@ function performAltDuplicateDrag(instance, fabricCanvas, e) {
   };
 
   if (typeof cloneSource.clone !== 'function') {
-    instance.data._altDupClonedGestureId = prevCommitted;
-    instance.data._altDuplicateDone = false;
     return;
   }
 
+  // En cas d'échec, on ne rouvre PAS le verrou (pire cas : pas de clone, jamais de boucle).
   try {
     const result = cloneSource.clone();
     if (result && typeof result.then === 'function') {
-      result.then(done).catch(() => {
-        instance.data._altDupClonedGestureId = prevCommitted;
-        instance.data._altDuplicateDone = false;
+      result.then(done).catch((err) => {
+        console.warn('[FabricView alt-drag] clone échoué', err);
       });
     } else {
       done(result);
     }
   } catch (err) {
-    instance.data._altDupClonedGestureId = prevCommitted;
-    instance.data._altDuplicateDone = false;
+    console.warn('[FabricView alt-drag] clone échoué (exception)', err);
   }
 }
 
