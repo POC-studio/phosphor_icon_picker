@@ -34,6 +34,9 @@ const PHOSPHOR_STYLES = ['regular', 'bold', 'fill', 'light', 'thin', 'duotone'];
 
 const ARTBOARD_VIEWER_MARGIN_PX = 24;
 
+/** Couleur des repères d'alignement / d'aide (ex. ligne de contrainte Shift). */
+const GUIDE_HIGHLIGHT_COLOR = '#FFEDC5';
+
 /** Alt+drag duplicate : ignore le bruit avant ce déplacement (px). */
 const ALT_DUP_MIN_MOVE_PX = 5;
 
@@ -80,6 +83,7 @@ export {
   PHOSPHOR_REGULAR_ICONS_FALLBACK,
   PHOSPHOR_STYLES,
   ARTBOARD_VIEWER_MARGIN_PX,
+  GUIDE_HIGHLIGHT_COLOR,
   ALT_DUP_MIN_MOVE_PX,
   PX_PER_MM,
   MARGIN_5MM_PX,

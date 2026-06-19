@@ -1,4 +1,4 @@
-import { ARTBOARD_PRESETS, ARTBOARD_VIEWER_MARGIN_PX } from './constants.js';
+import { ARTBOARD_PRESETS, ARTBOARD_VIEWER_MARGIN_PX, GUIDE_HIGHLIGHT_COLOR } from './constants.js';
 import { getActiveSelectionTargets, isTextLikeObject } from './objects.js';
 import { loadFromJsonPromise, publishCanvasJson } from './serialize.js';
 import { syncImageCornerRadiusClipsOnCanvas } from './shapes.js';
@@ -66,7 +66,9 @@ function stripSafeZoneObjects(instance) {
   });
   instance.data.marginGuideLines = {
     top: null, right: null, bottom: null, left: null, fold: null,
+    borderTop: null, borderRight: null, borderBottom: null, borderLeft: null,
   };
+  instance.data.shiftMoveGuide = null;
 }
 
 
@@ -158,7 +160,7 @@ function ensureMarginGuidesAtFront(instance) {
   const canvas = instance.data.fabricCanvas;
   const guides = instance.data.marginGuideLines;
   if (!canvas || !guides) return;
-  ['top', 'right', 'bottom', 'left', 'fold'].forEach((key) => {
+  ['top', 'right', 'bottom', 'left', 'fold', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft'].forEach((key) => {
     const line = guides[key];
     if (!line) return;
     if (typeof canvas.bringObjectToFront === 'function') {
@@ -194,6 +196,7 @@ function ensureMarginGuideLines(instance, fabricLib) {
   if (!instance.data.marginGuideLines) {
     instance.data.marginGuideLines = {
       top: null, right: null, bottom: null, left: null, fold: null,
+      borderTop: null, borderRight: null, borderBottom: null, borderLeft: null,
     };
   }
   const guides = instance.data.marginGuideLines;
@@ -249,6 +252,13 @@ function ensureMarginGuideLines(instance, fabricLib) {
   upsertLine('left', m.left > 0 && m.left < dw, m.left, 0, m.left, dh);
   upsertLine('right', m.right > 0 && m.right < dw, dw - m.right, 0, dw - m.right, dh);
 
+  // Bord du document : contour noir toujours visible, au-dessus de tout, même épaisseur dynamique que les marges.
+  const borderPatch = { stroke: '#111827' };
+  upsertLine('borderTop', true, 0, 0, dw, 0, borderPatch);
+  upsertLine('borderBottom', true, 0, dh, dw, dh, borderPatch);
+  upsertLine('borderLeft', true, 0, 0, 0, dh, borderPatch);
+  upsertLine('borderRight', true, dw, 0, dw, dh, borderPatch);
+
   const isMiddleSpread = clampArtboardIndex(instance.data.activeArtboardIndex) === 1;
   const midX = dw / 2;
   upsertLine(
@@ -270,6 +280,73 @@ function syncGuideLayers(instance) {
   ensureArtboardAtBack(instance);
   ensureMarginGuideLines(instance, instance.data.fabricLib);
   ensureMarginGuidesAtFront(instance);
+}
+
+
+/**
+ * Repère « infini » orange affiché pendant un déplacement contraint au Shift, centré sur
+ * l’objet et orienté selon l’axe de déplacement ('horizontal' ou 'vertical'). Même
+ * infrastructure que les guides de marge (Line, isSafeZone, excludeFromExport, épaisseur
+ * dynamique) → exclu de l’export et nettoyé au changement de page.
+ */
+function showShiftMoveGuide(instance, axis, centerX, centerY) {
+  if (!instance || !instance.data) return;
+  const canvas = instance.data.fabricCanvas;
+  const fabricLib = instance.data.fabricLib;
+  if (!canvas || !fabricLib || typeof fabricLib.Line !== 'function') return;
+  if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) return;
+  const vpScale = Math.max(1e-6, Number(instance.data.viewport && instance.data.viewport.scale) || 1);
+  const strokeDoc = 1 / vpScale;
+  const EXT = 100000; // pseudo-infini en coordonnées scène
+  const x1 = axis === 'horizontal' ? centerX - EXT : centerX;
+  const x2 = axis === 'horizontal' ? centerX + EXT : centerX;
+  const y1 = axis === 'horizontal' ? centerY : centerY - EXT;
+  const y2 = axis === 'horizontal' ? centerY : centerY + EXT;
+  let line = instance.data.shiftMoveGuide;
+  if (!line) {
+    line = new fabricLib.Line([x1, y1, x2, y2], {
+      stroke: GUIDE_HIGHLIGHT_COLOR,
+      strokeWidth: strokeDoc,
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+      hasControls: false,
+      hasBorders: false,
+      excludeFromExport: true,
+      isSafeZone: true,
+    });
+    instance.data.shiftMoveGuide = line;
+    canvas.add(line);
+  } else {
+    line.set({
+      x1, y1, x2, y2, strokeWidth: strokeDoc, stroke: GUIDE_HIGHLIGHT_COLOR, visible: true,
+    });
+    if (!canvas.getObjects().includes(line)) canvas.add(line);
+    if (typeof line.setCoords === 'function') line.setCoords();
+  }
+  if (typeof canvas.bringObjectToFront === 'function') {
+    canvas.bringObjectToFront(line);
+  } else if (typeof line.bringToFront === 'function') {
+    line.bringToFront();
+  }
+  canvas.requestRenderAll();
+}
+
+
+function hideShiftMoveGuide(instance) {
+  if (!instance || !instance.data) return;
+  const canvas = instance.data.fabricCanvas;
+  const line = instance.data.shiftMoveGuide;
+  if (!line) return;
+  if (canvas) {
+    try {
+      canvas.remove(line);
+    } catch (e) {
+      /* ignore */
+    }
+    if (typeof canvas.requestRenderAll === 'function') canvas.requestRenderAll();
+  }
+  instance.data.shiftMoveGuide = null;
 }
 
 
@@ -552,6 +629,8 @@ export {
   ensureMarginGuidesAtFront,
   ensureMarginGuideLines,
   syncGuideLayers,
+  showShiftMoveGuide,
+  hideShiftMoveGuide,
   syncGuideStackAfterUserZOrder,
   ensureArtboardRect,
   applyViewportTransform,

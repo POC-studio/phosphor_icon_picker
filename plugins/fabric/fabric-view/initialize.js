@@ -74,6 +74,7 @@ var __pluginInit = (() => {
   ];
   var PHOSPHOR_STYLES = ["regular", "bold", "fill", "light", "thin", "duotone"];
   var ARTBOARD_VIEWER_MARGIN_PX = 24;
+  var GUIDE_HIGHLIGHT_COLOR = "#FFEDC5";
   var ALT_DUP_MIN_MOVE_PX = 5;
   var PX_PER_MM = 300 / 25.4;
   var MARGIN_5MM_PX = Math.round(5 * PX_PER_MM);
@@ -507,8 +508,12 @@ var __pluginInit = (() => {
       }
       const rawTitle = typeof instance.data.documentTitle === "string" ? instance.data.documentTitle.trim() : "";
       const hasTitle = rawTitle.length > 0;
-      const pageNum = clampArtboardIndex(instance.data.activeArtboardIndex) + 1;
-      ui.documentTitle.textContent = hasTitle ? `${rawTitle} / page ${pageNum}` : `page ${pageNum}`;
+      const artboardIdx = clampArtboardIndex(instance.data.activeArtboardIndex);
+      let pageLabel;
+      if (artboardIdx === 1) pageLabel = "pages 2/3";
+      else if (artboardIdx === 2) pageLabel = "page 4";
+      else pageLabel = "page 1";
+      ui.documentTitle.textContent = hasTitle ? `${rawTitle} / ${pageLabel}` : pageLabel;
       ui.documentTitle.style.display = "block";
       const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : "select";
       const isDrawMode = toolMode === "draw";
@@ -1962,8 +1967,13 @@ var __pluginInit = (() => {
       right: null,
       bottom: null,
       left: null,
-      fold: null
+      fold: null,
+      borderTop: null,
+      borderRight: null,
+      borderBottom: null,
+      borderLeft: null
     };
+    instance.data.shiftMoveGuide = null;
   }
   function finalizeAfterArtboardLoad(instance, fabricLib) {
     if (!instance || !instance.data || !fabricLib) return;
@@ -2042,7 +2052,7 @@ var __pluginInit = (() => {
     const canvas = instance.data.fabricCanvas;
     const guides = instance.data.marginGuideLines;
     if (!canvas || !guides) return;
-    ["top", "right", "bottom", "left", "fold"].forEach((key) => {
+    ["top", "right", "bottom", "left", "fold", "borderTop", "borderRight", "borderBottom", "borderLeft"].forEach((key) => {
       const line = guides[key];
       if (!line) return;
       if (typeof canvas.bringObjectToFront === "function") {
@@ -2076,7 +2086,11 @@ var __pluginInit = (() => {
         right: null,
         bottom: null,
         left: null,
-        fold: null
+        fold: null,
+        borderTop: null,
+        borderRight: null,
+        borderBottom: null,
+        borderLeft: null
       };
     }
     const guides = instance.data.marginGuideLines;
@@ -2125,6 +2139,11 @@ var __pluginInit = (() => {
     upsertLine("bottom", m.bottom > 0 && m.bottom < dh, 0, dh - m.bottom, dw, dh - m.bottom);
     upsertLine("left", m.left > 0 && m.left < dw, m.left, 0, m.left, dh);
     upsertLine("right", m.right > 0 && m.right < dw, dw - m.right, 0, dw - m.right, dh);
+    const borderPatch = { stroke: "#111827" };
+    upsertLine("borderTop", true, 0, 0, dw, 0, borderPatch);
+    upsertLine("borderBottom", true, 0, dh, dw, dh, borderPatch);
+    upsertLine("borderLeft", true, 0, 0, 0, dh, borderPatch);
+    upsertLine("borderRight", true, dw, 0, dw, dh, borderPatch);
     const isMiddleSpread = clampArtboardIndex(instance.data.activeArtboardIndex) === 1;
     const midX = dw / 2;
     upsertLine(
@@ -2144,6 +2163,68 @@ var __pluginInit = (() => {
     ensureArtboardAtBack(instance);
     ensureMarginGuideLines(instance, instance.data.fabricLib);
     ensureMarginGuidesAtFront(instance);
+  }
+  function showShiftMoveGuide(instance, axis, centerX, centerY) {
+    if (!instance || !instance.data) return;
+    const canvas = instance.data.fabricCanvas;
+    const fabricLib = instance.data.fabricLib;
+    if (!canvas || !fabricLib || typeof fabricLib.Line !== "function") return;
+    if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) return;
+    const vpScale = Math.max(1e-6, Number(instance.data.viewport && instance.data.viewport.scale) || 1);
+    const strokeDoc = 1 / vpScale;
+    const EXT = 1e5;
+    const x1 = axis === "horizontal" ? centerX - EXT : centerX;
+    const x2 = axis === "horizontal" ? centerX + EXT : centerX;
+    const y1 = axis === "horizontal" ? centerY : centerY - EXT;
+    const y2 = axis === "horizontal" ? centerY : centerY + EXT;
+    let line = instance.data.shiftMoveGuide;
+    if (!line) {
+      line = new fabricLib.Line([x1, y1, x2, y2], {
+        stroke: GUIDE_HIGHLIGHT_COLOR,
+        strokeWidth: strokeDoc,
+        strokeUniform: true,
+        selectable: false,
+        evented: false,
+        hasControls: false,
+        hasBorders: false,
+        excludeFromExport: true,
+        isSafeZone: true
+      });
+      instance.data.shiftMoveGuide = line;
+      canvas.add(line);
+    } else {
+      line.set({
+        x1,
+        y1,
+        x2,
+        y2,
+        strokeWidth: strokeDoc,
+        stroke: GUIDE_HIGHLIGHT_COLOR,
+        visible: true
+      });
+      if (!canvas.getObjects().includes(line)) canvas.add(line);
+      if (typeof line.setCoords === "function") line.setCoords();
+    }
+    if (typeof canvas.bringObjectToFront === "function") {
+      canvas.bringObjectToFront(line);
+    } else if (typeof line.bringToFront === "function") {
+      line.bringToFront();
+    }
+    canvas.requestRenderAll();
+  }
+  function hideShiftMoveGuide(instance) {
+    if (!instance || !instance.data) return;
+    const canvas = instance.data.fabricCanvas;
+    const line = instance.data.shiftMoveGuide;
+    if (!line) return;
+    if (canvas) {
+      try {
+        canvas.remove(line);
+      } catch (e) {
+      }
+      if (typeof canvas.requestRenderAll === "function") canvas.requestRenderAll();
+    }
+    instance.data.shiftMoveGuide = null;
   }
   function syncGuideStackAfterUserZOrder(instance) {
     if (!instance || !instance.data) return;
@@ -5330,6 +5411,29 @@ var __pluginInit = (() => {
       if (instance.data._altDuplicateDone) return;
       performAltDuplicateDrag(instance, fabricCanvas, e);
     });
+    fabricCanvas.on("object:moving", (e) => {
+      const ev = e && e.e;
+      const target = e && e.target;
+      const tr = e && e.transform;
+      const eligible = instance.data.toolMode !== "pan" && instance.data.toolMode !== "draw" && ev && ev.shiftKey && !instance.data.altKeyAtMouseDown && target && tr && tr.original && Number.isFinite(tr.original.left) && Number.isFinite(tr.original.top);
+      if (!eligible) {
+        hideShiftMoveGuide(instance);
+        return;
+      }
+      const anchorLeft = tr.original.left;
+      const anchorTop = tr.original.top;
+      const dx = Math.abs(target.left - anchorLeft);
+      const dy = Math.abs(target.top - anchorTop);
+      const axis = dx >= dy ? "horizontal" : "vertical";
+      if (axis === "horizontal") {
+        target.set({ top: anchorTop });
+      } else {
+        target.set({ left: anchorLeft });
+      }
+      if (typeof target.setCoords === "function") target.setCoords();
+      const center = typeof target.getCenterPoint === "function" ? target.getCenterPoint() : null;
+      if (center) showShiftMoveGuide(instance, axis, center.x, center.y);
+    });
     fabricCanvas.on("mouse:down", (event) => {
       if (instance.data.toolMode !== "pan") return;
       const e = event && event.e ? event.e : null;
@@ -5372,12 +5476,14 @@ var __pluginInit = (() => {
     const onWindowPointerUp = () => {
       instance.data.altKeyAtMouseDown = false;
       instance.data._altDuplicateDone = false;
+      hideShiftMoveGuide(instance);
     };
     window.addEventListener("pointerup", onWindowPointerUp, true);
     instance.data._altDupWindowPointerUp = onWindowPointerUp;
     fabricCanvas.on("mouse:up", () => {
       instance.data.altKeyAtMouseDown = false;
       instance.data._altDuplicateDone = false;
+      hideShiftMoveGuide(instance);
     });
     const dragHasFiles = (e) => {
       if (!e || !e.dataTransfer) return false;

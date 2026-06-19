@@ -1,5 +1,5 @@
 import { handleClipboardPasteEvent, insertImageFileOnCanvas, shouldBlockFabricCopyShortcut } from './clipboard.js';
-import { ensureCanvasSize, syncGuideLayers } from './guides.js';
+import { ensureCanvasSize, hideShiftMoveGuide, showShiftMoveGuide, syncGuideLayers } from './guides.js';
 import { applyStrokeUniformDeep, getActiveSelectionTargets, isCornerControl, isFabricGroupObject, isFabricRasterImage, isPartOfActiveObject, isRoundedPolygonShape, isSelectionContainer, isShapeObject, isTextLikeObject, normalizeObjectScale, oppositeOriginForCorner, performAltDuplicateDrag } from './objects.js';
 import { buildFabricClipboardJsonString, publishCanvasJson, schedulePublishCanvasJson } from './serialize.js';
 import { applyImageCornerRadiusPx, applyRectCornerRadiusPx, getRectCornerRadiusPx, replaceRoundedPolygon } from './shapes.js';
@@ -65,6 +65,38 @@ export function wireCanvasEvents(app) {
     if (instance.data._altDuplicateDone) return;
     performAltDuplicateDrag(instance, fabricCanvas, e);
   });
+  // Shift + déplacement : contraint le mouvement sur l'axe dominant (horizontal ou vertical).
+  // L'ancre (position au début du geste) vient de e.transform.original (rempli par Fabric),
+  // donc handler sans état ; l'axe est recalculé à chaque frame selon la position de la souris.
+  // Un repère orange « infini » centré sur l'objet matérialise l'axe contraint.
+  fabricCanvas.on('object:moving', (e) => {
+    const ev = e && e.e;
+    const target = e && e.target;
+    const tr = e && e.transform;
+    const eligible = instance.data.toolMode !== 'pan'
+      && instance.data.toolMode !== 'draw'
+      && ev && ev.shiftKey
+      && !instance.data.altKeyAtMouseDown
+      && target && tr && tr.original
+      && Number.isFinite(tr.original.left) && Number.isFinite(tr.original.top);
+    if (!eligible) {
+      hideShiftMoveGuide(instance);
+      return;
+    }
+    const anchorLeft = tr.original.left;
+    const anchorTop = tr.original.top;
+    const dx = Math.abs(target.left - anchorLeft);
+    const dy = Math.abs(target.top - anchorTop);
+    const axis = dx >= dy ? 'horizontal' : 'vertical';
+    if (axis === 'horizontal') {
+      target.set({ top: anchorTop });
+    } else {
+      target.set({ left: anchorLeft });
+    }
+    if (typeof target.setCoords === 'function') target.setCoords();
+    const center = typeof target.getCenterPoint === 'function' ? target.getCenterPoint() : null;
+    if (center) showShiftMoveGuide(instance, axis, center.x, center.y);
+  });
   fabricCanvas.on('mouse:down', (event) => {
     if (instance.data.toolMode !== 'pan') return;
     const e = event && event.e ? event.e : null;
@@ -107,6 +139,7 @@ export function wireCanvasEvents(app) {
   const onWindowPointerUp = () => {
     instance.data.altKeyAtMouseDown = false;
     instance.data._altDuplicateDone = false;
+    hideShiftMoveGuide(instance);
   };
   window.addEventListener('pointerup', onWindowPointerUp, true);
   instance.data._altDupWindowPointerUp = onWindowPointerUp;
@@ -114,6 +147,7 @@ export function wireCanvasEvents(app) {
   fabricCanvas.on('mouse:up', () => {
     instance.data.altKeyAtMouseDown = false;
     instance.data._altDuplicateDone = false;
+    hideShiftMoveGuide(instance);
   });
 
   // Drag & drop d'images (depuis le Finder / bureau) sur la zone du canvas.

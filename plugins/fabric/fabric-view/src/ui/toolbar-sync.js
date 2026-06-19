@@ -64,10 +64,16 @@ function updateTopBarForSelection(instance) {
     ? instance.data.documentTitle.trim()
     : '';
   const hasTitle = rawTitle.length > 0;
-  const pageNum = clampArtboardIndex(instance.data.activeArtboardIndex) + 1;
+  // Livret A4 plié : index 0 = page 1 (couverture), index 1 = double page intérieure
+  // (pages 2/3, un seul canvas), index 2 = page 4 (dos).
+  const artboardIdx = clampArtboardIndex(instance.data.activeArtboardIndex);
+  let pageLabel;
+  if (artboardIdx === 1) pageLabel = 'pages 2/3';
+  else if (artboardIdx === 2) pageLabel = 'page 4';
+  else pageLabel = 'page 1';
   ui.documentTitle.textContent = hasTitle
-    ? `${rawTitle} / page ${pageNum}`
-    : `page ${pageNum}`;
+    ? `${rawTitle} / ${pageLabel}`
+    : pageLabel;
   ui.documentTitle.style.display = 'block';
   const toolMode = instance.data && instance.data.toolMode ? instance.data.toolMode : 'select';
   const isDrawMode = toolMode === 'draw';
