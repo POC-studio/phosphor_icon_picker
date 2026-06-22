@@ -114,43 +114,63 @@ async function insertImageFileOnCanvas(instance, fabricLib, context, file, optio
   const opts = options || {};
   const log = opts.logTag || '[FabricView image]';
   if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) return undefined;
-  const insertOpts = opts.position ? { position: opts.position } : {};
   try {
     const dataUrl = await readFileAsDataUrl(file);
-    const base64 = dataUrlToBase64(dataUrl);
     const ext = guessImageFileExtension(file);
     const rawName = typeof file.name === 'string' && file.name.trim() ? file.name.trim() : `image${ext}`;
-    const safeName = rawName.replace(/[^\w.-]/g, '_') || `image${ext}`;
-
-    if (context && typeof context.uploadContent === 'function' && base64) {
-      try {
-        const uploadedUrl = await new Promise((resolve, reject) => {
-          context.uploadContent(safeName, base64, (err, url) => {
-            if (err) reject(err);
-            else resolve(typeof url === 'string' ? url : '');
-          });
-        });
-        const trimmed = String(uploadedUrl || '').trim();
-        // blob: = mock sandbox local ; https?: = CDN Bubble en prod.
-        if (/^https?:\/\/|^blob:/i.test(trimmed)) {
-          // Si l'URL uploadée ne charge pas (sandbox local, CORS), repli sur la
-          // data URL locale plutôt que de ne rien insérer du tout.
-          return await addRasterImageFromUrl(instance, fabricLib, trimmed, {
-            ...insertOpts,
-            fallbackDataUrl: dataUrl,
-          });
-        }
-        return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
-      } catch (uploadErr) {
-        console.error(log, 'uploadContent erreur', uploadErr);
-        return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
-      }
-    }
-    return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+    return await insertImageFromDataUrl(instance, fabricLib, context, dataUrl, {
+      position: opts.position,
+      name: rawName,
+      logTag: log,
+    });
   } catch (e) {
     console.error(log, 'chargement image', e);
     return undefined;
   }
+}
+
+
+/**
+ * Cœur du flux d'insertion image : upload Bubble (si dispo) → ajout sur le canvas.
+ * Partagé entre l'insertion depuis un fichier et la rastérisation d'un SVG collé.
+ * @param {string} dataUrl - data URL de l'image (png/jpg…)
+ * @param {{ position?: { x: number, y: number }, name?: string, logTag?: string }} options
+ * @returns {Promise<string|undefined>} `id` de l'image Fabric ajoutée, ou undefined si échec
+ */
+async function insertImageFromDataUrl(instance, fabricLib, context, dataUrl, options) {
+  const opts = options || {};
+  const log = opts.logTag || '[FabricView image]';
+  if (typeof dataUrl !== 'string' || !dataUrl) return undefined;
+  const insertOpts = opts.position ? { position: opts.position } : {};
+  const base64 = dataUrlToBase64(dataUrl);
+  const rawName = typeof opts.name === 'string' && opts.name.trim() ? opts.name.trim() : 'image.png';
+  const safeName = rawName.replace(/[^\w.-]/g, '_') || 'image.png';
+
+  if (context && typeof context.uploadContent === 'function' && base64) {
+    try {
+      const uploadedUrl = await new Promise((resolve, reject) => {
+        context.uploadContent(safeName, base64, (err, url) => {
+          if (err) reject(err);
+          else resolve(typeof url === 'string' ? url : '');
+        });
+      });
+      const trimmed = String(uploadedUrl || '').trim();
+      // blob: = mock sandbox local ; https?: = CDN Bubble en prod.
+      if (/^https?:\/\/|^blob:/i.test(trimmed)) {
+        // Si l'URL uploadée ne charge pas (sandbox local, CORS), repli sur la
+        // data URL locale plutôt que de ne rien insérer du tout.
+        return await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+          ...insertOpts,
+          fallbackDataUrl: dataUrl,
+        });
+      }
+      return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+    } catch (uploadErr) {
+      console.error(log, 'uploadContent erreur', uploadErr);
+      return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+    }
+  }
+  return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
 }
 
 
@@ -165,13 +185,172 @@ function looksLikeSvgMarkup(text) {
 }
 
 
-async function addPastedSvgFromString(instance, fabricLib, svgString) {
+function svgStringHasImage(svgString) {
+  return typeof svgString === 'string' && /<image[\s>]/i.test(svgString);
+}
+
+
+/**
+ * Retire les filtres SVG (drop shadows Illustrator notamment) : Fabric ne les importe pas
+ * en `shadow`, donc on les nettoie pour éviter des références mortes. (Ombres ignorées pour l'instant.)
+ */
+function stripSvgFilters(svgString) {
+  if (typeof svgString !== 'string' || !svgString) return svgString;
+  try {
+    const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    if (doc.querySelector('parsererror') || !doc.documentElement) return svgString;
+    doc.querySelectorAll('filter').forEach((el) => el.remove());
+    doc.querySelectorAll('[filter]').forEach((el) => el.removeAttribute('filter'));
+    doc.querySelectorAll('[style]').forEach((el) => {
+      const style = el.getAttribute('style');
+      if (style && /filter\s*:/i.test(style)) {
+        el.setAttribute('style', style.replace(/filter\s*:[^;]*;?/gi, '').trim());
+      }
+    });
+    return new XMLSerializer().serializeToString(doc.documentElement);
+  } catch (e) {
+    return svgString;
+  }
+}
+
+
+/** Dimensions en px d'un SVG (width/height, sinon viewBox), ou null si introuvable. */
+function getSvgPixelSize(svgString) {
+  try {
+    const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    const svg = doc.documentElement;
+    if (!svg || doc.querySelector('parsererror')) return null;
+    const parseLen = (v) => {
+      const n = parseFloat(String(v || ''));
+      return Number.isFinite(n) ? n : NaN;
+    };
+    let w = parseLen(svg.getAttribute('width'));
+    let h = parseLen(svg.getAttribute('height'));
+    if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+      const vb = svg.getAttribute('viewBox');
+      if (vb) {
+        const parts = vb.split(/[\s,]+/).map(Number);
+        if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+          w = parts[2];
+          h = parts[3];
+        }
+      }
+    }
+    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) return { width: w, height: h };
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+
+/** Force width/height sur le <svg> (depuis size) pour que <img> ait une taille intrinsèque. */
+function ensureSvgHasSize(svgString, size) {
+  try {
+    const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
+    const svg = doc.documentElement;
+    if (!svg || doc.querySelector('parsererror')) return svgString;
+    if (!svg.getAttribute('width')) svg.setAttribute('width', String(size.width));
+    if (!svg.getAttribute('height')) svg.setAttribute('height', String(size.height));
+    return new XMLSerializer().serializeToString(svg);
+  } catch (e) {
+    return svgString;
+  }
+}
+
+
+/**
+ * Rastérise une chaîne SVG en PNG (data URL) via rendu natif du navigateur (<img> + canvas).
+ * Renvoie null en cas d'échec (ex. images externes → canvas tainted → toDataURL lève).
+ */
+function rasterizeSvgStringToPngDataUrl(svgString) {
+  return new Promise((resolve) => {
+    const size = getSvgPixelSize(svgString) || { width: 1024, height: 1024 };
+    const nat = Math.max(size.width, size.height);
+    const MAX_SIDE = 2480; // ~A4 @300dpi sur le grand côté : qualité print sans canvas démesuré
+    const scale = nat > 0 ? Math.min(MAX_SIDE / nat, 3) : 1;
+    const outW = Math.max(1, Math.round(size.width * scale));
+    const outH = Math.max(1, Math.round(size.height * scale));
+    const ready = ensureSvgHasSize(svgString, size);
+    let url = '';
+    let done = false;
+    const cleanup = () => {
+      if (url) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          /* ignore */
+        }
+        url = '';
+      }
+    };
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      cleanup();
+      resolve(value);
+    };
+    try {
+      const blob = new Blob([ready], { type: 'image/svg+xml;charset=utf-8' });
+      url = URL.createObjectURL(blob);
+    } catch (e) {
+      finish(null);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const c = document.createElement('canvas');
+        c.width = outW;
+        c.height = outH;
+        const ctx = c.getContext('2d');
+        if (!ctx) {
+          finish(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, outW, outH);
+        finish(c.toDataURL('image/png'));
+      } catch (e) {
+        finish(null);
+      }
+    };
+    img.onerror = () => finish(null);
+    img.src = url;
+  });
+}
+
+
+async function addPastedSvgFromString(instance, fabricLib, context, svgString) {
   const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-  if (!fabricCanvas || !fabricLib || typeof fabricLib.loadSVGFromString !== 'function') return;
+  if (!fabricCanvas || !fabricLib) return;
+
+  // Drop shadows (et autres filtres) ignorés pour l'instant : on les retire du SVG.
+  const cleaned = stripSvgFilters(svgString);
+
+  // Un SVG qui embarque des images (ex. crops Illustrator) ne se sérialise/recharge pas
+  // de façon fiable (base64 volumineux) et casse l'enregistrement. On le rasterise donc
+  // et on l'insère comme une image classique (upload Bubble + URL) → JSON léger et persistant.
+  if (svgStringHasImage(cleaned)) {
+    const pngDataUrl = await rasterizeSvgStringToPngDataUrl(cleaned);
+    if (pngDataUrl) {
+      const center = getDocumentCenter(instance);
+      await insertImageFromDataUrl(instance, fabricLib, context, pngDataUrl, {
+        position: { x: center.x, y: center.y },
+        name: 'collage-svg.png',
+        logTag: '[FabricView paste svg]',
+      });
+    }
+    // Si la rastérisation échoue (images externes → canvas tainted), on n'insère rien
+    // plutôt que de coller un contenu qu'on ne saurait pas enregistrer ensuite.
+    return;
+  }
+
+  if (typeof fabricLib.loadSVGFromString !== 'function') return;
+  const svgForFabric = cleaned;
   let objects = null;
   let options = null;
   try {
-    const result = await fabricLib.loadSVGFromString(svgString);
+    const result = await fabricLib.loadSVGFromString(svgForFabric);
     if (Array.isArray(result)) {
       objects = result[0];
       options = result[1];
@@ -295,7 +474,7 @@ async function runCanvasPasteFromClipboardData(instance, fabricLib, context, cd)
       if (t === 'image/svg+xml' || /\.svg$/i.test(name)) {
         try {
           const svgText = await file.text();
-          await addPastedSvgFromString(instance, fabricLib, svgText);
+          await addPastedSvgFromString(instance, fabricLib, context, svgText);
         } catch (e) {
           /* ignore */
         }
@@ -314,7 +493,7 @@ async function runCanvasPasteFromClipboardData(instance, fabricLib, context, cd)
   if (!trimmed) return false;
 
   if (looksLikeSvgMarkup(trimmed)) {
-    await addPastedSvgFromString(instance, fabricLib, trimmed);
+    await addPastedSvgFromString(instance, fabricLib, context, trimmed);
     return true;
   }
 

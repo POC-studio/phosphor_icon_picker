@@ -3594,39 +3594,50 @@ var __pluginInit = (() => {
     const opts = options || {};
     const log = opts.logTag || "[FabricView image]";
     if (!file || !String(file.type || "").toLowerCase().startsWith("image/")) return void 0;
-    const insertOpts = opts.position ? { position: opts.position } : {};
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      const base64 = dataUrlToBase64(dataUrl);
       const ext = guessImageFileExtension(file);
       const rawName = typeof file.name === "string" && file.name.trim() ? file.name.trim() : `image${ext}`;
-      const safeName = rawName.replace(/[^\w.-]/g, "_") || `image${ext}`;
-      if (context && typeof context.uploadContent === "function" && base64) {
-        try {
-          const uploadedUrl = await new Promise((resolve, reject) => {
-            context.uploadContent(safeName, base64, (err, url) => {
-              if (err) reject(err);
-              else resolve(typeof url === "string" ? url : "");
-            });
-          });
-          const trimmed = String(uploadedUrl || "").trim();
-          if (/^https?:\/\/|^blob:/i.test(trimmed)) {
-            return await addRasterImageFromUrl(instance, fabricLib, trimmed, {
-              ...insertOpts,
-              fallbackDataUrl: dataUrl
-            });
-          }
-          return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
-        } catch (uploadErr) {
-          console.error(log, "uploadContent erreur", uploadErr);
-          return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
-        }
-      }
-      return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+      return await insertImageFromDataUrl(instance, fabricLib, context, dataUrl, {
+        position: opts.position,
+        name: rawName,
+        logTag: log
+      });
     } catch (e) {
       console.error(log, "chargement image", e);
       return void 0;
     }
+  }
+  async function insertImageFromDataUrl(instance, fabricLib, context, dataUrl, options) {
+    const opts = options || {};
+    const log = opts.logTag || "[FabricView image]";
+    if (typeof dataUrl !== "string" || !dataUrl) return void 0;
+    const insertOpts = opts.position ? { position: opts.position } : {};
+    const base64 = dataUrlToBase64(dataUrl);
+    const rawName = typeof opts.name === "string" && opts.name.trim() ? opts.name.trim() : "image.png";
+    const safeName = rawName.replace(/[^\w.-]/g, "_") || "image.png";
+    if (context && typeof context.uploadContent === "function" && base64) {
+      try {
+        const uploadedUrl = await new Promise((resolve, reject) => {
+          context.uploadContent(safeName, base64, (err, url) => {
+            if (err) reject(err);
+            else resolve(typeof url === "string" ? url : "");
+          });
+        });
+        const trimmed = String(uploadedUrl || "").trim();
+        if (/^https?:\/\/|^blob:/i.test(trimmed)) {
+          return await addRasterImageFromUrl(instance, fabricLib, trimmed, {
+            ...insertOpts,
+            fallbackDataUrl: dataUrl
+          });
+        }
+        return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+      } catch (uploadErr) {
+        console.error(log, "uploadContent erreur", uploadErr);
+        return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
+      }
+    }
+    return await addRasterImageFromUrl(instance, fabricLib, dataUrl, insertOpts);
   }
   function looksLikeSvgMarkup(text) {
     if (typeof text !== "string") return false;
@@ -3637,13 +3648,142 @@ var __pluginInit = (() => {
     }
     return /^<svg[\s>/]/i.test(s);
   }
-  async function addPastedSvgFromString(instance, fabricLib, svgString) {
+  function svgStringHasImage(svgString) {
+    return typeof svgString === "string" && /<image[\s>]/i.test(svgString);
+  }
+  function stripSvgFilters(svgString) {
+    if (typeof svgString !== "string" || !svgString) return svgString;
+    try {
+      const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
+      if (doc.querySelector("parsererror") || !doc.documentElement) return svgString;
+      doc.querySelectorAll("filter").forEach((el) => el.remove());
+      doc.querySelectorAll("[filter]").forEach((el) => el.removeAttribute("filter"));
+      doc.querySelectorAll("[style]").forEach((el) => {
+        const style = el.getAttribute("style");
+        if (style && /filter\s*:/i.test(style)) {
+          el.setAttribute("style", style.replace(/filter\s*:[^;]*;?/gi, "").trim());
+        }
+      });
+      return new XMLSerializer().serializeToString(doc.documentElement);
+    } catch (e) {
+      return svgString;
+    }
+  }
+  function getSvgPixelSize(svgString) {
+    try {
+      const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
+      const svg = doc.documentElement;
+      if (!svg || doc.querySelector("parsererror")) return null;
+      const parseLen = (v) => {
+        const n = parseFloat(String(v || ""));
+        return Number.isFinite(n) ? n : NaN;
+      };
+      let w = parseLen(svg.getAttribute("width"));
+      let h = parseLen(svg.getAttribute("height"));
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+        const vb = svg.getAttribute("viewBox");
+        if (vb) {
+          const parts = vb.split(/[\s,]+/).map(Number);
+          if (parts.length === 4 && parts.every((n) => Number.isFinite(n))) {
+            w = parts[2];
+            h = parts[3];
+          }
+        }
+      }
+      if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) return { width: w, height: h };
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function ensureSvgHasSize(svgString, size) {
+    try {
+      const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
+      const svg = doc.documentElement;
+      if (!svg || doc.querySelector("parsererror")) return svgString;
+      if (!svg.getAttribute("width")) svg.setAttribute("width", String(size.width));
+      if (!svg.getAttribute("height")) svg.setAttribute("height", String(size.height));
+      return new XMLSerializer().serializeToString(svg);
+    } catch (e) {
+      return svgString;
+    }
+  }
+  function rasterizeSvgStringToPngDataUrl(svgString) {
+    return new Promise((resolve) => {
+      const size = getSvgPixelSize(svgString) || { width: 1024, height: 1024 };
+      const nat = Math.max(size.width, size.height);
+      const MAX_SIDE = 2480;
+      const scale = nat > 0 ? Math.min(MAX_SIDE / nat, 3) : 1;
+      const outW = Math.max(1, Math.round(size.width * scale));
+      const outH = Math.max(1, Math.round(size.height * scale));
+      const ready = ensureSvgHasSize(svgString, size);
+      let url = "";
+      let done = false;
+      const cleanup = () => {
+        if (url) {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (e) {
+          }
+          url = "";
+        }
+      };
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(value);
+      };
+      try {
+        const blob = new Blob([ready], { type: "image/svg+xml;charset=utf-8" });
+        url = URL.createObjectURL(blob);
+      } catch (e) {
+        finish(null);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = outW;
+          c.height = outH;
+          const ctx = c.getContext("2d");
+          if (!ctx) {
+            finish(null);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, outW, outH);
+          finish(c.toDataURL("image/png"));
+        } catch (e) {
+          finish(null);
+        }
+      };
+      img.onerror = () => finish(null);
+      img.src = url;
+    });
+  }
+  async function addPastedSvgFromString(instance, fabricLib, context, svgString) {
     const fabricCanvas = instance && instance.data ? instance.data.fabricCanvas : null;
-    if (!fabricCanvas || !fabricLib || typeof fabricLib.loadSVGFromString !== "function") return;
+    if (!fabricCanvas || !fabricLib) return;
+    const cleaned = stripSvgFilters(svgString);
+    if (svgStringHasImage(cleaned)) {
+      const pngDataUrl = await rasterizeSvgStringToPngDataUrl(cleaned);
+      if (pngDataUrl) {
+        const center2 = getDocumentCenter(instance);
+        await insertImageFromDataUrl(instance, fabricLib, context, pngDataUrl, {
+          position: { x: center2.x, y: center2.y },
+          name: "collage-svg.png",
+          logTag: "[FabricView paste svg]"
+        });
+      }
+      return;
+    }
+    if (typeof fabricLib.loadSVGFromString !== "function") return;
+    const svgForFabric = cleaned;
     let objects = null;
     let options = null;
     try {
-      const result = await fabricLib.loadSVGFromString(svgString);
+      const result = await fabricLib.loadSVGFromString(svgForFabric);
       if (Array.isArray(result)) {
         objects = result[0];
         options = result[1];
@@ -3757,7 +3897,7 @@ var __pluginInit = (() => {
         if (t === "image/svg+xml" || /\.svg$/i.test(name)) {
           try {
             const svgText = await file.text();
-            await addPastedSvgFromString(instance, fabricLib, svgText);
+            await addPastedSvgFromString(instance, fabricLib, context, svgText);
           } catch (e) {
           }
           return true;
@@ -3773,7 +3913,7 @@ var __pluginInit = (() => {
     const trimmed = plain.trim();
     if (!trimmed) return false;
     if (looksLikeSvgMarkup(trimmed)) {
-      await addPastedSvgFromString(instance, fabricLib, trimmed);
+      await addPastedSvgFromString(instance, fabricLib, context, trimmed);
       return true;
     }
     try {
