@@ -38,8 +38,8 @@ export function setupDock(cesdk: CreativeEditorSDK): void {
   // ============================================================================
 
   // #region Dock Appearance
-  // Show text labels under dock icons
-  cesdk.engine.editor.setSetting('dock/hideLabels', false);
+  // Icônes seules — labels visibles au survol (tooltip)
+  cesdk.engine.editor.setSetting('dock/hideLabels', true);
 
   // Icon size: 'normal' or 'large'
   cesdk.engine.editor.setSetting('dock/iconSize', 'large');
@@ -52,79 +52,27 @@ export function setupDock(cesdk: CreativeEditorSDK): void {
 
   // #region Dock Order
   cesdk.ui.setComponentOrder({ in: 'ly.img.dock' }, [
-    // ============================
-    // Templates
-    // ============================
-    {
-      id: 'ly.img.assetLibrary.dock',
-      key: 'ly.img.templates',
-      icon: '@imgly/Template',
-      label: 'libraries.ly.img.templates.label',
-      entries: ['ly.img.templates']
-    },
-    {
-      id: 'ly.img.separator',
-      key: 'ly.img.separator'
-    },
-
-    // ============================
-    // Combined Elements
-    // ============================
-    {
-      id: 'ly.img.assetLibrary.dock',
-      key: 'ly.img.elements',
-      icon: '@imgly/Library',
-      label: 'component.library.elements',
-      entries: [
-        'ly.img.image',
-        'ly.img.text',
-        'ly.img.vector.shape',
-        'ly.img.sticker'
-      ]
-    },
-
-    // ============================
-    // Uploads
-    // ============================
-    {
-      id: 'ly.img.assetLibrary.dock',
-      key: 'ly.img.upload',
-      icon: '@imgly/Upload',
-      label: 'libraries.ly.img.upload.label',
-      entries: ['ly.img.upload']
-    },
-
-    // ============================
-    // Individual Asset Types
-    // ============================
-    {
-      id: 'ly.img.assetLibrary.dock',
-      key: 'ly.img.image',
-      icon: '@imgly/Image',
-      label: 'libraries.ly.img.image.label',
-      entries: ['ly.img.image', 'ly.img.image.upload']
-    },
     {
       id: 'ly.img.assetLibrary.dock',
       key: 'ly.img.text',
       icon: '@imgly/Text',
       label: 'libraries.ly.img.text.label',
-      entries: ['ly.img.text']
+      entries: ['ly.img.text'],
     },
     {
       id: 'ly.img.assetLibrary.dock',
       key: 'ly.img.vector.shape',
       icon: '@imgly/Shapes',
       label: 'libraries.ly.img.vector.shape.label',
-      entries: ['ly.img.vector.shape']
+      entries: ['ly.img.vector.shape'],
     },
     {
       id: 'ly.img.assetLibrary.dock',
-      key: 'ly.img.sticker',
-      icon: '@imgly/Sticker',
-      label: 'libraries.ly.img.sticker.label',
-      entries: ['ly.img.sticker']
-    }
+      key: 'ly.img.image',
+      icon: '@imgly/Image',
+      label: 'libraries.ly.img.image.label',
+      entries: ['ly.img.image', 'ly.img.image.upload'],
+    },
   ]);
   // #endregion
 }

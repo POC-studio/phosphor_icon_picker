@@ -8,7 +8,10 @@ import {
   triggerPdfExport,
   wireHistoryListener,
 } from './exports.js';
+import { applyBookmarksFromProperties } from './bookmarks.js';
 import { setupBubblePdfExport } from './setup-bubble-export.js';
+import { setupBookmarks } from './setup-bookmarks.js';
+import { setupIcons } from './setup-icons.js';
 import {
   createBookletScene,
   fitSceneInView,
@@ -51,6 +54,8 @@ async function recreateBookletScene(instance) {
 function applyPropertiesUpdate(instance, properties, context) {
   if (!properties) return;
   instance.data.bubbleContext = context || instance.data.bubbleContext || null;
+
+  applyBookmarksFromProperties(instance, properties.bookmarks_json);
 
   const nextTitle = typeof properties.document_title === 'string' ? properties.document_title : '';
   instance.data.documentTitle = nextTitle;
@@ -124,6 +129,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.data._lastPublishedCanvasJson = null;
     instance.data._suppressCanvasJsonPublish = true;
     instance.data._hydratedFromInitialJsonProperty = false;
+    instance.data.bookmarksList = [];
 
     instance.publishState('new_color', '');
     instance.publishState('contribution_id', '');
@@ -141,6 +147,8 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.createPagePreviews = () => createPagePreviews(instance);
     instance.data.triggerPdfExport = () => triggerPdfExport(instance);
     setupBubblePdfExport(cesdk, instance);
+    setupBookmarks(cesdk, instance);
+    setupIcons(cesdk, instance);
     instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
     instance.data.applyPropertiesUpdate = (props, ctx) => {
       applyPropertiesUpdate(instance, props, ctx);

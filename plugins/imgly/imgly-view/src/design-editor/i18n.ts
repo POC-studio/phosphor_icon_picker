@@ -14,6 +14,21 @@ const FR_OVERRIDES: Record<string, string> = {
   'libraries.ly.img.templates.label': 'Modèles',
   'libraries.ly.img.upload.label': 'Importations',
   'libraries.ly.img.image.upload.label': 'Images importées',
+  'panel.imgly.bookmarks.label': 'Contributions',
+  'panel.imgly.bookmarks.panel': 'Contributions',
+  'panel.imgly.bookmarks.search': 'Rechercher…',
+  'panel.imgly.bookmarks.empty': 'Aucune contribution',
+  'panel.imgly.bookmarks.noResults': 'Aucun résultat',
+  'panel.imgly.bookmarks.add': 'Ajouter',
+  'panel.imgly.icons.label': 'Icônes',
+  'panel.imgly.icons.panel': 'Icônes',
+  'panel.imgly.icons.style': 'Style',
+  'panel.imgly.icons.style.regular': 'Regular',
+  'panel.imgly.icons.style.bold': 'Bold',
+  'panel.imgly.icons.style.fill': 'Fill',
+  'panel.imgly.icons.style.light': 'Light',
+  'panel.imgly.icons.style.duotone': 'Duotone',
+  'libraries.imgly.phosphor.label': 'Icônes Phosphor',
 };
 
 export function setupTranslations(cesdk: CreativeEditorSDK): void {
