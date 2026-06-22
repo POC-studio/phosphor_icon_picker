@@ -394,8 +394,9 @@ export function setupFeatures(cesdk: CreativeEditorSDK): void {
     // 'ly.img.rulers', /* Grid overlay, snap-to-grid, and canvas rulers */
   ]);
 
-  // Livret : pages figées — pas de resize, déplacement, clip, ajout, etc.
+  // Livret : pas de menu Actions / exports CE.SDK (PDF imposé via setupBubblePdfExport).
   cesdk.feature.disable([
+    'ly.img.navigation.actions',
     'ly.img.page.resize',
     'ly.img.page.settings',
     'ly.img.page.add',

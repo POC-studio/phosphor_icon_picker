@@ -1,19 +1,23 @@
 import {
-  BOOKLET_PAGE_LAYOUT,
   BOOKLET_SCENE_LAYOUT,
+  buildBookletPageLayout,
 } from './booklet-layout.js';
 import {
   ensureAllBlocksIncludedInExport,
+  hideAllPageCanvasBorders,
+  hidePageCanvasBorder,
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
 
-function applyBookletPagePositions(engine) {
-  if (!engine?.block) return;
+function applyBookletPagePositions(engine, layout) {
+  if (!engine?.block || !Array.isArray(layout) || layout.length === 0) return;
 
   const pageIds = getPageIds(engine);
+  if (pageIds.length !== layout.length) return;
+
   pageIds.forEach((pageId, index) => {
-    const spec = BOOKLET_PAGE_LAYOUT[index];
+    const spec = layout[index];
     if (!spec) return;
     try {
       engine.block.setWidthMode(pageId, 'Absolute');
@@ -30,15 +34,20 @@ function applyBookletPagePositions(engine) {
   });
 }
 
-function ensureBookletGuides(engine) {
+function ensureBookletGuides(engine, layout) {
+  if (!Array.isArray(layout) || layout.length === 0) return;
+
   const pageIds = getPageIds(engine);
+  if (pageIds.length !== layout.length) return;
+
   pageIds.forEach((pageId, index) => {
-    const spec = BOOKLET_PAGE_LAYOUT[index];
+    const spec = layout[index];
     try {
       engine.block.setClipped(pageId, true);
     } catch {
       /* ignore */
     }
+    hidePageCanvasBorder(engine, pageId);
     if (spec?.name) {
       try {
         engine.block.setName(pageId, spec.name);
@@ -79,6 +88,7 @@ function createBookletPage(engine, parent, spec) {
   engine.block.setClipped(page, true);
   engine.block.setBool(page, 'selectionEnabled', false);
   engine.block.setScopeEnabled(page, 'lifecycle/destroy', false);
+  hidePageCanvasBorder(engine, page);
   if (spec.name) {
     engine.block.setName(page, spec.name);
   }
@@ -86,9 +96,11 @@ function createBookletPage(engine, parent, spec) {
   return page;
 }
 
-/** Layout Free + positions livret (Page 1 au-dessus de la 3, Page 4 sous la 2). */
-function ensureBookletSceneLayout(engine) {
+function ensureBookletSceneLayout(engine, layout) {
   if (!engine?.scene || typeof engine.scene.setLayout !== 'function') return;
+  if (!Array.isArray(layout) || layout.length === 0) return;
+  if (getPageIds(engine).length !== layout.length) return;
+
   try {
     if (engine.scene.getLayout() !== BOOKLET_SCENE_LAYOUT) {
       for (const pageId of getPageIds(engine)) {
@@ -100,7 +112,7 @@ function ensureBookletSceneLayout(engine) {
       }
       engine.scene.setLayout(BOOKLET_SCENE_LAYOUT);
     }
-    applyBookletPagePositions(engine);
+    applyBookletPagePositions(engine, layout);
   } catch (err) {
     console.warn('IMG.LY View: ensureBookletSceneLayout failed', err);
   }
@@ -117,8 +129,10 @@ export function fitSceneInView(cesdk) {
   });
 }
 
-export async function createBookletScene(_cesdk, engine) {
+export async function createBookletScene(_cesdk, engine, sheetCount) {
   if (!engine || !engine.scene || !engine.block) return [];
+
+  const layout = buildBookletPageLayout(sheetCount);
 
   engine.scene.create(BOOKLET_SCENE_LAYOUT);
 
@@ -133,8 +147,8 @@ export async function createBookletScene(_cesdk, engine) {
   if (scene == null) return [];
 
   engine.block.setFloat(scene, 'scene/dpi', 300);
-  engine.block.setFloat(scene, 'scene/pageDimensions/width', BOOKLET_PAGE_LAYOUT[0].width);
-  engine.block.setFloat(scene, 'scene/pageDimensions/height', BOOKLET_PAGE_LAYOUT[0].height);
+  engine.block.setFloat(scene, 'scene/pageDimensions/width', layout[0].width);
+  engine.block.setFloat(scene, 'scene/pageDimensions/height', layout[0].height);
 
   for (const pageId of getPageIds(engine)) {
     try { engine.block.destroy(pageId); } catch (e) { /* ignore */ }
@@ -143,12 +157,13 @@ export async function createBookletScene(_cesdk, engine) {
   const parent = getPageParent(engine);
   if (parent == null) return [];
 
-  for (const spec of BOOKLET_PAGE_LAYOUT) {
+  for (const spec of layout) {
     createBookletPage(engine, parent, spec);
   }
 
-  ensureBookletSceneLayout(engine);
-  ensureBookletGuides(engine);
+  ensureBookletSceneLayout(engine, layout);
+  ensureBookletGuides(engine, layout);
+  hideAllPageCanvasBorders(engine);
 
   ensureAllBlocksIncludedInExport(engine);
   lockPageDeletion(engine);
@@ -165,14 +180,17 @@ export async function loadSceneFromString(instance, sceneString) {
     return false;
   }
 
+  const layout = buildBookletPageLayout(instance.data.sheetCount ?? 1);
+
   instance.data._suppressCanvasJsonPublish = true;
   try {
     await engine.scene.loadFromString(sceneString.trim());
     instance.data.pageIds = getPageIds(engine);
     instance.data._lastPublishedCanvasJson = sceneString.trim();
     instance.data._suppressCanvasJsonPublish = false;
-    ensureBookletSceneLayout(engine);
-    ensureBookletGuides(engine);
+    ensureBookletSceneLayout(engine, layout);
+    ensureBookletGuides(engine, layout);
+    hideAllPageCanvasBorders(engine);
     ensureAllBlocksIncludedInExport(engine);
     lockPageDeletion(engine);
     lockPageSelection(engine);

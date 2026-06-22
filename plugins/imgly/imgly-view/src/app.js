@@ -1,4 +1,5 @@
 import CreativeEditorSDK from '@cesdk/cesdk-js';
+import { clampSheetCount } from './booklet-layout.js';
 import { initDesignEditor } from './init-design-editor.ts';
 import { ensureFrenchLocale } from './design-editor/i18n.ts';
 import {
@@ -7,6 +8,7 @@ import {
   triggerPdfExport,
   wireHistoryListener,
 } from './exports.js';
+import { setupBubblePdfExport } from './setup-bubble-export.js';
 import {
   createBookletScene,
   fitSceneInView,
@@ -28,12 +30,34 @@ function showBootError(host, message) {
   host.appendChild(box);
 }
 
+function parseSheetCountFromProperties(properties) {
+  if (!properties) return 1;
+  return clampSheetCount(properties.pages);
+}
+
+async function recreateBookletScene(instance) {
+  const cesdk = instance.data.cesdk;
+  const engine = instance.data.engine;
+  if (!cesdk || !engine) return;
+
+  instance.data._suppressCanvasJsonPublish = true;
+  instance.data.pageIds = await createBookletScene(cesdk, engine, instance.data.sheetCount);
+  instance.data._lastPublishedCanvasJson = null;
+  instance.data._suppressCanvasJsonPublish = false;
+  await fitSceneInView(cesdk);
+  void publishSceneJson(instance);
+}
+
 function applyPropertiesUpdate(instance, properties, context) {
   if (!properties) return;
   instance.data.bubbleContext = context || instance.data.bubbleContext || null;
 
   const nextTitle = typeof properties.document_title === 'string' ? properties.document_title : '';
   instance.data.documentTitle = nextTitle;
+
+  const nextSheetCount = parseSheetCountFromProperties(properties);
+  const sheetCountChanged = nextSheetCount !== instance.data.sheetCount;
+  instance.data.sheetCount = nextSheetCount;
 
   const incomingCanvasJson = properties.canvas_json;
   const hasBubbleCanvasJson = typeof incomingCanvasJson === 'string' && incomingCanvasJson.length > 0;
@@ -53,6 +77,11 @@ function applyPropertiesUpdate(instance, properties, context) {
   ) {
     instance.data._hydratedFromInitialJsonProperty = true;
     void loadSceneFromString(instance, initialJson);
+    return;
+  }
+
+  if (sheetCountChanged && instance.data.cesdkReady) {
+    void recreateBookletScene(instance);
   }
 }
 
@@ -72,8 +101,10 @@ async function initImglyEditor(instance, context, properties) {
   container.style.position = 'relative';
   host.appendChild(container);
 
-  const license = properties && typeof properties.license_key === 'string' ? properties.license_key : '';
+  const license = '';
   const baseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${CreativeEditorSDK.version}/assets/`;
+  const pendingProps = instance.data._pendingProperties;
+  const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
 
   try {
     const cesdk = await CreativeEditorSDK.create(container, {
@@ -85,6 +116,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.cesdk = cesdk;
     instance.data.engine = cesdk.engine;
     instance.data.bubbleContext = context || null;
+    instance.data.sheetCount = sheetCount;
     if (typeof cesdk.disableNoSceneWarning === 'function') {
       cesdk.disableNoSceneWarning();
     }
@@ -97,10 +129,9 @@ async function initImglyEditor(instance, context, properties) {
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
 
-    // Ordre doc img.ly : create → DesignEditorConfig + plugins assets → scene.create
     await initDesignEditor(cesdk);
     ensureFrenchLocale(cesdk);
-    instance.data.pageIds = await createBookletScene(cesdk, cesdk.engine);
+    instance.data.pageIds = await createBookletScene(cesdk, cesdk.engine, sheetCount);
 
     await fitSceneInView(cesdk);
     setTimeout(() => { void fitSceneInView(cesdk); }, 300);
@@ -109,6 +140,7 @@ async function initImglyEditor(instance, context, properties) {
 
     instance.data.createPagePreviews = () => createPagePreviews(instance);
     instance.data.triggerPdfExport = () => triggerPdfExport(instance);
+    setupBubblePdfExport(cesdk, instance);
     instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
     instance.data.applyPropertiesUpdate = (props, ctx) => {
       applyPropertiesUpdate(instance, props, ctx);

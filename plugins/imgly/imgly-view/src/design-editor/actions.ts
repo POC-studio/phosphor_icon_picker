@@ -60,32 +60,7 @@ import type CreativeEditorSDK from '@cesdk/cesdk-js';
  * ```
  */
 export function setupActions(cesdk: CreativeEditorSDK): void {
-  // ============================================================================
-  // OVERRIDE DEFAULT ACTIONS
-  // Replace CE.SDK's default implementations with your own
-  // ============================================================================
-
-  // #region Save Scene Action
-  // Save the current scene as a .scene JSON file
-  // This preserves the entire scene structure for later editing
-  cesdk.actions.register('saveScene', async () => {
-    const scene = await cesdk.engine.scene.saveToString();
-    await cesdk.utils.downloadFile(scene, 'text/plain;charset=UTF-8');
-  });
-  // #endregion
-
-  // #region Export Design Action
-  // Generic export action that handles various export formats
-  // Used by the SDK's built-in export UI components
-  cesdk.actions.register('exportDesign', async (exportOptions) => {
-    const { blobs, options } = await cesdk.utils.export(exportOptions);
-    await cesdk.utils.downloadFile(blobs[0], options.mimeType);
-  });
-  // #endregion
-
-  // #region Import Scene Action
-  // Import a scene from a .scene JSON file or .cesdk archive
-  // Supports both formats and resets the zoom to the first page
+  // Import scène (dev) — pas de boutons téléchargement dans la barre pour l'instant.
   cesdk.actions.register('importScene', async ({ format = 'scene' }) => {
     if (format === 'scene') {
       // Import from .scene JSON file
@@ -110,80 +85,8 @@ export function setupActions(cesdk: CreativeEditorSDK): void {
     // Reset zoom to show the first page after import
     await cesdk.actions.run('zoom.toPage', { page: 'first' });
   });
-  // #endregion
 
-  // #region Export Scene Action
-  // Export the scene in different formats
-  // - 'scene': JSON text file for lightweight sharing
-  // - 'archive': .cesdk zip archive with embedded assets
-  cesdk.actions.register('exportScene', async ({ format = 'scene' }) => {
-    await cesdk.utils.downloadFile(
-      format === 'archive'
-        ? await cesdk.engine.scene.saveToArchive()
-        : await cesdk.engine.scene.saveToString(),
-      format === 'archive' ? 'application/zip' : 'text/plain;charset=UTF-8'
-    );
-  });
-  // #endregion
-
-  // #region Upload File Action
-  // Handle local file uploads by creating blob URLs
-  // This integrates with CE.SDK's upload asset sources
   cesdk.actions.register('uploadFile', (file, _onProgress, context) => {
     return cesdk.utils.localUpload(file, context);
   });
-  // #endregion
-
-  // #region Export Image Action
-  // Export the current design as a PNG image at 1080x1080 resolution
-  // Customize targetWidth/targetHeight for different output sizes
-  cesdk.actions.register('exportImage', async () => {
-    const { blobs, options } = await cesdk.utils.export({
-      mimeType: 'image/png',
-      targetWidth: 1080,
-      targetHeight: 1080
-    });
-    await cesdk.utils.downloadFile(blobs[0], options.mimeType);
-  });
-  // #endregion
-
-  // ============================================================================
-  // CUSTOM ACTIONS
-  // Register your own actions for custom functionality
-  // ============================================================================
-
-  // #region Share Action Example
-  // Example: Share design using Web Share API (mobile/modern browsers)
-  // Falls back to download if sharing is not supported
-  //
-  // cesdk.actions.register('share', async () => {
-  //   const { blobs } = await cesdk.utils.export({ mimeType: 'image/png' });
-  //   const file = new File([blobs[0]], 'design.png', { type: 'image/png' });
-  //
-  //   if (navigator.share && navigator.canShare({ files: [file] })) {
-  //     await navigator.share({
-  //       files: [file],
-  //       title: 'My Design',
-  //       text: 'Check out my design!'
-  //     });
-  //   } else {
-  //     await cesdk.utils.downloadFile(blobs[0], 'image/png');
-  //   }
-  // });
-  // #endregion
-
-  // #region Backend Integration Example
-  // Example: Upload design to your backend server
-  //
-  // cesdk.actions.register('saveToBackend', async () => {
-  //   const scene = await cesdk.engine.scene.saveToString();
-  //   const response = await fetch('/api/designs', {
-  //     method: 'POST',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     body: JSON.stringify({ scene })
-  //   });
-  //   const { id } = await response.json();
-  //   console.log('Design saved with ID:', id);
-  // });
-  // #endregion
 }

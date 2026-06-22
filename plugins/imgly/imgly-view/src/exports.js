@@ -1,9 +1,11 @@
 import { PAGE_PREVIEWS_COOLDOWN_MS, PAGE_PREVIEWS_DEBOUNCE_MS, SCENE_PUBLISH_DEBOUNCE_MS } from './constants.js';
 import {
   ensureAllBlocksIncludedInExport,
+  hideAllPageCanvasBorders,
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
+import { buildFoldedA4Pdf, getJsPdfConstructor } from './pdf-imposition.js';
 import { getPageIds } from './scene.js';
 
 function sanitizeFileBase(title) {
@@ -37,7 +39,7 @@ function uploadBlob(context, fileName, blob) {
     return new Promise((resolve) => {
       try {
         context.uploadContent(fileName, base64, (err, url) => {
-          if (err || typeof url !== 'string' || !/^https?:\/\/|^blob:/i.test(url)) {
+          if (err || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
             resolve('');
           } else {
             resolve(url);
@@ -48,6 +50,19 @@ function uploadBlob(context, fileName, blob) {
       }
     });
   });
+}
+
+function downloadBlob(blob, fileName) {
+  if (!blob || typeof document === 'undefined') return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'document.pdf';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function publishSceneJson(instance) {
@@ -139,30 +154,61 @@ export function createPagePreviews(instance) {
   });
 }
 
-export function triggerPdfExport(instance) {
+/** Figé l'état CE.SDK avant export PDF sans publier canvas_json. */
+async function syncSceneBeforePdfExport(instance) {
+  const engine = instance.data.engine;
+  if (!engine?.scene || typeof engine.scene.saveToString !== 'function') return;
+  instance.data._suppressCanvasJsonPublish = true;
+  try {
+    await engine.scene.saveToString();
+  } catch (err) {
+    console.error('IMG.LY View: pre-PDF saveToString failed', err);
+  } finally {
+    instance.data._suppressCanvasJsonPublish = false;
+  }
+}
+
+export async function triggerPdfExport(instance) {
   const engine = instance.data.engine;
   const context = instance.data.bubbleContext || null;
-  if (!engine || !engine.block || !engine.scene) return Promise.resolve('');
+  if (!engine?.block) return '';
 
-  const scene = engine.scene.get();
-  if (scene == null) return Promise.resolve('');
+  let pageIds = getPageIds(engine);
+  if (!pageIds.length) {
+    pageIds = instance.data.pageIds || [];
+  }
+  if (!pageIds.length) return '';
+
+  if (pageIds.length % 4 !== 0) {
+    console.error('IMG.LY View: PDF export aborted — page count must be a multiple of 4:', pageIds.length);
+    return '';
+  }
+
+  if (!getJsPdfConstructor()) {
+    console.error('IMG.LY View: jsPDF indisponible');
+    return '';
+  }
+
+  ensureAllBlocksIncludedInExport(engine);
+  hideAllPageCanvasBorders(engine);
+  await syncSceneBeforePdfExport(instance);
 
   const base = sanitizeFileBase(instance.data.documentTitle);
   const safePdfName = (base + '.pdf').replace(/[^\w.-]/g, '_') || 'document.pdf';
 
-  return engine.block.export(scene, {
-    mimeType: 'application/pdf',
-    exportPdfWithHighCompatibility: true,
-  }).then((blob) => uploadBlob(context, safePdfName, blob)).then((url) => {
+  try {
+    const blob = await buildFoldedA4Pdf(engine, pageIds);
+    const url = await uploadBlob(context, safePdfName, blob);
     if (typeof url === 'string' && url.length > 0) {
       instance.publishState('pdf_url', url);
       instance.triggerEvent('pdf_ready');
     }
-    return url || '';
-  }).catch((err) => {
+    downloadBlob(blob, safePdfName);
+    return url || 'downloaded';
+  } catch (err) {
     console.error('IMG.LY View: PDF export failed', err);
     return '';
-  });
+  }
 }
 
 export function wireHistoryListener(instance) {

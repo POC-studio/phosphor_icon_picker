@@ -67,20 +67,4 @@ export async function initDesignEditor(cesdk: CreativeEditorSDK) {
       include: ['ly.img.templates.premium.*'],
     }),
   );
-
-  cesdk.ui.insertOrderComponent(
-    { in: 'ly.img.navigation.bar', position: 'end' },
-    {
-      id: 'ly.img.actions.navigationBar',
-      children: [
-        'ly.img.saveScene.navigationBar',
-        'ly.img.exportImage.navigationBar',
-        'ly.img.exportPDF.navigationBar',
-        'ly.img.exportScene.navigationBar',
-        'ly.img.exportArchive.navigationBar',
-        'ly.img.importScene.navigationBar',
-        'ly.img.importArchive.navigationBar',
-      ],
-    },
-  );
 }

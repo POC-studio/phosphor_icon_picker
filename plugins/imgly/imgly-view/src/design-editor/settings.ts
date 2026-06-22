@@ -392,21 +392,21 @@ export function setupSettings(engine: CreativeEngine): void {
   //   a: 0.15
   // });
 
-  // Inner border color around pages
-  // engine.editor.setSetting('page/innerBorderColor', {
-  //   r: 0.0,
-  //   g: 0.0,
-  //   b: 0.0,
-  //   a: 0.0
-  // });
+  // Inner border color around pages — transparent (pas de cadre visible)
+  engine.editor.setSetting('page/innerBorderColor', {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 0,
+  });
 
-  // Outer border color around pages
-  // engine.editor.setSetting('page/outerBorderColor', {
-  //   r: 1.0,
-  //   g: 1.0,
-  //   b: 1.0,
-  //   a: 0.0
-  // });
+  // Outer border color around pages — transparent
+  engine.editor.setSetting('page/outerBorderColor', {
+    r: 0,
+    g: 0,
+    b: 0,
+    a: 0,
+  });
 
   // Color of page titles
   // engine.editor.setSetting('page/title/color', {
