@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@cesdk/cesdk-js": "^1.74.1",
+    "@vitalets/google-translate-api": "^9.2.1",
     "esbuild": "^0.28.1",
     "fabric": "^6.0.0",
     "playwright-core": "^1.60.0",

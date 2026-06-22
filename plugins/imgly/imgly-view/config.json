@@ -1,0 +1,62 @@
+{
+  "name": "IMG.LY View",
+  "use_bubble_size": false,
+  "events": [
+    "new_color_selected",
+    "json_changed",
+    "pdf_ready",
+    "contribution_added",
+    "page_previews_ready"
+  ],
+  "states": {
+    "pdf_url": {
+      "label": "URL du PDF (Bubble, après upload)",
+      "type": "text"
+    },
+    "contribution_id": {
+      "label": "ID de la dernière contribution (bookmark)",
+      "type": "text"
+    },
+    "page_previews": {
+      "label": "Previews des demi-pages (URLs, ordre naturel)",
+      "type": "text",
+      "is_list": true
+    }
+  },
+  "properties": {
+    "document_title": {
+      "label": "Document title",
+      "type": "text",
+      "default": "Document title"
+    },
+    "license_key": {
+      "label": "CE.SDK License Key (optional — trial watermark if empty)",
+      "type": "text",
+      "default": ""
+    },
+    "initial_json": {
+      "label": "Initial canvas JSON (sandbox — ignoré si canvas_json est défini)",
+      "type": "long_text",
+      "default": ""
+    },
+    "bookmarks_json": {
+      "label": "Bookmarks (JSON) — { \"bookmarks\": [{ \"image_url\": \"…\", \"contributor\": \"…\" }] }",
+      "type": "long_text",
+      "default": ""
+    }
+  },
+  "actions": [
+    {
+      "id": "create_page_previews",
+      "label": "Create page previews",
+      "type": "run_script",
+      "file": "actions/create-page-previews.js"
+    },
+    {
+      "id": "export_pdf",
+      "label": "Export PDF",
+      "type": "run_script",
+      "file": "actions/export-pdf.js"
+    }
+  ]
+}
