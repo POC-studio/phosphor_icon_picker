@@ -346,7 +346,7 @@ async function loadPlugin(pluginName, elementName) {
       for (const action of config.actions) {
         if (!action || !action.file) continue;
         const actionRaw = await import(
-          `./plugins/${pluginName}/${elementName}/${action.file}?raw`
+          /* @vite-ignore */ `./plugins/${pluginName}/${elementName}/${action.file}?raw`
         ).catch(() => ({ default: '' }));
         displayCode(action.file, toBubbleCode(actionRaw.default));
       }
@@ -357,7 +357,7 @@ async function loadPlugin(pluginName, elementName) {
       for (const action of pluginConfig.actions) {
         if (!action || !action.file) continue;
         const actionRaw = await import(
-          `./plugins/${pluginName}/${action.file}?raw`
+          /* @vite-ignore */ `./plugins/${pluginName}/${action.file}?raw`
         ).catch(() => ({ default: '' }));
         displayCode(action.file, toBubbleCode(actionRaw.default));
       }
@@ -554,7 +554,7 @@ function setupActions(config, pluginName) {
         btn.style.backgroundColor = '#93c5fd'; // Light blue when disabled
         
         // Importer et exécuter le script
-        const actionModule = await import(`./plugins/${pluginName}/${action.file}`);
+        const actionModule = await import(/* @vite-ignore */ `./plugins/${pluginName}/${action.file}`);
         if (actionModule.default) {
           const result = await actionModule.default();
           
@@ -630,7 +630,7 @@ function setupElementActions(elementConfig, pluginName, elementName) {
       try {
         btn.disabled = true;
         btn.textContent = 'Running...';
-        const actionModule = await import(`./plugins/${pluginName}/${elementName}/${action.file}`);
+        const actionModule = await import(/* @vite-ignore */ `./plugins/${pluginName}/${elementName}/${action.file}`);
         const run = actionModule.default;
         const properties = getMockProperties(elementConfig);
 

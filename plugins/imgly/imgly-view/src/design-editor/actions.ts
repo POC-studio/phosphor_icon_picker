@@ -86,7 +86,5 @@ export function setupActions(cesdk: CreativeEditorSDK): void {
     await cesdk.actions.run('zoom.toPage', { page: 'first' });
   });
 
-  cesdk.actions.register('uploadFile', (file, _onProgress, context) => {
-    return cesdk.utils.localUpload(file, context);
-  });
+  // uploadFile Bubble : enregistré dans setup-bubble-upload.js (après init, avec instance).
 }

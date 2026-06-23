@@ -44,7 +44,15 @@ export function loadBundleTargets() {
         console.warn(`[build-plugins] ${pluginId}: entry introuvable (${bundle.entry}), bundle ignoré.`);
         continue;
       }
-      targets.push({ pluginId, entry, output, entryRel: bundle.entry });
+      targets.push({
+        pluginId,
+        pluginDir,
+        entry,
+        output,
+        entryRel: bundle.entry,
+        alias: bundle.alias,
+        target: bundle.target,
+      });
     }
   }
   return targets;
@@ -70,8 +78,29 @@ function notifyPlugin(target, hooks) {
   };
 }
 
+function exactAliasPlugin(aliasMap, pluginDir) {
+  const entries = Object.entries(aliasMap).map(([key, relPath]) => [
+    key,
+    path.join(pluginDir, relPath),
+  ]);
+  return {
+    name: 'exact-alias',
+    setup(build) {
+      for (const [alias, aliasPath] of entries) {
+        const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        build.onResolve({ filter: new RegExp(`^${escaped}$`) }, () => ({
+          path: aliasPath,
+        }));
+      }
+    },
+  };
+}
+
 function esbuildOptions(target, hooks) {
   const srcDirRel = path.dirname(target.entryRel);
+  const aliasEntries = target.alias && typeof target.alias === 'object'
+    ? Object.entries(target.alias)
+    : [];
   return {
     entryPoints: [target.entry],
     outfile: target.output,
@@ -79,7 +108,7 @@ function esbuildOptions(target, hooks) {
     format: 'iife',
     globalName: GLOBAL_NAME,
     platform: 'browser',
-    target: 'es2020',
+    target: target.target || 'es2020',
     minify: false,
     sourcemap: false,
     legalComments: 'none',
@@ -89,7 +118,10 @@ function esbuildOptions(target, hooks) {
     footer: {
       js: `return ${GLOBAL_NAME}.default(instance, context);\n}`,
     },
-    plugins: [notifyPlugin(target, hooks)],
+    plugins: [
+      notifyPlugin(target, hooks),
+      ...(aliasEntries.length ? [exactAliasPlugin(target.alias, target.pluginDir)] : []),
+    ],
   };
 }
 

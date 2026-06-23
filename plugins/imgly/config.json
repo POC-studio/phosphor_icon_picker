@@ -2,6 +2,14 @@
   "name": "IMG.LY CreativeEditor",
   "description": "Bubble plugin powered by img.ly CreativeEditor SDK (CE.SDK) — POC drop-in for booklet editing.",
   "bundles": [
-    { "entry": "imgly-view/src/index.js", "output": "imgly-view/initialize.js" }
+    {
+      "entry": "imgly-view/src/index.js",
+      "output": "imgly-view/initialize.js",
+      "target": "es2015",
+      "alias": {
+        "@cesdk/cesdk-js": "imgly-view/src/shims/cesdk-js.js",
+        "pdf-lib": "imgly-view/src/shims/pdf-lib.js"
+      }
+    }
   ]
 }

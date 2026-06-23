@@ -1,3 +1,5 @@
+import { uploadFileToBubble } from './bubble-upload.js';
+
 export const BUBBLE_SAVE_NAV_ID = 'imgly.bubble.save.navigationBar';
 
 /** Boutons d’export / téléchargement CE.SDK à retirer de la barre de navigation. */
@@ -15,6 +17,12 @@ const EXPORT_NAV_IDS_TO_REMOVE = [
   'ly.img.download.navigationBar',
   'ly.img.export.navigationBar',
 ];
+
+/** Branche uploadFile CE.SDK → context.uploadContent Bubble (URLs permanentes). */
+export function setupBubbleUpload(cesdk, instance) {
+  if (!cesdk?.actions || !instance) return;
+  cesdk.actions.register('uploadFile', (file, onProgress) => uploadFileToBubble(instance, file, onProgress));
+}
 
 /**
  * Bouton Enregistrer (JSON + previews + PDF) et export PDF imposé dans la barre CE.SDK.

@@ -1,3 +1,4 @@
+import { uploadBlob } from './bubble-upload.js';
 import { PAGE_PREVIEWS_COOLDOWN_MS, PAGE_PREVIEWS_DEBOUNCE_MS, SCENE_PUBLISH_DEBOUNCE_MS } from './constants.js';
 import {
   ensureAllBlocksIncludedInExport,
@@ -12,44 +13,6 @@ function sanitizeFileBase(title) {
   const raw = typeof title === 'string' ? title.trim() : '';
   const safe = raw.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '');
   return safe || 'document';
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      if (typeof dataUrl !== 'string' || dataUrl.indexOf(',') < 0) {
-        reject(new Error('Invalid data URL from blob'));
-        return;
-      }
-      resolve(dataUrl.split(',')[1]);
-    };
-    reader.onerror = () => reject(reader.error || new Error('FileReader failed'));
-    reader.readAsDataURL(blob);
-  });
-}
-
-function uploadBlob(context, fileName, blob) {
-  if (!context || typeof context.uploadContent !== 'function' || !blob) {
-    return Promise.resolve('');
-  }
-  return blobToBase64(blob).then((base64) => {
-    if (!base64) return '';
-    return new Promise((resolve) => {
-      try {
-        context.uploadContent(fileName, base64, (err, url) => {
-          if (err || typeof url !== 'string' || !/^https?:\/\//i.test(url)) {
-            resolve('');
-          } else {
-            resolve(url);
-          }
-        });
-      } catch (e) {
-        resolve('');
-      }
-    });
-  });
 }
 
 function downloadBlob(blob, fileName) {
@@ -151,9 +114,14 @@ export function createPagePreviews(instance) {
   return Promise.all(pageIds.map(exportOne)).then((uploaded) => {
     if (instance.data._pagePreviewsRunId !== runId) return uploaded;
     instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || '';
-    instance.publishState('page_previews', uploaded);
-    instance.triggerEvent('page_previews_ready');
-    return uploaded;
+    const urls = uploaded.filter((u) => typeof u === 'string' && u.length > 0);
+    instance.publishState('page_previews', urls);
+    if (urls.length > 0) {
+      instance.triggerEvent('page_previews_ready');
+    } else {
+      console.warn('IMG.LY View: previews uploadées sans URL exploitable — page_previews_ready non déclenché');
+    }
+    return urls;
   }).catch((err) => {
     console.error('IMG.LY View: create_page_previews', err);
     return [];
@@ -228,6 +196,8 @@ export async function triggerPdfExport(instance, options) {
     if (typeof url === 'string' && url.length > 0) {
       instance.publishState('pdf_url', url);
       instance.triggerEvent('pdf_ready');
+    } else if (blob && blob.size > 0) {
+      console.warn('IMG.LY View: PDF uploadé dans Bubble mais URL non reçue — pdf_ready non déclenché');
     }
     if (download) {
       downloadBlob(blob, safePdfName);

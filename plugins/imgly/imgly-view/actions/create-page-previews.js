@@ -5,5 +5,8 @@ export default function(instance, properties, context) {
   if (!instance || !instance.data || typeof instance.data.createPagePreviews !== 'function') {
     return [];
   }
+  if (context) {
+    instance.data.bubbleContext = context;
+  }
   return instance.data.createPagePreviews();
 }

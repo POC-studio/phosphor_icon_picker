@@ -9,7 +9,7 @@ import {
   wireHistoryListener,
 } from './exports.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
-import { setupBubblePdfExport } from './setup-bubble-export.js';
+import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
@@ -97,6 +97,14 @@ async function initImglyEditor(instance, context, properties) {
   const host = getHostElement(instance);
   if (!host) return;
 
+  if (!CreativeEditorSDK || typeof CreativeEditorSDK.create !== 'function') {
+    showBootError(
+      host,
+      'CE.SDK non chargé — vérifiez que le shared header du plugin (scripts CDN) est bien collé dans Bubble.',
+    );
+    return;
+  }
+
   if (instance.data.cesdk && typeof instance.data.cesdk.dispose === 'function') {
     try { instance.data.cesdk.dispose(); } catch (e) { /* ignore */ }
   }
@@ -118,7 +126,6 @@ async function initImglyEditor(instance, context, properties) {
     const cesdk = await CreativeEditorSDK.create(container, {
       license,
       baseURL,
-      callbacks: { onUpload: 'local' },
     });
 
     instance.data.cesdk = cesdk;
@@ -150,6 +157,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.createPagePreviews = () => createPagePreviews(instance);
     instance.data.triggerPdfExport = () => triggerPdfExport(instance);
     instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
+    setupBubbleUpload(cesdk, instance);
     setupBubblePdfExport(cesdk, instance);
     setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
