@@ -5,7 +5,7 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
-import { buildFoldedA4Pdf, getJsPdfConstructor } from './pdf-imposition.js';
+import { buildFoldedA4Pdf } from './pdf-imposition.js';
 import { getPageIds } from './scene.js';
 
 function sanitizeFileBase(title) {
@@ -184,14 +184,17 @@ export async function triggerPdfExport(instance) {
     return '';
   }
 
-  if (!getJsPdfConstructor()) {
-    console.error('IMG.LY View: jsPDF indisponible');
-    return '';
-  }
-
   ensureAllBlocksIncludedInExport(engine);
   hideAllPageCanvasBorders(engine);
   await syncSceneBeforePdfExport(instance);
+
+  if (typeof engine.block.forceLoadResources === 'function') {
+    try {
+      await engine.block.forceLoadResources(pageIds);
+    } catch (err) {
+      console.warn('IMG.LY View: forceLoadResources avant export PDF', err);
+    }
+  }
 
   const base = sanitizeFileBase(instance.data.documentTitle);
   const safePdfName = (base + '.pdf').replace(/[^\w.-]/g, '_') || 'document.pdf';

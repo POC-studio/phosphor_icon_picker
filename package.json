@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@phosphor-icons/core": "^2.1.1",
-    "jspdf": "^2.5.2",
-    "svg2pdf.js": "^2.2.3"
+    "pdf-lib": "^1.17.1"
   }
 }
