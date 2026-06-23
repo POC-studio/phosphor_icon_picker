@@ -1,27 +1,34 @@
+function loadScriptNode(node) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    for (const attr of node.attributes) {
+      script.setAttribute(attr.name, attr.value);
+    }
+    script.text = node.textContent || '';
+    script.addEventListener('load', () => resolve(), { once: true });
+    script.addEventListener('error', () => reject(new Error(`Script failed: ${script.src || 'inline'}`)), { once: true });
+    document.head.appendChild(script);
+    if (!script.src) resolve();
+  });
+}
+
 async function injectSharedFragment(path) {
-  try {
-    const res = await fetch(path);
-    if (!res.ok) return;
-    const html = await res.text();
+  const res = await fetch(path);
+  if (!res.ok) return;
+  const html = await res.text();
 
-    const container = document.createElement('div');
-    container.innerHTML = html;
+  const container = document.createElement('div');
+  container.innerHTML = html;
 
-    Array.from(container.children).forEach((node) => {
-      if (node.tagName === 'SCRIPT') {
-        const script = document.createElement('script');
-        for (const attr of node.attributes) {
-          script.setAttribute(attr.name, attr.value);
-        }
-        script.text = node.textContent || '';
-        document.head.appendChild(script);
-      } else {
-        document.head.appendChild(node);
-      }
-    });
-  } catch (e) {
-    console.warn('Impossible de charger le shared:', path, e);
+  const loads = [];
+  for (const node of Array.from(container.children)) {
+    if (node.tagName === 'SCRIPT') {
+      loads.push(loadScriptNode(node));
+    } else {
+      document.head.appendChild(node);
+    }
   }
+  await Promise.all(loads);
 }
 
 const SHARED_FRAGMENTS = [
@@ -33,6 +40,8 @@ const SHARED_FRAGMENTS = [
   './plugins/slider-button/shared.html',
 ];
 
-for (const path of SHARED_FRAGMENTS) {
-  injectSharedFragment(path);
-}
+export const sharedScriptsReady = Promise.all(
+  SHARED_FRAGMENTS.map((path) => injectSharedFragment(path)),
+).catch((err) => {
+  console.warn('Certains shared headers n’ont pas pu être chargés:', err);
+});

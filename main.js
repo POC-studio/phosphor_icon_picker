@@ -1,4 +1,5 @@
 import { BubbleInstance, BubbleContext } from './lib/bubble-mock.js';
+import { sharedScriptsReady } from './shared-loader.js';
 import fabricViewInitialJsonDefault from './plugins/fabric/fabric-view/initial-json-default.json?raw';
 
 // Global variables for emulator
@@ -9,6 +10,7 @@ let applyBubbleSizeCallback = null;
 
 // Initialisation
 async function initSandbox() {
+  await sharedScriptsReady;
   const pluginSelector = document.getElementById('plugin-selector');
   const elementSelector = document.getElementById('element-selector');
   const widthInput = document.getElementById('canvas-width-input');

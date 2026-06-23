@@ -110,7 +110,7 @@ export async function insertVectorGraphicOnCurrentPage(engine, options) {
         pathLayer,
         coordWidth,
         coordHeight,
-        fillColor,
+        pathLayer.fillColor || fillColor,
       );
       engine.block.appendChild(pageId, graphicId);
       childIds.push(graphicId);

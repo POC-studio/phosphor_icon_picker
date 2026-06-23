@@ -78,7 +78,7 @@ export function setupDock(cesdk: CreativeEditorSDK): void {
       key: 'ly.img.image',
       icon: '@imgly/Image',
       label: 'libraries.ly.img.image.label',
-      entries: ['ly.img.image.upload'],
+      entries: ['ly.img.image'],
     },
   ]);
   // #endregion

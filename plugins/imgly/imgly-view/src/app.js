@@ -14,6 +14,7 @@ import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.j
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
+import { setupJournalStickers } from './setup-journal-stickers.js';
 import {
   createBookletScene,
   fitSceneInView,
@@ -94,11 +95,23 @@ function applyPropertiesUpdate(instance, properties, context) {
   }
 }
 
+async function waitForCreativeEditorSDK(timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (CreativeEditorSDK && typeof CreativeEditorSDK.create === 'function') {
+      return CreativeEditorSDK;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return null;
+}
+
 async function initImglyEditor(instance, context, properties) {
   const host = getHostElement(instance);
   if (!host) return;
 
-  if (!CreativeEditorSDK || typeof CreativeEditorSDK.create !== 'function') {
+  const sdk = await waitForCreativeEditorSDK();
+  if (!sdk) {
     showBootError(
       host,
       'CE.SDK non chargé — vérifiez que le shared header du plugin (scripts CDN) est bien collé dans Bubble.',
@@ -125,7 +138,7 @@ async function initImglyEditor(instance, context, properties) {
   const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
 
   try {
-    const cesdk = await CreativeEditorSDK.create(container, {
+    const cesdk = await sdk.create(container, {
       license,
       baseURL: engineBaseURL,
     });
@@ -163,6 +176,7 @@ async function initImglyEditor(instance, context, properties) {
     setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);
+    await setupJournalStickers(cesdk);
     instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
     instance.data.applyPropertiesUpdate = (props, ctx) => {
       applyPropertiesUpdate(instance, props, ctx);

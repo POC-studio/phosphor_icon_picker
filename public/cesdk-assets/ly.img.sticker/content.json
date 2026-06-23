@@ -3,6 +3,654 @@
   "id": "ly.img.sticker",
   "assets": [
     {
+      "id": "ly.img.sticker.3Dstickers.astronaut",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Astronaut",
+        "de": "Astronaut"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_astronaut.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_astronaut.png",
+        "filename": "3d_stickers_astronaut.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 723,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.brain",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Brain",
+        "de": "Brain"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_brain.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_brain.png",
+        "filename": "3d_stickers_brain.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 800,
+        "height": 600
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.cube",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Cube",
+        "de": "Cube"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_cube.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_cube.png",
+        "filename": "3d_stickers_cube.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 776
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.light",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Light",
+        "de": "Light"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_light.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_light.png",
+        "filename": "3d_stickers_light.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 540,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.megaphone",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Megaphone",
+        "de": "Megaphone"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_megaphone.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_megaphone.png",
+        "filename": "3d_stickers_megaphone.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 605
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.pizza",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Pizza",
+        "de": "Pizza"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_pizza.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_pizza.png",
+        "filename": "3d_stickers_pizza.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 753
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.rainbow",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Rainbow",
+        "de": "Rainbow"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_rainbow.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_rainbow.png",
+        "filename": "3d_stickers_rainbow.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 565
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.thumbs_up",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Thumbs Up",
+        "de": "Thumbs Up"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_thumbs_up.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_thumbs_up.png",
+        "filename": "3d_stickers_thumbs_up.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 752,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.3Dstickers.thunder",
+      "groups": [
+        "3Dstickers"
+      ],
+      "label": {
+        "en": "Thunder",
+        "de": "Thunder"
+      },
+      "tags": {
+        "en": [
+          "3Dstickers"
+        ],
+        "de": [
+          "3Dstickers"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_thunder.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_thunder.png",
+        "filename": "3d_stickers_thunder.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 561,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.clip",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Clip",
+        "de": "Clip"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/clip.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/clip.png",
+        "filename": "clip.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 316,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.photo_frame",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Photo Frame",
+        "de": "Photo Frame"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/photo_frame.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/photo_frame.png",
+        "filename": "photo_frame.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 450
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.polaroid_frame",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Polaroid Frame",
+        "de": "Polaroid Frame"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/polaroid_frame.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/polaroid_frame.png",
+        "filename": "polaroid_frame.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 657,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape01",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape01",
+        "de": "Tape01"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape01.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape01.png",
+        "filename": "tape01.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 800,
+        "height": 761
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape02",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape02",
+        "de": "Tape02"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape02.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape02.png",
+        "filename": "tape02.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 800,
+        "height": 737
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape03",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape03",
+        "de": "Tape03"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape03.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape03.png",
+        "filename": "tape03.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 786,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape04",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape04",
+        "de": "Tape04"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape04.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape04.png",
+        "filename": "tape04.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 785
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape05",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape05",
+        "de": "Tape05"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape05.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape05.png",
+        "filename": "tape05.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 771,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape06",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape06",
+        "de": "Tape06"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape06.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape06.png",
+        "filename": "tape06.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 781,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape07",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape07",
+        "de": "Tape07"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape07.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape07.png",
+        "filename": "tape07.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 800
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape08",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape08",
+        "de": "Tape08"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape08.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape08.png",
+        "filename": "tape08.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 722
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape09",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape09",
+        "de": "Tape09"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape09.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape09.png",
+        "filename": "tape09.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 785
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape10",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape10",
+        "de": "Tape10"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape10.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape10.png",
+        "filename": "tape10.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 229
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape11",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape11",
+        "de": "Tape11"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape11.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape11.png",
+        "filename": "tape11.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 163
+      }
+    },
+    {
+      "id": "ly.img.sticker.craft.tape12",
+      "groups": [
+        "craft"
+      ],
+      "label": {
+        "en": "Tape12",
+        "de": "Tape12"
+      },
+      "tags": {
+        "en": [
+          "craft"
+        ],
+        "de": [
+          "craft"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape12.png",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape12.png",
+        "filename": "tape12.png",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 801,
+        "height": 229
+      }
+    },
+    {
       "id": "ly.img.sticker.emoticons.alien",
       "groups": [
         "emoticons"
@@ -480,6 +1128,87 @@
         "fillType": "//ly.img.ubq/fill/image",
         "width": 64,
         "height": 62
+      }
+    },
+    {
+      "id": "ly.img.sticker.emoticons.imgly_sticker_emoticons_beer",
+      "groups": [
+        "emoticons"
+      ],
+      "label": {
+        "en": "imgly sticker emoticons beer",
+        "de": "imgly sticker emoticons beer"
+      },
+      "tags": {
+        "en": [
+          "emoticons"
+        ],
+        "de": [
+          "emoticons"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/emoticons/imgly_sticker_emoticons_beer.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/emoticons/imgly_sticker_emoticons_beer.png",
+        "filename": "imgly_sticker_emoticons_beer.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 62,
+        "height": 59
+      }
+    },
+    {
+      "id": "ly.img.sticker.emoticons.imgly_sticker_emoticons_hitman",
+      "groups": [
+        "emoticons"
+      ],
+      "label": {
+        "en": "imgly sticker emoticons hitman",
+        "de": "imgly sticker emoticons hitman"
+      },
+      "tags": {
+        "en": [
+          "emoticons"
+        ],
+        "de": [
+          "emoticons"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/emoticons/imgly_sticker_emoticons_hitman.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/emoticons/imgly_sticker_emoticons_hitman.png",
+        "filename": "imgly_sticker_emoticons_hitman.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 64,
+        "height": 60
+      }
+    },
+    {
+      "id": "ly.img.sticker.emoticons.imgly_sticker_emoticons_smoking",
+      "groups": [
+        "emoticons"
+      ],
+      "label": {
+        "en": "imgly sticker emoticons smoking",
+        "de": "imgly sticker emoticons smoking"
+      },
+      "tags": {
+        "en": [
+          "emoticons"
+        ],
+        "de": [
+          "emoticons"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/emoticons/imgly_sticker_emoticons_smoking.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/emoticons/imgly_sticker_emoticons_smoking.png",
+        "filename": "imgly_sticker_emoticons_smoking.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 62,
+        "height": 58
       }
     },
     {
@@ -1103,818 +1832,6 @@
       }
     },
     {
-      "id": "ly.img.sticker.craft.clip",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Clip",
-        "de": "Clip"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/clip.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/clip.png",
-        "filename": "clip.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 316,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.photo_frame",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Photo Frame",
-        "de": "Photo Frame"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/photo_frame.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/photo_frame.png",
-        "filename": "photo_frame.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 450
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.polaroid_frame",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Polaroid Frame",
-        "de": "Polaroid Frame"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/polaroid_frame.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/polaroid_frame.png",
-        "filename": "polaroid_frame.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 657,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape01",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape01",
-        "de": "Tape01"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape01.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape01.png",
-        "filename": "tape01.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 800,
-        "height": 761
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape02",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape02",
-        "de": "Tape02"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape02.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape02.png",
-        "filename": "tape02.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 800,
-        "height": 737
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape03",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape03",
-        "de": "Tape03"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape03.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape03.png",
-        "filename": "tape03.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 786,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape04",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape04",
-        "de": "Tape04"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape04.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape04.png",
-        "filename": "tape04.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 785
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape05",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape05",
-        "de": "Tape05"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape05.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape05.png",
-        "filename": "tape05.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 771,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape06",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape06",
-        "de": "Tape06"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape06.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape06.png",
-        "filename": "tape06.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 781,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape07",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape07",
-        "de": "Tape07"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape07.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape07.png",
-        "filename": "tape07.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape08",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape08",
-        "de": "Tape08"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape08.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape08.png",
-        "filename": "tape08.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 722
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape09",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape09",
-        "de": "Tape09"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape09.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape09.png",
-        "filename": "tape09.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 785
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape10",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape10",
-        "de": "Tape10"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape10.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape10.png",
-        "filename": "tape10.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 229
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape11",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape11",
-        "de": "Tape11"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape11.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape11.png",
-        "filename": "tape11.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 163
-      }
-    },
-    {
-      "id": "ly.img.sticker.craft.tape12",
-      "groups": [
-        "craft"
-      ],
-      "label": {
-        "en": "Tape12",
-        "de": "Tape12"
-      },
-      "tags": {
-        "en": [
-          "craft"
-        ],
-        "de": [
-          "craft"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/craft/tape12.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/craft/tape12.png",
-        "filename": "tape12.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 229
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.astronaut",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Astronaut",
-        "de": "Astronaut"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_astronaut.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_astronaut.png",
-        "filename": "3d_stickers_astronaut.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 723,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.brain",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Brain",
-        "de": "Brain"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_brain.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_brain.png",
-        "filename": "3d_stickers_brain.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 800,
-        "height": 600
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.cube",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Cube",
-        "de": "Cube"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_cube.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_cube.png",
-        "filename": "3d_stickers_cube.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 776
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.light",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Light",
-        "de": "Light"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_light.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_light.png",
-        "filename": "3d_stickers_light.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 540,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.megaphone",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Megaphone",
-        "de": "Megaphone"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_megaphone.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_megaphone.png",
-        "filename": "3d_stickers_megaphone.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 605
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.pizza",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Pizza",
-        "de": "Pizza"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_pizza.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_pizza.png",
-        "filename": "3d_stickers_pizza.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 753
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.rainbow",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Rainbow",
-        "de": "Rainbow"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_rainbow.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_rainbow.png",
-        "filename": "3d_stickers_rainbow.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 801,
-        "height": 565
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.thumbs_up",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Thumbs Up",
-        "de": "Thumbs Up"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_thumbs_up.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_thumbs_up.png",
-        "filename": "3d_stickers_thumbs_up.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 752,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.3Dstickers.thunder",
-      "groups": [
-        "3Dstickers"
-      ],
-      "label": {
-        "en": "Thunder",
-        "de": "Thunder"
-      },
-      "tags": {
-        "en": [
-          "3Dstickers"
-        ],
-        "de": [
-          "3Dstickers"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/3Dstickers/3d_stickers_thunder.png",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/3Dstickers/3d_stickers_thunder.png",
-        "filename": "3d_stickers_thunder.png",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 561,
-        "height": 800
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.five",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "High five",
-        "de": "High five"
-      },
-      "tags": {
-        "en": [
-          "hand"
-        ],
-        "de": [
-          "hand"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_five.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_five.png",
-        "filename": "hand_five.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 806,
-        "height": 2048
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.friends",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "Best friends",
-        "de": "Best friends"
-      },
-      "tags": {
-        "en": [
-          "hand"
-        ],
-        "de": [
-          "hand"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_friends.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_friends.png",
-        "filename": "hand_friends.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 1211,
-        "height": 2048
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.heart",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "You and me",
-        "de": "You and me"
-      },
-      "tags": {
-        "en": [
-          "hand",
-          "heart"
-        ],
-        "de": [
-          "hand",
-          "heart"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_heart.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_heart.png",
-        "filename": "hand_heart.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 1386,
-        "height": 2048
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.luck",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "Good luck",
-        "de": "Good luck"
-      },
-      "tags": {
-        "en": [
-          "hand"
-        ],
-        "de": [
-          "hand"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_luck.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_luck.png",
-        "filename": "hand_luck.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 854,
-        "height": 2048
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.ok",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "Everything is OK",
-        "de": "Everything is OK"
-      },
-      "tags": {
-        "en": [
-          "hand"
-        ],
-        "de": [
-          "hand"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_ok.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_ok.png",
-        "filename": "hand_ok.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 1085,
-        "height": 2048
-      }
-    },
-    {
-      "id": "ly.img.sticker.hand.vibes",
-      "groups": [
-        "hand"
-      ],
-      "label": {
-        "en": "Good vibes only",
-        "de": "Good vibes only"
-      },
-      "tags": {
-        "en": [
-          "hand"
-        ],
-        "de": [
-          "hand"
-        ]
-      },
-      "meta": {
-        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_vibes.svg",
-        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_vibes.png",
-        "filename": "hand_vibes.svg",
-        "kind": "sticker",
-        "fillType": "//ly.img.ubq/fill/image",
-        "width": 1567,
-        "height": 2048
-      }
-    },
-    {
       "id": "ly.img.sticker.florals.floral_01",
       "groups": [
         "florals"
@@ -2241,6 +2158,224 @@
         "kind": "sticker",
         "fillType": "//ly.img.ubq/fill/image",
         "width": 2048,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.five",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "High five",
+        "de": "High five"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_five.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_five.png",
+        "filename": "hand_five.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 806,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.friends",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "Best friends",
+        "de": "Best friends"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_friends.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_friends.png",
+        "filename": "hand_friends.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 1211,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.hand_alive",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "hand alive",
+        "de": "hand alive"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_alive.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_alive.png",
+        "filename": "hand_alive.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 5,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.hand_fuck",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "hand fuck",
+        "de": "hand fuck"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_fuck.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_fuck.png",
+        "filename": "hand_fuck.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 9,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.heart",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "You and me",
+        "de": "You and me"
+      },
+      "tags": {
+        "en": [
+          "hand",
+          "heart"
+        ],
+        "de": [
+          "hand",
+          "heart"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_heart.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_heart.png",
+        "filename": "hand_heart.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 1386,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.luck",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "Good luck",
+        "de": "Good luck"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_luck.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_luck.png",
+        "filename": "hand_luck.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 854,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.ok",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "Everything is OK",
+        "de": "Everything is OK"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_ok.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_ok.png",
+        "filename": "hand_ok.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 1085,
+        "height": 2048
+      }
+    },
+    {
+      "id": "ly.img.sticker.hand.vibes",
+      "groups": [
+        "hand"
+      ],
+      "label": {
+        "en": "Good vibes only",
+        "de": "Good vibes only"
+      },
+      "tags": {
+        "en": [
+          "hand"
+        ],
+        "de": [
+          "hand"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/hand/hand_vibes.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/hand/hand_vibes.png",
+        "filename": "hand_vibes.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 1567,
         "height": 2048
       }
     }

@@ -64,8 +64,23 @@ var __pluginInit = (() => {
   });
 
   // plugins/imgly/imgly-view/src/shims/cesdk-js.js
-  var sdk = typeof CreativeEditorSDK !== "undefined" ? CreativeEditorSDK : null;
-  var cesdk_js_default = sdk;
+  function resolveCreativeEditorSDK() {
+    const sdk = typeof globalThis.CreativeEditorSDK !== "undefined" ? globalThis.CreativeEditorSDK : null;
+    if (sdk && typeof sdk.create === "function") return sdk;
+    return null;
+  }
+  var cesdkLazy = new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        const sdk = resolveCreativeEditorSDK();
+        if (!sdk) return void 0;
+        const value = sdk[prop];
+        return typeof value === "function" ? value.bind(sdk) : value;
+      }
+    }
+  );
+  var cesdk_js_default = cesdkLazy;
 
   // plugins/imgly/imgly-view/src/booklet-layout.js
   var HALF_A4_WIDTH_MM = 148.5;
@@ -134,7 +149,7 @@ var __pluginInit = (() => {
   }
 
   // plugins/imgly/imgly-view/src/cesdk-content-base-url.js
-  var PRODUCTION_CESDK_CONTENT_BASE_URL = "https://poc-studio.github.io/phosphor_icon_picker/cesdk-assets/";
+  var PRODUCTION_CESDK_CONTENT_BASE_URL = "https://poc-studio.github.io/phosphor_icon_picker/public/cesdk-assets/";
   function getCesdkContentBaseURL() {
     if (typeof window !== "undefined") {
       const { hostname, origin } = window.location;
@@ -1794,6 +1809,7 @@ var __pluginInit = (() => {
     "libraries.ly.img.sticker.emoticons.label": "\xC9motic\xF4ne",
     "libraries.ly.img.sticker.florals.label": "Floraux",
     "libraries.ly.img.sticker.hand.label": "Mains",
+    "libraries.ly.img.sticker.journal.label": "Journal",
     "libraries.ly.img.sticker.label": "Autocollants",
     "libraries.ly.img.sticker.marker.label": "Marqueurs",
     "libraries.ly.img.sticker.sketches.label": "Croquis",
@@ -2681,7 +2697,7 @@ var __pluginInit = (() => {
     engine.editor.setSetting("page/title/show", true);
     engine.editor.setSetting("page/title/showOnSinglePage", true);
     engine.editor.setSetting("page/title/showPageTitleTemplate", true);
-    engine.editor.setSetting("page/title/appendPageName", true);
+    engine.editor.setSetting("page/title/appendPageName", false);
     engine.editor.setSetting("page/title/canEdit", false);
     engine.editor.setSetting("page/title/separator", "-");
     engine.editor.setSetting("blockAnimations/enabled", false);
@@ -2802,7 +2818,7 @@ var __pluginInit = (() => {
         key: "ly.img.image",
         icon: "@imgly/Image",
         label: "libraries.ly.img.image.label",
-        entries: ["ly.img.image.upload"]
+        entries: ["ly.img.image"]
       }
     ]);
   }
@@ -3792,7 +3808,7 @@ var __pluginInit = (() => {
             pathLayer,
             coordWidth,
             coordHeight,
-            fillColor
+            pathLayer.fillColor || fillColor
           );
           engine.block.appendChild(pageId, graphicId);
           childIds.push(graphicId);
@@ -4277,7 +4293,35 @@ var __pluginInit = (() => {
   }
 
   // plugins/imgly/imgly-view/src/phosphor-svg.js
-  function parsePhosphorSvgMarkup(svgText) {
+  function parseHexColor(hex) {
+    const normalized = hex.replace("#", "").trim();
+    if (normalized.length === 3) {
+      return {
+        r: parseInt(normalized[0] + normalized[0], 16) / 255,
+        g: parseInt(normalized[1] + normalized[1], 16) / 255,
+        b: parseInt(normalized[2] + normalized[2], 16) / 255,
+        a: 1
+      };
+    }
+    if (normalized.length >= 6) {
+      return {
+        r: parseInt(normalized.slice(0, 2), 16) / 255,
+        g: parseInt(normalized.slice(2, 4), 16) / 255,
+        b: parseInt(normalized.slice(4, 6), 16) / 255,
+        a: 1
+      };
+    }
+    return null;
+  }
+  function parsePathFillColor(node) {
+    const fill = node.getAttribute("fill");
+    if (fill && fill !== "none" && fill.startsWith("#")) {
+      return parseHexColor(fill);
+    }
+    return null;
+  }
+  function parseSvgMarkup(svgText) {
+    var _a;
     if (typeof svgText !== "string" || !svgText.trim()) return null;
     if (typeof DOMParser === "undefined") return null;
     const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
@@ -4306,25 +4350,28 @@ var __pluginInit = (() => {
         const parsed = parseFloat(node.getAttribute("opacity") || "");
         if (!Number.isNaN(parsed)) opacity = parsed;
       }
-      return { d: d2, opacity };
+      const fillColor2 = parsePathFillColor(node);
+      return { d: d2, opacity, fillColor: fillColor2 || void 0 };
     }).filter(Boolean);
     if (paths.length === 0) return null;
-    return { width, height, paths };
+    const fillColor = (_a = paths.find((path) => path.fillColor)) == null ? void 0 : _a.fillColor;
+    return { width, height, paths, fillColor };
   }
-  function fetchPhosphorSvgData(url) {
+  function fetchSvgMarkup(url) {
     return __async(this, null, function* () {
       const response = yield fetch(url);
       if (!response.ok) {
-        throw new Error(`Phosphor SVG fetch failed (${response.status}): ${url}`);
+        throw new Error(`SVG fetch failed (${response.status}): ${url}`);
       }
       const text = yield response.text();
-      const parsed = parsePhosphorSvgMarkup(text);
+      const parsed = parseSvgMarkup(text);
       if (!parsed) {
-        throw new Error(`Phosphor SVG parse failed: ${url}`);
+        throw new Error(`SVG parse failed: ${url}`);
       }
       return parsed;
     });
   }
+  var fetchPhosphorSvgData = fetchSvgMarkup;
 
   // plugins/imgly/imgly-view/src/phosphor-icon-insert.js
   var ICONS_PANEL_ID = "imgly.icons.panel";
@@ -4512,6 +4559,92 @@ var __pluginInit = (() => {
     );
   }
 
+  // plugins/imgly/imgly-view/src/setup-journal-stickers.js
+  var STICKER_SOURCE_ID = "ly.img.sticker";
+  function resolveStickerAssetUri(templateUri) {
+    if (!templateUri) return "";
+    if (/^https?:\/\//i.test(templateUri)) return templateUri;
+    return templateUri.replace("{{base_url}}/", getCesdkContentBaseURL());
+  }
+  function isJournalStickerAsset(asset) {
+    if (!asset) return false;
+    if (Array.isArray(asset.groups) && asset.groups.includes("journal")) return true;
+    return String(asset.id || "").startsWith("ly.img.sticker.journal.");
+  }
+  function applyJournalStickerAsset(engine, cesdk, asset) {
+    return __async(this, null, function* () {
+      var _a;
+      const svgUrl = resolveStickerAssetUri((_a = asset == null ? void 0 : asset.meta) == null ? void 0 : _a.uri);
+      if (!svgUrl) return void 0;
+      const svgData = yield fetchSvgMarkup(svgUrl);
+      yield insertVectorGraphicOnCurrentPage(engine, {
+        paths: svgData.paths,
+        width: svgData.width,
+        height: svgData.height,
+        fillColor: svgData.fillColor || DEFAULT_VECTOR_FILL
+      });
+      if (cesdk == null ? void 0 : cesdk.ui) {
+        cesdk.ui.closePanel("ly.img.assetLibrary");
+      }
+      return void 0;
+    });
+  }
+  function prepareJournalAssetForSource(asset) {
+    var _a, _b;
+    return __spreadProps(__spreadValues({}, asset), {
+      meta: __spreadProps(__spreadValues({}, asset.meta), {
+        uri: resolveStickerAssetUri((_a = asset.meta) == null ? void 0 : _a.uri),
+        thumbUri: resolveStickerAssetUri((_b = asset.meta) == null ? void 0 : _b.thumbUri)
+      })
+    });
+  }
+  function loadJournalStickerAssets() {
+    return __async(this, null, function* () {
+      const manifestUrl = `${getCesdkContentBaseURL()}ly.img.sticker/journal.content.json`;
+      const response = yield fetch(manifestUrl);
+      if (!response.ok) {
+        throw new Error(`Journal stickers manifest failed (${response.status}): ${manifestUrl}`);
+      }
+      const payload = yield response.json();
+      return Array.isArray(payload.assets) ? payload.assets : [];
+    });
+  }
+  function patchStickerApplyForJournal(engine, cesdk) {
+    if (engine.asset.__journalApplyPatched) return;
+    const originalApply = engine.asset.apply.bind(engine.asset);
+    engine.asset.apply = (sourceId, assetResult, options) => __async(null, null, function* () {
+      if (sourceId === STICKER_SOURCE_ID && isJournalStickerAsset(assetResult)) {
+        return applyJournalStickerAsset(engine, cesdk, assetResult);
+      }
+      return originalApply(sourceId, assetResult, options);
+    });
+    engine.asset.__journalApplyPatched = true;
+  }
+  function setupJournalStickers(cesdk) {
+    return __async(this, null, function* () {
+      var _a;
+      if (!((_a = cesdk == null ? void 0 : cesdk.engine) == null ? void 0 : _a.asset)) return;
+      const engine = cesdk.engine;
+      if (!engine.asset.findAllSources().includes(STICKER_SOURCE_ID)) {
+        console.warn("IMG.LY View: source ly.img.sticker introuvable");
+        return;
+      }
+      let journalAssets = [];
+      try {
+        journalAssets = yield loadJournalStickerAssets();
+      } catch (err) {
+        console.warn("IMG.LY View: journal stickers non charg\xE9s", err);
+        return;
+      }
+      if (journalAssets.length === 0) return;
+      for (const asset of journalAssets) {
+        engine.asset.addAssetToSource(STICKER_SOURCE_ID, prepareJournalAssetForSource(asset));
+      }
+      patchStickerApplyForJournal(engine, cesdk);
+      engine.asset.assetSourceContentsChanged(STICKER_SOURCE_ID);
+    });
+  }
+
   // plugins/imgly/imgly-view/src/app.js
   function getHostElement(instance) {
     if (!instance || !instance.canvas) return null;
@@ -4572,11 +4705,24 @@ var __pluginInit = (() => {
       void recreateBookletScene(instance);
     }
   }
+  function waitForCreativeEditorSDK(timeoutMs = 15e3) {
+    return __async(this, null, function* () {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (cesdk_js_default && typeof cesdk_js_default.create === "function") {
+          return cesdk_js_default;
+        }
+        yield new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return null;
+    });
+  }
   function initImglyEditor(instance, context, properties) {
     return __async(this, null, function* () {
       const host = getHostElement(instance);
       if (!host) return;
-      if (!cesdk_js_default || typeof cesdk_js_default.create !== "function") {
+      const sdk = yield waitForCreativeEditorSDK();
+      if (!sdk) {
         showBootError(
           host,
           "CE.SDK non charg\xE9 \u2014 v\xE9rifiez que le shared header du plugin (scripts CDN) est bien coll\xE9 dans Bubble."
@@ -4602,7 +4748,7 @@ var __pluginInit = (() => {
       const pendingProps = instance.data._pendingProperties;
       const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
       try {
-        const cesdk = yield cesdk_js_default.create(container, {
+        const cesdk = yield sdk.create(container, {
           license,
           baseURL: engineBaseURL
         });
@@ -4636,6 +4782,7 @@ var __pluginInit = (() => {
         setupNavigationDocumentTitle(cesdk, instance);
         setupBookmarks(cesdk, instance);
         setupIcons(cesdk, instance);
+        yield setupJournalStickers(cesdk);
         instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
         instance.data.applyPropertiesUpdate = (props, ctx) => {
           applyPropertiesUpdate(instance, props, ctx);

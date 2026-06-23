@@ -1,0 +1,465 @@
+{
+  "version": "6.0.0",
+  "id": "imgly.journal.sticker",
+  "assets": [
+    {
+      "id": "ly.img.sticker.journal.cible",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Cible",
+        "de": "Cible"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Cible.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Cible.png",
+        "filename": "Illustration=Cible.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.coffee",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Coffee",
+        "de": "Coffee"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Coffee.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Coffee.png",
+        "filename": "Coffee.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.diagnostic",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Diagnostic",
+        "de": "Diagnostic"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Diagnostic.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Diagnostic.png",
+        "filename": "Illustration=Diagnostic.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.eye",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Eye",
+        "de": "Eye"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Eye.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Eye.png",
+        "filename": "Illustration=Eye.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.group",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Group",
+        "de": "Group"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Group.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Group.png",
+        "filename": "Illustration=Group.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.micro",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Micro",
+        "de": "Micro"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Micro.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Micro.png",
+        "filename": "Illustration=Micro.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.panel",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Panel",
+        "de": "Panel"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Panel.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Panel.png",
+        "filename": "Illustration=Panel.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.parcours",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Parcours",
+        "de": "Parcours"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Parcours.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Parcours.png",
+        "filename": "Illustration=Parcours.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.personas",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "personas",
+        "de": "personas"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=personas.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=personas.png",
+        "filename": "Illustration=personas.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.question",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Question",
+        "de": "Question"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Question.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Question.png",
+        "filename": "Illustration=Question.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.shapes",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Shapes",
+        "de": "Shapes"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Shapes.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Shapes.png",
+        "filename": "Illustration=Shapes.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.speech",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Speech",
+        "de": "Speech"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Speech.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Speech.png",
+        "filename": "Illustration=Speech.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.star",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Star",
+        "de": "Star"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Star.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Star.png",
+        "filename": "Illustration=Star.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.star2",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Star2",
+        "de": "Star2"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Star2.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Star2.png",
+        "filename": "Illustration=Star2.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.start",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Start",
+        "de": "Start"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Start.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Start.png",
+        "filename": "Illustration=Start.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.virus",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "Virus",
+        "de": "Virus"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=Virus.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=Virus.png",
+        "filename": "Illustration=Virus.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    },
+    {
+      "id": "ly.img.sticker.journal.x_ray",
+      "groups": [
+        "journal"
+      ],
+      "label": {
+        "en": "X-ray",
+        "de": "X-ray"
+      },
+      "tags": {
+        "en": [
+          "journal"
+        ],
+        "de": [
+          "journal"
+        ]
+      },
+      "meta": {
+        "uri": "{{base_url}}/ly.img.sticker/images/journal/Illustration=X-ray.svg",
+        "thumbUri": "{{base_url}}/ly.img.sticker/thumbnails/journal/Illustration=X-ray.png",
+        "filename": "Illustration=X-ray.svg",
+        "kind": "sticker",
+        "fillType": "//ly.img.ubq/fill/image",
+        "width": 90,
+        "height": 90
+      }
+    }
+  ]
+}

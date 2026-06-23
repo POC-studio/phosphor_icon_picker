@@ -113,8 +113,8 @@ export function setupSettings(engine: CreativeEngine): void {
   // Include the template title in page titles
   engine.editor.setSetting('page/title/showPageTitleTemplate', true);
 
-  // Append page name to the title
-  engine.editor.setSetting('page/title/appendPageName', true);
+  // Append page name to the title (désactivé — le nom dupliquerait le template « Page N »)
+  engine.editor.setSetting('page/title/appendPageName', false);
 
   // Titre de page en lecture seule (pas de renommage inline)
   engine.editor.setSetting('page/title/canEdit', false);
