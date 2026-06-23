@@ -68,10 +68,17 @@ export function setupDock(cesdk: CreativeEditorSDK): void {
     },
     {
       id: 'ly.img.assetLibrary.dock',
+      key: 'ly.img.sticker',
+      icon: '@imgly/Sticker',
+      label: 'libraries.ly.img.sticker.label',
+      entries: ['ly.img.sticker'],
+    },
+    {
+      id: 'ly.img.assetLibrary.dock',
       key: 'ly.img.image',
       icon: '@imgly/Image',
       label: 'libraries.ly.img.image.label',
-      entries: ['ly.img.image', 'ly.img.image.upload'],
+      entries: ['ly.img.image.upload'],
     },
   ]);
   // #endregion

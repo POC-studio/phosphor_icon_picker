@@ -9,10 +9,8 @@ import {
   BlurAssetSource,
   ColorPaletteAssetSource,
   CropPresetsAssetSource,
-  DemoAssetSources,
   EffectsAssetSource,
   FiltersAssetSource,
-  PremiumTemplatesAssetSource,
   StickerAssetSource,
   TextAssetSource,
   TextComponentAssetSource,
@@ -25,11 +23,18 @@ import { DesignEditorConfig } from './design-editor/plugin';
 
 export { DesignEditorConfig } from './design-editor/plugin';
 
+export type InitDesignEditorOptions = {
+  contentBaseURL: string;
+};
+
 /**
  * Configure CE.SDK comme le Design Editor officiel img.ly :
  * DesignEditorConfig → plugins d’assets → barre d’actions.
  */
-export async function initDesignEditor(cesdk: CreativeEditorSDK) {
+export async function initDesignEditor(
+  cesdk: CreativeEditorSDK,
+  { contentBaseURL }: InitDesignEditorOptions,
+) {
   await cesdk.addPlugin(new DesignEditorConfig());
 
   await cesdk.addPlugin(new BlurAssetSource());
@@ -42,29 +47,15 @@ export async function initDesignEditor(cesdk: CreativeEditorSDK) {
     }),
   );
 
-  await cesdk.addPlugin(
-    new DemoAssetSources({
-      include: [
-        'ly.img.templates.blank.*',
-        'ly.img.templates.presentation.*',
-        'ly.img.templates.print.*',
-        'ly.img.templates.social.*',
-        'ly.img.image.*',
-      ],
-    }),
-  );
-
   await cesdk.addPlugin(new EffectsAssetSource());
   await cesdk.addPlugin(new FiltersAssetSource());
-  await cesdk.addPlugin(new StickerAssetSource());
+  await cesdk.addPlugin(
+    new StickerAssetSource({
+      baseURL: contentBaseURL,
+    }),
+  );
   await cesdk.addPlugin(new TextAssetSource());
   await cesdk.addPlugin(new TextComponentAssetSource());
   await cesdk.addPlugin(new TypefaceAssetSource());
   await cesdk.addPlugin(new VectorShapeAssetSource());
-
-  await cesdk.addPlugin(
-    new PremiumTemplatesAssetSource({
-      include: ['ly.img.templates.premium.*'],
-    }),
-  );
 }

@@ -1,5 +1,6 @@
 import CreativeEditorSDK from '@cesdk/cesdk-js';
 import { clampSheetCount } from './booklet-layout.js';
+import { getCesdkContentBaseURL } from './cesdk-content-base-url.js';
 import { initDesignEditor } from './init-design-editor.ts';
 import { ensureFrenchLocale } from './design-editor/i18n.ts';
 import {
@@ -118,14 +119,15 @@ async function initImglyEditor(instance, context, properties) {
   host.appendChild(container);
 
   const license = '';
-  const baseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${CreativeEditorSDK.version}/assets/`;
+  const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${CreativeEditorSDK.version}/assets/`;
+  const contentBaseURL = getCesdkContentBaseURL();
   const pendingProps = instance.data._pendingProperties;
   const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
 
   try {
     const cesdk = await CreativeEditorSDK.create(container, {
       license,
-      baseURL,
+      baseURL: engineBaseURL,
     });
 
     instance.data.cesdk = cesdk;
@@ -141,11 +143,10 @@ async function initImglyEditor(instance, context, properties) {
     instance.data._hydratedFromInitialJsonProperty = false;
     instance.data.bookmarksList = [];
 
-    instance.publishState('new_color', '');
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
 
-    await initDesignEditor(cesdk);
+    await initDesignEditor(cesdk, { contentBaseURL });
     ensureFrenchLocale(cesdk);
     instance.data.pageIds = await createBookletScene(cesdk, cesdk.engine, sheetCount);
 

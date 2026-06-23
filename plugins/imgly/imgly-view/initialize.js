@@ -133,6 +133,18 @@ var __pluginInit = (() => {
     return layout;
   }
 
+  // plugins/imgly/imgly-view/src/cesdk-content-base-url.js
+  var PRODUCTION_CESDK_CONTENT_BASE_URL = "https://poc-studio.github.io/phosphor_icon_picker/cesdk-assets/";
+  function getCesdkContentBaseURL() {
+    if (typeof window !== "undefined") {
+      const { hostname, origin } = window.location;
+      if (hostname === "localhost" || hostname === "127.0.0.1") {
+        return `${origin}/cesdk-assets/`;
+      }
+    }
+    return PRODUCTION_CESDK_CONTENT_BASE_URL;
+  }
+
   // node_modules/@cesdk/cesdk-js/plugins/index.js
   var e = class {
     constructor(e2 = {}) {
@@ -272,73 +284,6 @@ var __pluginInit = (() => {
       this.addedAssetSourceIds = [];
     }
   };
-  var h = class {
-    constructor(e2 = {}) {
-      __publicField(this, "name", "cesdk-demo-asset-sources");
-      __publicField(this, "version", cesdk_js_default.version);
-      __publicField(this, "addedAssetSourceIds", []);
-      this.config = e2;
-    }
-    globToRegex(e2) {
-      const s = e2.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-      return new RegExp(`^${s}$`, "i");
-    }
-    sourceMatchesAnyPattern(e2, s) {
-      return s.some(((s2) => {
-        if (s2 === e2 || s2.startsWith(`${e2}.`)) return true;
-        return this.globToRegex(s2).test(e2);
-      }));
-    }
-    filterAssetSources(e2, s) {
-      return e2.filter(((e3) => this.sourceMatchesAnyPattern(e3, s)));
-    }
-    filterMatchersForSource(e2, s) {
-      return s.filter(((s2) => {
-        if (s2 === e2 || s2.startsWith(`${e2}.`)) return true;
-        return this.globToRegex(s2).test(e2);
-      }));
-    }
-    getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
-        const s = this.config.assetLibraryEntries[e2];
-        return Array.isArray(s) ? s : [s];
-      }
-      return { "ly.img.image": ["ly.img.image"], "ly.img.video": ["ly.img.video"], "ly.img.audio": ["ly.img.audio"], "ly.img.templates": ["ly.img.templates"] }[e2] || [];
-    }
-    initialize(_0) {
-      return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
-        const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
-        if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = ["ly.img.audio", "ly.img.video", "ly.img.image", "ly.img.templates"], n = this.config.include ? this.filterAssetSources(o, this.config.include) : o;
-        for (const s2 of n) if (!i.has(s2)) {
-          const t2 = `${r}${s2}/content.json`, i2 = this.config.include ? this.filterMatchersForSource(s2, this.config.include) : void 0;
-          yield e2.asset.addLocalAssetSourceFromJSONURI(t2, { matcher: i2 }), this.addedAssetSourceIds.push(s2);
-        }
-        if (s) {
-          s.onReset((() => this.cleanup({ engine: e2, cesdk: s })));
-          for (const e3 of this.addedAssetSourceIds) {
-            const t2 = this.getAssetLibraryEntries(e3);
-            for (const r2 of t2) s.ui.updateAssetLibraryEntry(r2, { sourceIds: ({ currentIds: s2 }) => [.../* @__PURE__ */ new Set([...s2, e3])] });
-          }
-        }
-      });
-    }
-    cleanup({ engine: e2, cesdk: s }) {
-      for (const t of this.addedAssetSourceIds) {
-        if (s) {
-          const e3 = this.getAssetLibraryEntries(t);
-          for (const r of e3) s.ui.updateAssetLibraryEntry(r, { sourceIds: ({ currentIds: e4 }) => e4.filter(((e5) => e5 !== t)) });
-        }
-        try {
-          e2.asset.removeSource(t);
-        } catch (e3) {
-          console.warn("Unable to remove source with id: ", t);
-        }
-      }
-      this.addedAssetSourceIds = [];
-    }
-  };
   var p = class {
     constructor(e2 = {}) {
       __publicField(this, "name", "cesdk-effects-asset-source");
@@ -429,66 +374,6 @@ var __pluginInit = (() => {
         }
       }
       this.addedAssetSourceIds = [];
-    }
-  };
-  var S = "ly.img.templates.premium";
-  var L = class {
-    constructor(e2 = {}) {
-      __publicField(this, "name", "cesdk-premium-asset-sources");
-      __publicField(this, "version", cesdk_js_default.version);
-      __publicField(this, "sourceAdded", false);
-      this.config = e2;
-    }
-    globToRegex(e2) {
-      const s = e2.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".");
-      return new RegExp(`^${s}$`, "i");
-    }
-    filterMatchersForSource(e2) {
-      return e2.filter(((e3) => {
-        if (e3 === S || e3.startsWith(`${S}.`)) return true;
-        return this.globToRegex(e3).test(S);
-      }));
-    }
-    getAssetLibraryEntries() {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[S]) {
-        const e2 = this.config.assetLibraryEntries[S];
-        return Array.isArray(e2) ? e2 : [e2];
-      }
-      return ["ly.img.templates"];
-    }
-    initialize(_0) {
-      return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
-        const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
-        if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/");
-        if (!new Set(e2.asset.findAllSources()).has(S)) {
-          e2.asset.addLocalSource(S, void 0, ((s3) => __async(this, null, function* () {
-            var _a, _b;
-            if ((_a = s3.meta) == null ? void 0 : _a.uri) return yield e2.scene.loadFromArchiveURL(s3.meta.uri), (_b = e2.scene.get()) != null ? _b : void 0;
-          })));
-          const s2 = `${r}${S}/content.json`, t2 = this.config.include ? this.filterMatchersForSource(this.config.include) : void 0;
-          yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: t2 }), this.sourceAdded = true;
-        }
-        if (s && (s.onReset((() => this.cleanup({ engine: e2, cesdk: s }))), this.sourceAdded)) {
-          const e3 = this.getAssetLibraryEntries();
-          for (const t2 of e3) s.ui.updateAssetLibraryEntry(t2, { sourceIds: ({ currentIds: e4 }) => [.../* @__PURE__ */ new Set([...e4, S])] });
-        }
-      });
-    }
-    cleanup({ engine: e2, cesdk: s }) {
-      if (this.sourceAdded) {
-        if (s) {
-          const e3 = this.getAssetLibraryEntries();
-          for (const t of e3) s.ui.updateAssetLibraryEntry(t, { sourceIds: ({ currentIds: e4 }) => e4.filter(((e5) => e5 !== S)) });
-        }
-        try {
-          e2.asset.removeSource(S);
-        } catch (e3) {
-          console.warn("Unable to remove source with id: ", S);
-        }
-        this.sourceAdded = false;
-      }
     }
   };
   var E = class {
@@ -2907,10 +2792,17 @@ var __pluginInit = (() => {
       },
       {
         id: "ly.img.assetLibrary.dock",
+        key: "ly.img.sticker",
+        icon: "@imgly/Sticker",
+        label: "libraries.ly.img.sticker.label",
+        entries: ["ly.img.sticker"]
+      },
+      {
+        id: "ly.img.assetLibrary.dock",
         key: "ly.img.image",
         icon: "@imgly/Image",
         label: "libraries.ly.img.image.label",
-        entries: ["ly.img.image", "ly.img.image.upload"]
+        entries: ["ly.img.image.upload"]
       }
     ]);
   }
@@ -3227,8 +3119,8 @@ var __pluginInit = (() => {
   };
 
   // plugins/imgly/imgly-view/src/init-design-editor.ts
-  function initDesignEditor(cesdk) {
-    return __async(this, null, function* () {
+  function initDesignEditor(_0, _1) {
+    return __async(this, arguments, function* (cesdk, { contentBaseURL }) {
       yield cesdk.addPlugin(new DesignEditorConfig());
       yield cesdk.addPlugin(new e());
       yield cesdk.addPlugin(new d());
@@ -3238,29 +3130,17 @@ var __pluginInit = (() => {
           include: ["ly.img.image.upload"]
         })
       );
-      yield cesdk.addPlugin(
-        new h({
-          include: [
-            "ly.img.templates.blank.*",
-            "ly.img.templates.presentation.*",
-            "ly.img.templates.print.*",
-            "ly.img.templates.social.*",
-            "ly.img.image.*"
-          ]
-        })
-      );
       yield cesdk.addPlugin(new p());
       yield cesdk.addPlugin(new b());
-      yield cesdk.addPlugin(new E());
+      yield cesdk.addPlugin(
+        new E({
+          baseURL: contentBaseURL
+        })
+      );
       yield cesdk.addPlugin(new v());
       yield cesdk.addPlugin(new U());
       yield cesdk.addPlugin(new C());
       yield cesdk.addPlugin(new j());
-      yield cesdk.addPlugin(
-        new L({
-          include: ["ly.img.templates.premium.*"]
-        })
-      );
     });
   }
 
@@ -4414,9 +4294,9 @@ var __pluginInit = (() => {
       }
     } else {
       const w = parseFloat(svg.getAttribute("width") || "");
-      const h2 = parseFloat(svg.getAttribute("height") || "");
+      const h = parseFloat(svg.getAttribute("height") || "");
       if (w > 0) width = w;
-      if (h2 > 0) height = h2;
+      if (h > 0) height = h;
     }
     const paths = Array.from(svg.querySelectorAll("path")).map((node) => {
       const d2 = node.getAttribute("d");
@@ -4717,13 +4597,14 @@ var __pluginInit = (() => {
       container.style.position = "relative";
       host.appendChild(container);
       const license = "";
-      const baseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${cesdk_js_default.version}/assets/`;
+      const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${cesdk_js_default.version}/assets/`;
+      const contentBaseURL = getCesdkContentBaseURL();
       const pendingProps = instance.data._pendingProperties;
       const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
       try {
         const cesdk = yield cesdk_js_default.create(container, {
           license,
-          baseURL
+          baseURL: engineBaseURL
         });
         instance.data.cesdk = cesdk;
         instance.data.engine = cesdk.engine;
@@ -4737,10 +4618,9 @@ var __pluginInit = (() => {
         instance.data._suppressCanvasJsonPublish = true;
         instance.data._hydratedFromInitialJsonProperty = false;
         instance.data.bookmarksList = [];
-        instance.publishState("new_color", "");
         instance.publishState("contribution_id", "");
         instance.publishState("pdf_url", "");
-        yield initDesignEditor(cesdk);
+        yield initDesignEditor(cesdk, { contentBaseURL });
         ensureFrenchLocale(cesdk);
         instance.data.pageIds = yield createBookletScene(cesdk, cesdk.engine, sheetCount);
         yield fitSceneInView(cesdk);
