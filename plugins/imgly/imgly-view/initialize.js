@@ -66,6 +66,16 @@ var __pluginInit = (() => {
   };
 
   // plugins/imgly/imgly-view/src/booklet-layout.js
+  function getSafetyMarginsForPageNumber(pageNumber) {
+    const m = SAFETY_MARGIN_MM;
+    const isEven = pageNumber % 2 === 0;
+    return {
+      top: m,
+      bottom: m,
+      left: isEven ? m : 0,
+      right: isEven ? 0 : m
+    };
+  }
   function clampSheetCount(value) {
     const n = Number.parseInt(String(value != null ? value : ""), 10);
     if (!Number.isFinite(n) || n < 1) return 1;
@@ -124,7 +134,7 @@ var __pluginInit = (() => {
     });
     return layout;
   }
-  var HALF_A4_WIDTH_MM, PAGE_HEIGHT_MM, BOOKLET_ROW_GAP_MM, MAX_SHEET_COUNT, BOOKLET_SCENE_LAYOUT, ROW_STEP_MM;
+  var HALF_A4_WIDTH_MM, PAGE_HEIGHT_MM, BOOKLET_ROW_GAP_MM, MAX_SHEET_COUNT, BOOKLET_SCENE_LAYOUT, SAFETY_MARGIN_MM, ROW_STEP_MM;
   var init_booklet_layout = __esm({
     "plugins/imgly/imgly-view/src/booklet-layout.js"() {
       HALF_A4_WIDTH_MM = 148.5;
@@ -132,7 +142,123 @@ var __pluginInit = (() => {
       BOOKLET_ROW_GAP_MM = 28;
       MAX_SHEET_COUNT = 20;
       BOOKLET_SCENE_LAYOUT = "Free";
+      SAFETY_MARGIN_MM = 5;
       ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/safety-margins.js
+  function isSafetyMarginGuideBlock(engine, blockId) {
+    if (!(engine == null ? void 0 : engine.block) || blockId == null) return false;
+    try {
+      const value = engine.block.getMetadata(blockId, SAFETY_MARGIN_GUIDE_METADATA_KEY);
+      return typeof value === "string" && value.length > 0;
+    } catch (e2) {
+      return false;
+    }
+  }
+  function disableNativePageMargins(engine, pageId) {
+    try {
+      engine.block.setBool(pageId, "page/marginEnabled", false);
+    } catch (e2) {
+    }
+  }
+  function removeSafetyMarginGuidesFromPage(engine, pageId) {
+    if (!(engine == null ? void 0 : engine.block) || pageId == null) return;
+    let children = [];
+    try {
+      children = engine.block.getChildren(pageId) || [];
+    } catch (e2) {
+      return;
+    }
+    for (const childId of children) {
+      if (!isSafetyMarginGuideBlock(engine, childId)) continue;
+      try {
+        engine.block.destroy(childId);
+      } catch (e2) {
+      }
+    }
+  }
+  function createGuideStrip(engine, pageId, spec) {
+    const block = engine.block.create("graphic");
+    const shape = engine.block.createShape("rect");
+    engine.block.setShape(block, shape);
+    const fill = engine.block.createFill("color");
+    engine.block.setColor(fill, "fill/color/value", GUIDE_FILL);
+    engine.block.setFill(block, fill);
+    engine.block.setWidthMode(block, "Absolute");
+    engine.block.setHeightMode(block, "Absolute");
+    engine.block.setPositionXMode(block, "Absolute");
+    engine.block.setPositionYMode(block, "Absolute");
+    engine.block.setWidth(block, spec.width);
+    engine.block.setHeight(block, spec.height);
+    engine.block.setPositionX(block, spec.x);
+    engine.block.setPositionY(block, spec.y);
+    engine.block.appendChild(pageId, block);
+    engine.block.setBool(block, "alwaysOnBottom", true);
+    engine.block.setBool(block, "selectionEnabled", false);
+    engine.block.setBool(block, "transformLocked", true);
+    engine.block.setIncludedInExport(block, false);
+    engine.block.setMetadata(block, SAFETY_MARGIN_GUIDE_METADATA_KEY, spec.side);
+  }
+  function applyInnerSafetyMarginGuides(engine, pageId, pageNumber) {
+    if (!(engine == null ? void 0 : engine.block) || pageId == null) return;
+    disableNativePageMargins(engine, pageId);
+    removeSafetyMarginGuidesFromPage(engine, pageId);
+    const pageW = engine.block.getWidth(pageId) || HALF_A4_WIDTH_MM;
+    const pageH = engine.block.getHeight(pageId) || PAGE_HEIGHT_MM;
+    const margins = getSafetyMarginsForPageNumber(pageNumber);
+    if (margins.top > 0) {
+      createGuideStrip(engine, pageId, {
+        side: "top",
+        x: 0,
+        y: 0,
+        width: pageW,
+        height: margins.top
+      });
+    }
+    if (margins.bottom > 0) {
+      createGuideStrip(engine, pageId, {
+        side: "bottom",
+        x: 0,
+        y: pageH - margins.bottom,
+        width: pageW,
+        height: margins.bottom
+      });
+    }
+    if (margins.left > 0) {
+      createGuideStrip(engine, pageId, {
+        side: "left",
+        x: 0,
+        y: 0,
+        width: margins.left,
+        height: pageH
+      });
+    }
+    if (margins.right > 0) {
+      createGuideStrip(engine, pageId, {
+        side: "right",
+        x: pageW - margins.right,
+        y: 0,
+        width: margins.right,
+        height: pageH
+      });
+    }
+  }
+  function syncInnerSafetyMarginGuides(engine, layout) {
+    if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
+    const pageIds = engine.block.findByType("page") || [];
+    if (pageIds.length !== layout.length) return;
+    pageIds.forEach((pageId, index) => {
+      applyInnerSafetyMarginGuides(engine, pageId, index + 1);
+    });
+  }
+  var SAFETY_MARGIN_GUIDE_METADATA_KEY, GUIDE_FILL;
+  var init_safety_margins = __esm({
+    "plugins/imgly/imgly-view/src/safety-margins.js"() {
+      init_booklet_layout();
+      SAFETY_MARGIN_GUIDE_METADATA_KEY = "imgly.safetyMarginGuide";
+      GUIDE_FILL = { r: 0.45, g: 0.45, b: 0.45, a: 0.14 };
     }
   });
 
@@ -152,6 +278,7 @@ var __pluginInit = (() => {
     if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findAll !== "function") return;
     for (const blockId of engine.block.findAll()) {
       try {
+        if (isSafetyMarginGuideBlock(engine, blockId)) continue;
         if (typeof engine.block.isIncludedInExport === "function" && engine.block.isIncludedInExport(blockId)) {
           continue;
         }
@@ -264,6 +391,7 @@ var __pluginInit = (() => {
   var TRANSPARENT_COLOR;
   var init_export_lock = __esm({
     "plugins/imgly/imgly-view/src/export-lock.js"() {
+      init_safety_margins();
       TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
     }
   });
@@ -1276,6 +1404,7 @@ var __pluginInit = (() => {
         }
       }
     });
+    syncInnerSafetyMarginGuides(engine, layout);
   }
   function getPageIds(engine) {
     if (!engine || !engine.block || typeof engine.block.findByType !== "function") return [];
@@ -1471,6 +1600,7 @@ var __pluginInit = (() => {
     "plugins/imgly/imgly-view/src/scene.js"() {
       init_booklet_layout();
       init_export_lock();
+      init_safety_margins();
     }
   });
 

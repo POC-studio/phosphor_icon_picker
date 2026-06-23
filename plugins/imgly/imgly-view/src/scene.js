@@ -9,6 +9,7 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
+import { syncInnerSafetyMarginGuides } from './safety-margins.js';
 
 function applyBookletPagePositions(engine, layout) {
   if (!engine?.block || !Array.isArray(layout) || layout.length === 0) return;
@@ -56,6 +57,8 @@ function ensureBookletGuides(engine, layout) {
       }
     }
   });
+
+  syncInnerSafetyMarginGuides(engine, layout);
 }
 
 export function getPageIds(engine) {

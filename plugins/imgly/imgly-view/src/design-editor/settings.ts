@@ -376,22 +376,6 @@ export function setupSettings(engine: CreativeEngine): void {
   //   a: 1.0
   // });
 
-  // Color filled into bleed margins of pages
-  // engine.editor.setSetting('page/marginFillColor', {
-  //   r: 0.79,
-  //   g: 0.12,
-  //   b: 0.4,
-  //   a: 0.1
-  // });
-
-  // Color of the frame around bleed margin area
-  // engine.editor.setSetting('page/marginFrameColor', {
-  //   r: 0.79,
-  //   g: 0.12,
-  //   b: 0.4,
-  //   a: 0.15
-  // });
-
   // Inner border color around pages — transparent (pas de cadre visible)
   engine.editor.setSetting('page/innerBorderColor', {
     r: 0,

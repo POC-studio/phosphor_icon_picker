@@ -21,7 +21,27 @@ export const MAX_SHEET_COUNT = 20;
 
 export const BOOKLET_SCENE_LAYOUT = 'Free';
 
+/** Marge de sécurité impression (mm) — bord extérieur alterné selon parité de page. */
+export const SAFETY_MARGIN_MM = 5;
+
 const ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
+
+/**
+ * Marges de sécurité pour une demi-page du livret (numéro 1-indexé).
+ * Haut/bas toujours ; gauche si paire, droite si impaire (bord extérieur à l'imposition).
+ * @param {number} pageNumber
+ * @returns {{ top: number, bottom: number, left: number, right: number }}
+ */
+export function getSafetyMarginsForPageNumber(pageNumber) {
+  const m = SAFETY_MARGIN_MM;
+  const isEven = pageNumber % 2 === 0;
+  return {
+    top: m,
+    bottom: m,
+    left: isEven ? m : 0,
+    right: isEven ? 0 : m,
+  };
+}
 
 export function clampSheetCount(value) {
   const n = Number.parseInt(String(value ?? ''), 10);

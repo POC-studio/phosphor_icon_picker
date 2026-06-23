@@ -1,3 +1,5 @@
+import { isSafetyMarginGuideBlock } from './safety-margins.js';
+
 const TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
 
 /**
@@ -27,6 +29,7 @@ export function ensureAllBlocksIncludedInExport(engine) {
 
   for (const blockId of engine.block.findAll()) {
     try {
+      if (isSafetyMarginGuideBlock(engine, blockId)) continue;
       if (
         typeof engine.block.isIncludedInExport === 'function'
         && engine.block.isIncludedInExport(blockId)
