@@ -1,3 +1,4 @@
+import { zipSync } from 'fflate';
 import { uploadBlob } from './bubble-upload.js';
 import { PAGE_PREVIEWS_COOLDOWN_MS, PAGE_PREVIEWS_DEBOUNCE_MS, SCENE_PUBLISH_DEBOUNCE_MS } from './constants.js';
 import {
@@ -6,7 +7,7 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
-import { buildFoldedA4Pdf } from './pdf-imposition.js';
+import { buildFoldedA4Pdf, buildSequentialPdf } from './pdf-imposition.js';
 import { getPageIds } from './scene.js';
 
 function sanitizeFileBase(title) {
@@ -84,15 +85,42 @@ export function schedulePagePreviews(instance) {
   }, delay);
 }
 
+function resolveExportPageIds(instance) {
+  const engine = instance.data.engine;
+  if (!engine?.block) return [];
+  let pageIds = getPageIds(engine);
+  if (!pageIds.length) {
+    pageIds = instance.data.pageIds || [];
+  }
+  return pageIds;
+}
+
+async function exportAllPagePreviewPngs(engine, pageIds, base) {
+  ensureAllBlocksIncludedInExport(engine);
+  hideAllPageCanvasBorders(engine);
+
+  const exports = [];
+  for (let index = 0; index < pageIds.length; index += 1) {
+    try {
+      const blob = await engine.block.export(pageIds[index], {
+        mimeType: 'image/png',
+        targetWidth: 500,
+      });
+      const safeName = `${base}-preview-${String(index + 1).padStart(2, '0')}.png`.replace(/[^\w.-]/g, '_');
+      exports.push({ name: safeName, blob });
+    } catch (err) {
+      console.error('IMG.LY View: page preview export failed', err);
+    }
+  }
+  return exports;
+}
+
 export function createPagePreviews(instance) {
   const engine = instance.data.engine;
   const context = instance.data.bubbleContext || null;
   if (!engine || !engine.block) return Promise.resolve([]);
 
-  let pageIds = getPageIds(engine);
-  if (!pageIds.length) {
-    pageIds = instance.data.pageIds || [];
-  }
+  const pageIds = resolveExportPageIds(instance);
   if (!pageIds.length) return Promise.resolve([]);
 
   const base = sanitizeFileBase(instance.data.documentTitle);
@@ -100,18 +128,13 @@ export function createPagePreviews(instance) {
   instance.data._pagePreviewsRunId = runId;
   instance.data._lastPagePreviewsAt = Date.now();
 
-  const exportOne = (pageId, index) => engine.block.export(pageId, {
-    mimeType: 'image/png',
-    targetWidth: 500,
-  }).then((blob) => {
-    const safeName = (base + '-preview-' + (index + 1) + '.png').replace(/[^\w.-]/g, '_');
-    return uploadBlob(context, safeName, blob);
-  }).catch((err) => {
-    console.error('IMG.LY View: page preview export failed', err);
-    return '';
-  });
-
-  return Promise.all(pageIds.map(exportOne)).then((uploaded) => {
+  return exportAllPagePreviewPngs(engine, pageIds, base).then((items) => {
+    const exportOne = (item) => uploadBlob(context, item.name, item.blob).catch((err) => {
+      console.error('IMG.LY View: page preview upload failed', err);
+      return '';
+    });
+    return Promise.all(items.map(exportOne));
+  }).then((uploaded) => {
     if (instance.data._pagePreviewsRunId !== runId) return uploaded;
     instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || '';
     const urls = uploaded.filter((u) => typeof u === 'string' && u.length > 0);
@@ -158,8 +181,37 @@ export async function triggerSaveDocument(instance) {
   }
 }
 
+export async function triggerPreviewsZipDownload(instance) {
+  const engine = instance.data.engine;
+  if (!engine?.block) return '';
+
+  const pageIds = resolveExportPageIds(instance);
+  if (!pageIds.length) return '';
+
+  const base = sanitizeFileBase(instance.data.documentTitle);
+  const safeZipName = `${base}-previews.zip`.replace(/[^\w.-]/g, '_') || 'previews.zip';
+
+  try {
+    const items = await exportAllPagePreviewPngs(engine, pageIds, base);
+    if (!items.length) return '';
+
+    const zipEntries = {};
+    for (const item of items) {
+      zipEntries[item.name] = new Uint8Array(await item.blob.arrayBuffer());
+    }
+
+    const zipped = zipSync(zipEntries);
+    downloadBlob(new Blob([zipped], { type: 'application/zip' }), safeZipName);
+    return 'downloaded';
+  } catch (err) {
+    console.error('IMG.LY View: previews ZIP export failed', err);
+    return '';
+  }
+}
+
 export async function triggerPdfExport(instance, options) {
   const download = !options || options.download !== false;
+  const mode = options?.mode === 'sequential' ? 'sequential' : 'imposed';
   const engine = instance.data.engine;
   const context = instance.data.bubbleContext || null;
   if (!engine?.block) return '';
@@ -170,7 +222,7 @@ export async function triggerPdfExport(instance, options) {
   }
   if (!pageIds.length) return '';
 
-  if (pageIds.length % 4 !== 0) {
+  if (mode === 'imposed' && pageIds.length % 4 !== 0) {
     console.error('IMG.LY View: PDF export aborted — page count must be a multiple of 4:', pageIds.length);
     return '';
   }
@@ -188,15 +240,17 @@ export async function triggerPdfExport(instance, options) {
   }
 
   const base = sanitizeFileBase(instance.data.documentTitle);
-  const safePdfName = (base + '.pdf').replace(/[^\w.-]/g, '_') || 'document.pdf';
+  const safePdfName = (base + (mode === 'sequential' ? '.pdf' : '-impression.pdf')).replace(/[^\w.-]/g, '_') || 'document.pdf';
 
   try {
-    const blob = await buildFoldedA4Pdf(engine, pageIds);
+    const blob = mode === 'sequential'
+      ? await buildSequentialPdf(engine, pageIds)
+      : await buildFoldedA4Pdf(engine, pageIds);
     const url = await uploadBlob(context, safePdfName, blob);
-    if (typeof url === 'string' && url.length > 0) {
+    if (mode === 'imposed' && typeof url === 'string' && url.length > 0) {
       instance.publishState('pdf_url', url);
       instance.triggerEvent('pdf_ready');
-    } else if (blob && blob.size > 0) {
+    } else if (mode === 'imposed' && blob && blob.size > 0) {
       console.warn('IMG.LY View: PDF uploadé dans Bubble mais URL non reçue — pdf_ready non déclenché');
     }
     if (download) {

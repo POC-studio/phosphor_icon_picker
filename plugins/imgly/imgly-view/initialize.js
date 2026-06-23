@@ -22,12 +22,12 @@ var __pluginInit = (() => {
     return a;
   };
   var __spreadProps = (a, b2) => __defProps(a, __getOwnPropDescs(b2));
-  var __esm = (fn, res, err) => function __init() {
-    if (err) throw err[0];
+  var __esm = (fn, res, err2) => function __init() {
+    if (err2) throw err2[0];
     try {
       return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
     } catch (e2) {
-      throw err = [e2], e2;
+      throw err2 = [e2], e2;
     }
   };
   var __export = (target, all) => {
@@ -60,7 +60,7 @@ var __pluginInit = (() => {
           reject(e2);
         }
       };
-      var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+      var step = (x2) => x2.done ? resolve(x2.value) : Promise.resolve(x2.value).then(fulfilled, rejected);
       step((generator = generator.apply(__this, __arguments)).next());
     });
   };
@@ -223,9 +223,9 @@ var __pluginInit = (() => {
     });
   }
   function hideAllPageCanvasBorders(engine) {
-    var _a;
+    var _a2;
     if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
-    if ((_a = engine.editor) == null ? void 0 : _a.setSetting) {
+    if ((_a2 = engine.editor) == null ? void 0 : _a2.setSetting) {
       try {
         engine.editor.setSetting("page/innerBorderColor", TRANSPARENT_COLOR);
         engine.editor.setSetting("page/outerBorderColor", TRANSPARENT_COLOR);
@@ -272,9 +272,714 @@ var __pluginInit = (() => {
     }
   });
 
+  // node_modules/fflate/esm/browser.js
+  function deflateSync(data, opts) {
+    return dopt(data, opts || {}, 0, 0);
+  }
+  function strToU8(str, latin1) {
+    if (latin1) {
+      var ar_1 = new u8(str.length);
+      for (var i2 = 0; i2 < str.length; ++i2)
+        ar_1[i2] = str.charCodeAt(i2);
+      return ar_1;
+    }
+    if (te)
+      return te.encode(str);
+    var l = str.length;
+    var ar = new u8(str.length + (str.length >> 1));
+    var ai = 0;
+    var w = function(v2) {
+      ar[ai++] = v2;
+    };
+    for (var i2 = 0; i2 < l; ++i2) {
+      if (ai + 5 > ar.length) {
+        var n = new u8(ai + 8 + (l - i2 << 1));
+        n.set(ar);
+        ar = n;
+      }
+      var c = str.charCodeAt(i2);
+      if (c < 128 || latin1)
+        w(c);
+      else if (c < 2048)
+        w(192 | c >> 6), w(128 | c & 63);
+      else if (c > 55295 && c < 57344)
+        c = 65536 + (c & 1023 << 10) | str.charCodeAt(++i2) & 1023, w(240 | c >> 18), w(128 | c >> 12 & 63), w(128 | c >> 6 & 63), w(128 | c & 63);
+      else
+        w(224 | c >> 12), w(128 | c >> 6 & 63), w(128 | c & 63);
+    }
+    return slc(ar, 0, ai);
+  }
+  function zipSync(data, opts) {
+    if (!opts)
+      opts = {};
+    var r = {};
+    var files = [];
+    fltn(data, "", r, opts);
+    var o = 0;
+    var tot = 0;
+    for (var fn in r) {
+      var _a2 = r[fn], file = _a2[0], p2 = _a2[1];
+      var compression = p2.level == 0 ? 0 : 8;
+      var f = strToU8(fn), s = f.length;
+      var com = p2.comment, m = com && strToU8(com), ms = m && m.length;
+      var exl = exfl(p2.extra);
+      if (s > 65535)
+        err(11);
+      var d2 = compression ? deflateSync(file, p2) : file, l = d2.length;
+      var c = crc();
+      c.p(file);
+      files.push(mrg(p2, {
+        size: file.length,
+        crc: c.d(),
+        c: d2,
+        f,
+        m,
+        u: s != fn.length || m && com.length != ms,
+        o,
+        compression
+      }));
+      o += 30 + s + exl + l;
+      tot += 76 + 2 * (s + exl) + (ms || 0) + l;
+    }
+    var out = new u8(tot + 22), oe = o, cdl = tot - o;
+    for (var i2 = 0; i2 < files.length; ++i2) {
+      var f = files[i2];
+      wzh(out, f.o, f, f.f, f.u, f.c.length);
+      var badd = 30 + f.f.length + exfl(f.extra);
+      out.set(f.c, f.o + badd);
+      wzh(out, o, f, f.f, f.u, f.c.length, f.o, f.m), o += 16 + badd + (f.m ? f.m.length : 0);
+    }
+    wzf(out, o, files.length, cdl, oe);
+    return out;
+  }
+  var u8, u16, i32, fleb, fdeb, clim, freb, _a, fl, revfl, _b, fd, revfd, rev, x, i, hMap, flt, i, i, i, i, fdt, i, flm, fdm, shft, slc, ec, err, wbits, wbits16, hTree, ln, lc, clen, wfblk, wblk, deo, et, dflt, crct, crc, dopt, mrg, wbytes, fltn, te, td, tds, exfl, wzh, wzf;
+  var init_browser = __esm({
+    "node_modules/fflate/esm/browser.js"() {
+      u8 = Uint8Array;
+      u16 = Uint16Array;
+      i32 = Int32Array;
+      fleb = new u8([
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        0,
+        /* unused */
+        0,
+        0,
+        /* impossible */
+        0
+      ]);
+      fdeb = new u8([
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+        3,
+        3,
+        4,
+        4,
+        5,
+        5,
+        6,
+        6,
+        7,
+        7,
+        8,
+        8,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        /* unused */
+        0,
+        0
+      ]);
+      clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+      freb = function(eb, start) {
+        var b2 = new u16(31);
+        for (var i2 = 0; i2 < 31; ++i2) {
+          b2[i2] = start += 1 << eb[i2 - 1];
+        }
+        var r = new i32(b2[30]);
+        for (var i2 = 1; i2 < 30; ++i2) {
+          for (var j2 = b2[i2]; j2 < b2[i2 + 1]; ++j2) {
+            r[j2] = j2 - b2[i2] << 5 | i2;
+          }
+        }
+        return { b: b2, r };
+      };
+      _a = freb(fleb, 2);
+      fl = _a.b;
+      revfl = _a.r;
+      fl[28] = 258, revfl[258] = 28;
+      _b = freb(fdeb, 0);
+      fd = _b.b;
+      revfd = _b.r;
+      rev = new u16(32768);
+      for (i = 0; i < 32768; ++i) {
+        x = (i & 43690) >> 1 | (i & 21845) << 1;
+        x = (x & 52428) >> 2 | (x & 13107) << 2;
+        x = (x & 61680) >> 4 | (x & 3855) << 4;
+        rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+      }
+      hMap = (function(cd, mb, r) {
+        var s = cd.length;
+        var i2 = 0;
+        var l = new u16(mb);
+        for (; i2 < s; ++i2) {
+          if (cd[i2])
+            ++l[cd[i2] - 1];
+        }
+        var le = new u16(mb);
+        for (i2 = 1; i2 < mb; ++i2) {
+          le[i2] = le[i2 - 1] + l[i2 - 1] << 1;
+        }
+        var co;
+        if (r) {
+          co = new u16(1 << mb);
+          var rvb = 15 - mb;
+          for (i2 = 0; i2 < s; ++i2) {
+            if (cd[i2]) {
+              var sv = i2 << 4 | cd[i2];
+              var r_1 = mb - cd[i2];
+              var v2 = le[cd[i2] - 1]++ << r_1;
+              for (var m = v2 | (1 << r_1) - 1; v2 <= m; ++v2) {
+                co[rev[v2] >> rvb] = sv;
+              }
+            }
+          }
+        } else {
+          co = new u16(s);
+          for (i2 = 0; i2 < s; ++i2) {
+            if (cd[i2]) {
+              co[i2] = rev[le[cd[i2] - 1]++] >> 15 - cd[i2];
+            }
+          }
+        }
+        return co;
+      });
+      flt = new u8(288);
+      for (i = 0; i < 144; ++i)
+        flt[i] = 8;
+      for (i = 144; i < 256; ++i)
+        flt[i] = 9;
+      for (i = 256; i < 280; ++i)
+        flt[i] = 7;
+      for (i = 280; i < 288; ++i)
+        flt[i] = 8;
+      fdt = new u8(32);
+      for (i = 0; i < 32; ++i)
+        fdt[i] = 5;
+      flm = /* @__PURE__ */ hMap(flt, 9, 0);
+      fdm = /* @__PURE__ */ hMap(fdt, 5, 0);
+      shft = function(p2) {
+        return (p2 + 7) / 8 | 0;
+      };
+      slc = function(v2, s, e2) {
+        if (s == null || s < 0)
+          s = 0;
+        if (e2 == null || e2 > v2.length)
+          e2 = v2.length;
+        return new u8(v2.subarray(s, e2));
+      };
+      ec = [
+        "unexpected EOF",
+        "invalid block type",
+        "invalid length/literal",
+        "invalid distance",
+        "stream finished",
+        "no stream handler",
+        ,
+        // determined by compression function
+        "no callback",
+        "invalid UTF-8 data",
+        "extra field too long",
+        "date not in range 1980-2099",
+        "filename too long",
+        "stream finishing",
+        "invalid zip data"
+        // determined by unknown compression method
+      ];
+      err = function(ind, msg, nt) {
+        var e2 = new Error(msg || ec[ind]);
+        e2.code = ind;
+        if (Error.captureStackTrace)
+          Error.captureStackTrace(e2, err);
+        if (!nt)
+          throw e2;
+        return e2;
+      };
+      wbits = function(d2, p2, v2) {
+        v2 <<= p2 & 7;
+        var o = p2 / 8 | 0;
+        d2[o] |= v2;
+        d2[o + 1] |= v2 >> 8;
+      };
+      wbits16 = function(d2, p2, v2) {
+        v2 <<= p2 & 7;
+        var o = p2 / 8 | 0;
+        d2[o] |= v2;
+        d2[o + 1] |= v2 >> 8;
+        d2[o + 2] |= v2 >> 16;
+      };
+      hTree = function(d2, mb) {
+        var t = [];
+        for (var i2 = 0; i2 < d2.length; ++i2) {
+          if (d2[i2])
+            t.push({ s: i2, f: d2[i2] });
+        }
+        var s = t.length;
+        var t2 = t.slice();
+        if (!s)
+          return { t: et, l: 0 };
+        if (s == 1) {
+          var v2 = new u8(t[0].s + 1);
+          v2[t[0].s] = 1;
+          return { t: v2, l: 1 };
+        }
+        t.sort(function(a, b2) {
+          return a.f - b2.f;
+        });
+        t.push({ s: -1, f: 25001 });
+        var l = t[0], r = t[1], i0 = 0, i1 = 1, i22 = 2;
+        t[0] = { s: -1, f: l.f + r.f, l, r };
+        while (i1 != s - 1) {
+          l = t[t[i0].f < t[i22].f ? i0++ : i22++];
+          r = t[i0 != i1 && t[i0].f < t[i22].f ? i0++ : i22++];
+          t[i1++] = { s: -1, f: l.f + r.f, l, r };
+        }
+        var maxSym = t2[0].s;
+        for (var i2 = 1; i2 < s; ++i2) {
+          if (t2[i2].s > maxSym)
+            maxSym = t2[i2].s;
+        }
+        var tr = new u16(maxSym + 1);
+        var mbt = ln(t[i1 - 1], tr, 0);
+        if (mbt > mb) {
+          var i2 = 0, dt = 0;
+          var lft = mbt - mb, cst = 1 << lft;
+          t2.sort(function(a, b2) {
+            return tr[b2.s] - tr[a.s] || a.f - b2.f;
+          });
+          for (; i2 < s; ++i2) {
+            var i2_1 = t2[i2].s;
+            if (tr[i2_1] > mb) {
+              dt += cst - (1 << mbt - tr[i2_1]);
+              tr[i2_1] = mb;
+            } else
+              break;
+          }
+          dt >>= lft;
+          while (dt > 0) {
+            var i2_2 = t2[i2].s;
+            if (tr[i2_2] < mb)
+              dt -= 1 << mb - tr[i2_2]++ - 1;
+            else
+              ++i2;
+          }
+          for (; i2 >= 0 && dt; --i2) {
+            var i2_3 = t2[i2].s;
+            if (tr[i2_3] == mb) {
+              --tr[i2_3];
+              ++dt;
+            }
+          }
+          mbt = mb;
+        }
+        return { t: new u8(tr), l: mbt };
+      };
+      ln = function(n, l, d2) {
+        return n.s == -1 ? Math.max(ln(n.l, l, d2 + 1), ln(n.r, l, d2 + 1)) : l[n.s] = d2;
+      };
+      lc = function(c) {
+        var s = c.length;
+        while (s && !c[--s])
+          ;
+        var cl = new u16(++s);
+        var cli = 0, cln = c[0], cls = 1;
+        var w = function(v2) {
+          cl[cli++] = v2;
+        };
+        for (var i2 = 1; i2 <= s; ++i2) {
+          if (c[i2] == cln && i2 != s)
+            ++cls;
+          else {
+            if (!cln && cls > 2) {
+              for (; cls > 138; cls -= 138)
+                w(32754);
+              if (cls > 2) {
+                w(cls > 10 ? cls - 11 << 5 | 28690 : cls - 3 << 5 | 12305);
+                cls = 0;
+              }
+            } else if (cls > 3) {
+              w(cln), --cls;
+              for (; cls > 6; cls -= 6)
+                w(8304);
+              if (cls > 2)
+                w(cls - 3 << 5 | 8208), cls = 0;
+            }
+            while (cls--)
+              w(cln);
+            cls = 1;
+            cln = c[i2];
+          }
+        }
+        return { c: cl.subarray(0, cli), n: s };
+      };
+      clen = function(cf, cl) {
+        var l = 0;
+        for (var i2 = 0; i2 < cl.length; ++i2)
+          l += cf[i2] * cl[i2];
+        return l;
+      };
+      wfblk = function(out, pos, dat) {
+        var s = dat.length;
+        var o = shft(pos + 2);
+        out[o] = s & 255;
+        out[o + 1] = s >> 8;
+        out[o + 2] = out[o] ^ 255;
+        out[o + 3] = out[o + 1] ^ 255;
+        for (var i2 = 0; i2 < s; ++i2)
+          out[o + i2 + 4] = dat[i2];
+        return (o + 4 + s) * 8;
+      };
+      wblk = function(dat, out, final, syms, lf, df, eb, li, bs, bl, p2) {
+        wbits(out, p2++, final);
+        ++lf[256];
+        var _a2 = hTree(lf, 15), dlt = _a2.t, mlb = _a2.l;
+        var _b2 = hTree(df, 15), ddt = _b2.t, mdb = _b2.l;
+        var _c = lc(dlt), lclt = _c.c, nlc = _c.n;
+        var _d = lc(ddt), lcdt = _d.c, ndc = _d.n;
+        var lcfreq = new u16(19);
+        for (var i2 = 0; i2 < lclt.length; ++i2)
+          ++lcfreq[lclt[i2] & 31];
+        for (var i2 = 0; i2 < lcdt.length; ++i2)
+          ++lcfreq[lcdt[i2] & 31];
+        var _e = hTree(lcfreq, 7), lct = _e.t, mlcb = _e.l;
+        var nlcc = 19;
+        for (; nlcc > 4 && !lct[clim[nlcc - 1]]; --nlcc)
+          ;
+        var flen = bl + 5 << 3;
+        var ftlen = clen(lf, flt) + clen(df, fdt) + eb;
+        var dtlen = clen(lf, dlt) + clen(df, ddt) + eb + 14 + 3 * nlcc + clen(lcfreq, lct) + 2 * lcfreq[16] + 3 * lcfreq[17] + 7 * lcfreq[18];
+        if (bs >= 0 && flen <= ftlen && flen <= dtlen)
+          return wfblk(out, p2, dat.subarray(bs, bs + bl));
+        var lm, ll, dm, dl;
+        wbits(out, p2, 1 + (dtlen < ftlen)), p2 += 2;
+        if (dtlen < ftlen) {
+          lm = hMap(dlt, mlb, 0), ll = dlt, dm = hMap(ddt, mdb, 0), dl = ddt;
+          var llm = hMap(lct, mlcb, 0);
+          wbits(out, p2, nlc - 257);
+          wbits(out, p2 + 5, ndc - 1);
+          wbits(out, p2 + 10, nlcc - 4);
+          p2 += 14;
+          for (var i2 = 0; i2 < nlcc; ++i2)
+            wbits(out, p2 + 3 * i2, lct[clim[i2]]);
+          p2 += 3 * nlcc;
+          var lcts = [lclt, lcdt];
+          for (var it = 0; it < 2; ++it) {
+            var clct = lcts[it];
+            for (var i2 = 0; i2 < clct.length; ++i2) {
+              var len = clct[i2] & 31;
+              wbits(out, p2, llm[len]), p2 += lct[len];
+              if (len > 15)
+                wbits(out, p2, clct[i2] >> 5 & 127), p2 += clct[i2] >> 12;
+            }
+          }
+        } else {
+          lm = flm, ll = flt, dm = fdm, dl = fdt;
+        }
+        for (var i2 = 0; i2 < li; ++i2) {
+          var sym = syms[i2];
+          if (sym > 255) {
+            var len = sym >> 18 & 31;
+            wbits16(out, p2, lm[len + 257]), p2 += ll[len + 257];
+            if (len > 7)
+              wbits(out, p2, sym >> 23 & 31), p2 += fleb[len];
+            var dst = sym & 31;
+            wbits16(out, p2, dm[dst]), p2 += dl[dst];
+            if (dst > 3)
+              wbits16(out, p2, sym >> 5 & 8191), p2 += fdeb[dst];
+          } else {
+            wbits16(out, p2, lm[sym]), p2 += ll[sym];
+          }
+        }
+        wbits16(out, p2, lm[256]);
+        return p2 + ll[256];
+      };
+      deo = /* @__PURE__ */ new i32([65540, 131080, 131088, 131104, 262176, 1048704, 1048832, 2114560, 2117632]);
+      et = /* @__PURE__ */ new u8(0);
+      dflt = function(dat, lvl, plvl, pre, post, st) {
+        var s = st.z || dat.length;
+        var o = new u8(pre + s + 5 * (1 + Math.ceil(s / 7e3)) + post);
+        var w = o.subarray(pre, o.length - post);
+        var lst = st.l;
+        var pos = (st.r || 0) & 7;
+        if (lvl) {
+          if (pos)
+            w[0] = st.r >> 3;
+          var opt = deo[lvl - 1];
+          var n = opt >> 13, c = opt & 8191;
+          var msk_1 = (1 << plvl) - 1;
+          var prev = st.p || new u16(32768), head = st.h || new u16(msk_1 + 1);
+          var bs1_1 = Math.ceil(plvl / 3), bs2_1 = 2 * bs1_1;
+          var hsh = function(i3) {
+            return (dat[i3] ^ dat[i3 + 1] << bs1_1 ^ dat[i3 + 2] << bs2_1) & msk_1;
+          };
+          var syms = new i32(25e3);
+          var lf = new u16(288), df = new u16(32);
+          var lc_1 = 0, eb = 0, i2 = st.i || 0, li = 0, wi = st.w || 0, bs = 0;
+          for (; i2 + 2 < s; ++i2) {
+            var hv = hsh(i2);
+            var imod = i2 & 32767, pimod = head[hv];
+            prev[imod] = pimod;
+            head[hv] = imod;
+            if (wi <= i2) {
+              var rem = s - i2;
+              if ((lc_1 > 7e3 || li > 24576) && (rem > 423 || !lst)) {
+                pos = wblk(dat, w, 0, syms, lf, df, eb, li, bs, i2 - bs, pos);
+                li = lc_1 = eb = 0, bs = i2;
+                for (var j2 = 0; j2 < 286; ++j2)
+                  lf[j2] = 0;
+                for (var j2 = 0; j2 < 30; ++j2)
+                  df[j2] = 0;
+              }
+              var l = 2, d2 = 0, ch_1 = c, dif = imod - pimod & 32767;
+              if (rem > 2 && hv == hsh(i2 - dif)) {
+                var maxn = Math.min(n, rem) - 1;
+                var maxd = Math.min(32767, i2);
+                var ml = Math.min(258, rem);
+                while (dif <= maxd && --ch_1 && imod != pimod) {
+                  if (dat[i2 + l] == dat[i2 + l - dif]) {
+                    var nl = 0;
+                    for (; nl < ml && dat[i2 + nl] == dat[i2 + nl - dif]; ++nl)
+                      ;
+                    if (nl > l) {
+                      l = nl, d2 = dif;
+                      if (nl > maxn)
+                        break;
+                      var mmd = Math.min(dif, nl - 2);
+                      var md = 0;
+                      for (var j2 = 0; j2 < mmd; ++j2) {
+                        var ti = i2 - dif + j2 & 32767;
+                        var pti = prev[ti];
+                        var cd = ti - pti & 32767;
+                        if (cd > md)
+                          md = cd, pimod = ti;
+                      }
+                    }
+                  }
+                  imod = pimod, pimod = prev[imod];
+                  dif += imod - pimod & 32767;
+                }
+              }
+              if (d2) {
+                syms[li++] = 268435456 | revfl[l] << 18 | revfd[d2];
+                var lin = revfl[l] & 31, din = revfd[d2] & 31;
+                eb += fleb[lin] + fdeb[din];
+                ++lf[257 + lin];
+                ++df[din];
+                wi = i2 + l;
+                ++lc_1;
+              } else {
+                syms[li++] = dat[i2];
+                ++lf[dat[i2]];
+              }
+            }
+          }
+          for (i2 = Math.max(i2, wi); i2 < s; ++i2) {
+            syms[li++] = dat[i2];
+            ++lf[dat[i2]];
+          }
+          pos = wblk(dat, w, lst, syms, lf, df, eb, li, bs, i2 - bs, pos);
+          if (!lst) {
+            st.r = pos & 7 | w[pos / 8 | 0] << 3;
+            pos -= 7;
+            st.h = head, st.p = prev, st.i = i2, st.w = wi;
+          }
+        } else {
+          for (var i2 = st.w || 0; i2 < s + lst; i2 += 65535) {
+            var e2 = i2 + 65535;
+            if (e2 >= s) {
+              w[pos / 8 | 0] = lst;
+              e2 = s;
+            }
+            pos = wfblk(w, pos + 1, dat.subarray(i2, e2));
+          }
+          st.i = s;
+        }
+        return slc(o, 0, pre + shft(pos) + post);
+      };
+      crct = /* @__PURE__ */ (function() {
+        var t = new Int32Array(256);
+        for (var i2 = 0; i2 < 256; ++i2) {
+          var c = i2, k = 9;
+          while (--k)
+            c = (c & 1 && -306674912) ^ c >>> 1;
+          t[i2] = c;
+        }
+        return t;
+      })();
+      crc = function() {
+        var c = -1;
+        return {
+          p: function(d2) {
+            var cr = c;
+            for (var i2 = 0; i2 < d2.length; ++i2)
+              cr = crct[cr & 255 ^ d2[i2]] ^ cr >>> 8;
+            c = cr;
+          },
+          d: function() {
+            return ~c;
+          }
+        };
+      };
+      dopt = function(dat, opt, pre, post, st) {
+        if (!st) {
+          st = { l: 1 };
+          if (opt.dictionary) {
+            var dict = opt.dictionary.subarray(-32768);
+            var newDat = new u8(dict.length + dat.length);
+            newDat.set(dict);
+            newDat.set(dat, dict.length);
+            dat = newDat;
+            st.w = dict.length;
+          }
+        }
+        return dflt(dat, opt.level == null ? 6 : opt.level, opt.mem == null ? st.l ? Math.ceil(Math.max(8, Math.min(13, Math.log(dat.length))) * 1.5) : 20 : 12 + opt.mem, pre, post, st);
+      };
+      mrg = function(a, b2) {
+        var o = {};
+        for (var k in a)
+          o[k] = a[k];
+        for (var k in b2)
+          o[k] = b2[k];
+        return o;
+      };
+      wbytes = function(d2, b2, v2) {
+        for (; v2; ++b2)
+          d2[b2] = v2, v2 >>>= 8;
+      };
+      fltn = function(d2, p2, t, o) {
+        for (var k in d2) {
+          var val = d2[k], n = p2 + k, op = o;
+          if (Array.isArray(val))
+            op = mrg(o, val[1]), val = val[0];
+          if (ArrayBuffer.isView(val))
+            t[n] = [val, op];
+          else {
+            t[n += "/"] = [new u8(0), op];
+            fltn(val, n, t, o);
+          }
+        }
+      };
+      te = typeof TextEncoder != "undefined" && /* @__PURE__ */ new TextEncoder();
+      td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
+      tds = 0;
+      try {
+        td.decode(et, { stream: true });
+        tds = 1;
+      } catch (e2) {
+      }
+      exfl = function(ex) {
+        var le = 0;
+        if (ex) {
+          for (var k in ex) {
+            var l = ex[k].length;
+            if (l > 65535)
+              err(9);
+            le += l + 4;
+          }
+        }
+        return le;
+      };
+      wzh = function(d2, b2, f, fn, u2, c, ce, co) {
+        var fl2 = fn.length, ex = f.extra, col = co && co.length;
+        var exl = exfl(ex);
+        wbytes(d2, b2, ce != null ? 33639248 : 67324752), b2 += 4;
+        if (ce != null)
+          d2[b2++] = 20, d2[b2++] = f.os;
+        d2[b2] = 20, b2 += 2;
+        d2[b2++] = f.flag << 1 | (c < 0 && 8), d2[b2++] = u2 && 8;
+        d2[b2++] = f.compression & 255, d2[b2++] = f.compression >> 8;
+        var dt = new Date(f.mtime == null ? Date.now() : f.mtime), y = dt.getFullYear() - 1980;
+        if (y < 0 || y > 119)
+          err(10);
+        wbytes(d2, b2, y << 25 | dt.getMonth() + 1 << 21 | dt.getDate() << 16 | dt.getHours() << 11 | dt.getMinutes() << 5 | dt.getSeconds() >> 1), b2 += 4;
+        if (c != -1) {
+          wbytes(d2, b2, f.crc);
+          wbytes(d2, b2 + 4, c < 0 ? -c - 2 : c);
+          wbytes(d2, b2 + 8, f.size);
+        }
+        wbytes(d2, b2 + 12, fl2);
+        wbytes(d2, b2 + 14, exl), b2 += 16;
+        if (ce != null) {
+          wbytes(d2, b2, col);
+          wbytes(d2, b2 + 6, f.attrs);
+          wbytes(d2, b2 + 10, ce), b2 += 14;
+        }
+        d2.set(fn, b2);
+        b2 += fl2;
+        if (exl) {
+          for (var k in ex) {
+            var exf = ex[k], l = exf.length;
+            wbytes(d2, b2, +k);
+            wbytes(d2, b2 + 2, l);
+            d2.set(exf, b2 + 4), b2 += 4 + l;
+          }
+        }
+        if (col)
+          d2.set(co, b2), b2 += col;
+        return b2;
+      };
+      wzf = function(o, b2, c, d2, e2) {
+        wbytes(o, b2, 101010256);
+        wbytes(o, b2 + 8, c);
+        wbytes(o, b2 + 10, c);
+        wbytes(o, b2 + 12, d2);
+        wbytes(o, b2 + 16, e2);
+      };
+    }
+  });
+
   // plugins/imgly/imgly-view/src/bubble-upload.js
-  function normalizeBubbleUploadUrl(err, url) {
-    if (err) return "";
+  function normalizeBubbleUploadUrl(err2, url) {
+    if (err2) return "";
     if (typeof url !== "string") return "";
     let trimmed = url.trim();
     if (!trimmed) return "";
@@ -306,8 +1011,8 @@ var __pluginInit = (() => {
     }
     return new Promise((resolve) => {
       try {
-        context.uploadContent(fileName, base64, (err, url) => {
-          resolve(normalizeBubbleUploadUrl(err, url));
+        context.uploadContent(fileName, base64, (err2, url) => {
+          resolve(normalizeBubbleUploadUrl(err2, url));
         });
       } catch (e2) {
         console.error("IMG.LY View: uploadContent failed", e2);
@@ -317,8 +1022,8 @@ var __pluginInit = (() => {
   }
   function uploadBlob(context, fileName, blob) {
     if (!blob) return Promise.resolve("");
-    return blobToBase64(blob).then((base64) => uploadBase64(context, fileName, base64)).catch((err) => {
-      console.error("IMG.LY View: blobToBase64 failed", err);
+    return blobToBase64(blob).then((base64) => uploadBase64(context, fileName, base64)).catch((err2) => {
+      console.error("IMG.LY View: blobToBase64 failed", err2);
       return "";
     });
   }
@@ -331,9 +1036,9 @@ var __pluginInit = (() => {
   }
   function uploadFileToBubble(instance, file, onProgress) {
     return __async(this, null, function* () {
-      var _a, _b;
-      const context = ((_a = instance == null ? void 0 : instance.data) == null ? void 0 : _a.bubbleContext) || null;
-      const cesdk = ((_b = instance == null ? void 0 : instance.data) == null ? void 0 : _b.cesdk) || null;
+      var _a2, _b2;
+      const context = ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleContext) || null;
+      const cesdk = ((_b2 = instance == null ? void 0 : instance.data) == null ? void 0 : _b2.cesdk) || null;
       if (!file) {
         throw new Error("No file to upload");
       }
@@ -460,8 +1165,8 @@ var __pluginInit = (() => {
   function composeImposedPdf(pagePdfBytesList, pairs) {
     return __async(this, null, function* () {
       const outputDoc = yield PDFDocument.create();
-      for (let i = 0; i < pairs.length; i += 1) {
-        const [leftNum, rightNum] = pairs[i];
+      for (let i2 = 0; i2 < pairs.length; i2 += 1) {
+        const [leftNum, rightNum] = pairs[i2];
         const leftBytes = pagePdfBytesList[leftNum - 1];
         const rightBytes = pagePdfBytesList[rightNum - 1];
         if (!leftBytes || !rightBytes) {
@@ -472,7 +1177,7 @@ var __pluginInit = (() => {
         const [leftEmbedded] = yield outputDoc.embedPdf(leftDoc);
         const [rightEmbedded] = yield outputDoc.embedPdf(rightDoc);
         const outPage = outputDoc.addPage(PageSizes.A4);
-        drawImposedSpread(outPage, leftEmbedded, rightEmbedded, i % 2 === 1);
+        drawImposedSpread(outPage, leftEmbedded, rightEmbedded, i2 % 2 === 1);
       }
       const bytes = yield outputDoc.save();
       return new Blob([bytes], { type: "application/pdf" });
@@ -501,6 +1206,26 @@ var __pluginInit = (() => {
       }
       const pairs = buildImpositionPairs(totalPages);
       return composeImposedPdf(pagePdfBytes, pairs);
+    });
+  }
+  function buildSequentialPdf(engine, pageIds) {
+    return __async(this, null, function* () {
+      if (!pageIds.length) {
+        throw new Error("Export PDF s\xE9quentiel : aucune page");
+      }
+      const pagePdfBytes = yield Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+      if (pagePdfBytes.some((bytes) => !bytes)) {
+        throw new Error("Export PDF CE.SDK incomplet (page manquante)");
+      }
+      const outputDoc = yield PDFDocument.create();
+      for (const bytes of pagePdfBytes) {
+        const srcDoc = yield PDFDocument.load(yield blobToArrayBuffer(bytes));
+        const [embedded] = yield outputDoc.embedPdf(srcDoc);
+        const page = outputDoc.addPage([embedded.width, embedded.height]);
+        page.drawPage(embedded, { x: 0, y: 0 });
+      }
+      const outBytes = yield outputDoc.save();
+      return new Blob([outBytes], { type: "application/pdf" });
     });
   }
   var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE, A4_WIDTH_MM, A4_HEIGHT_MM;
@@ -601,8 +1326,8 @@ var __pluginInit = (() => {
         engine.scene.setLayout(BOOKLET_SCENE_LAYOUT);
       }
       applyBookletPagePositions(engine, layout);
-    } catch (err) {
-      console.warn("IMG.LY View: ensureBookletSceneLayout failed", err);
+    } catch (err2) {
+      console.warn("IMG.LY View: ensureBookletSceneLayout failed", err2);
     }
   }
   function syncPageCountToLayout(engine, layout) {
@@ -625,8 +1350,8 @@ var __pluginInit = (() => {
     } else {
       const parent = getPageParent(engine);
       if (parent == null) return { changed: false };
-      for (let i = pageIds.length; i < expected; i += 1) {
-        const spec = layout[i];
+      for (let i2 = pageIds.length; i2 < expected; i2 += 1) {
+        const spec = layout[i2];
         if (!spec) continue;
         createBookletPage(engine, parent, spec);
       }
@@ -666,8 +1391,8 @@ var __pluginInit = (() => {
     }
     return Promise.resolve(
       cesdk.actions.run("zoom.toPage", { page: "first", autoFit: true })
-    ).catch((err) => {
-      console.error("IMG.LY View: zoom.toPage failed", err);
+    ).catch((err2) => {
+      console.error("IMG.LY View: zoom.toPage failed", err2);
     });
   }
   function createBookletScene(_cesdk, engine, sheetCount) {
@@ -708,24 +1433,24 @@ var __pluginInit = (() => {
   }
   function syncScenePageCount(instance) {
     return __async(this, null, function* () {
-      var _a;
+      var _a2;
       const engine = instance.data.engine;
       if (!engine) return false;
-      const layout = buildBookletPageLayout((_a = instance.data.sheetCount) != null ? _a : 1);
+      const layout = buildBookletPageLayout((_a2 = instance.data.sheetCount) != null ? _a2 : 1);
       instance.data._suppressCanvasJsonPublish = true;
       try {
         yield finalizeBookletScene(instance, layout);
         yield fitSceneInView(instance.data.cesdk);
         return true;
-      } catch (err) {
-        console.error("IMG.LY View: syncScenePageCount failed", err);
+      } catch (err2) {
+        console.error("IMG.LY View: syncScenePageCount failed", err2);
         return false;
       }
     });
   }
   function loadSceneFromString(instance, sceneString) {
     return __async(this, null, function* () {
-      var _a;
+      var _a2;
       const engine = instance.data.engine;
       if (!engine || !engine.scene || typeof engine.scene.loadFromString !== "function") {
         return false;
@@ -733,15 +1458,15 @@ var __pluginInit = (() => {
       if (typeof sceneString !== "string" || sceneString.trim().length === 0) {
         return false;
       }
-      const layout = buildBookletPageLayout((_a = instance.data.sheetCount) != null ? _a : 1);
+      const layout = buildBookletPageLayout((_a2 = instance.data.sheetCount) != null ? _a2 : 1);
       instance.data._suppressCanvasJsonPublish = true;
       try {
         yield engine.scene.loadFromString(sceneString.trim());
         yield finalizeBookletScene(instance, layout);
         yield fitSceneInView(instance.data.cesdk);
         return true;
-      } catch (err) {
-        console.error("IMG.LY View: loadFromString failed", err);
+      } catch (err2) {
+        console.error("IMG.LY View: loadFromString failed", err2);
         return false;
       }
     });
@@ -761,6 +1486,7 @@ var __pluginInit = (() => {
     schedulePagePreviews: () => schedulePagePreviews,
     scheduleScenePublish: () => scheduleScenePublish,
     triggerPdfExport: () => triggerPdfExport,
+    triggerPreviewsZipDownload: () => triggerPreviewsZipDownload,
     triggerSaveDocument: () => triggerSaveDocument,
     wireHistoryListener: () => wireHistoryListener
   });
@@ -799,8 +1525,8 @@ var __pluginInit = (() => {
         schedulePagePreviews(instance);
       }
       return true;
-    }).catch((err) => {
-      console.error("IMG.LY View: saveToString failed", err);
+    }).catch((err2) => {
+      console.error("IMG.LY View: saveToString failed", err2);
       return false;
     });
   }
@@ -831,30 +1557,52 @@ var __pluginInit = (() => {
       }
     }, delay);
   }
-  function createPagePreviews(instance) {
+  function resolveExportPageIds(instance) {
     const engine = instance.data.engine;
-    const context = instance.data.bubbleContext || null;
-    if (!engine || !engine.block) return Promise.resolve([]);
+    if (!(engine == null ? void 0 : engine.block)) return [];
     let pageIds = getPageIds(engine);
     if (!pageIds.length) {
       pageIds = instance.data.pageIds || [];
     }
+    return pageIds;
+  }
+  function exportAllPagePreviewPngs(engine, pageIds, base) {
+    return __async(this, null, function* () {
+      ensureAllBlocksIncludedInExport(engine);
+      hideAllPageCanvasBorders(engine);
+      const exports = [];
+      for (let index = 0; index < pageIds.length; index += 1) {
+        try {
+          const blob = yield engine.block.export(pageIds[index], {
+            mimeType: "image/png",
+            targetWidth: 500
+          });
+          const safeName = `${base}-preview-${String(index + 1).padStart(2, "0")}.png`.replace(/[^\w.-]/g, "_");
+          exports.push({ name: safeName, blob });
+        } catch (err2) {
+          console.error("IMG.LY View: page preview export failed", err2);
+        }
+      }
+      return exports;
+    });
+  }
+  function createPagePreviews(instance) {
+    const engine = instance.data.engine;
+    const context = instance.data.bubbleContext || null;
+    if (!engine || !engine.block) return Promise.resolve([]);
+    const pageIds = resolveExportPageIds(instance);
     if (!pageIds.length) return Promise.resolve([]);
     const base = sanitizeFileBase(instance.data.documentTitle);
     const runId = (instance.data._pagePreviewsRunId || 0) + 1;
     instance.data._pagePreviewsRunId = runId;
     instance.data._lastPagePreviewsAt = Date.now();
-    const exportOne = (pageId, index) => engine.block.export(pageId, {
-      mimeType: "image/png",
-      targetWidth: 500
-    }).then((blob) => {
-      const safeName = (base + "-preview-" + (index + 1) + ".png").replace(/[^\w.-]/g, "_");
-      return uploadBlob(context, safeName, blob);
-    }).catch((err) => {
-      console.error("IMG.LY View: page preview export failed", err);
-      return "";
-    });
-    return Promise.all(pageIds.map(exportOne)).then((uploaded) => {
+    return exportAllPagePreviewPngs(engine, pageIds, base).then((items) => {
+      const exportOne = (item) => uploadBlob(context, item.name, item.blob).catch((err2) => {
+        console.error("IMG.LY View: page preview upload failed", err2);
+        return "";
+      });
+      return Promise.all(items.map(exportOne));
+    }).then((uploaded) => {
       if (instance.data._pagePreviewsRunId !== runId) return uploaded;
       instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || "";
       const urls = uploaded.filter((u2) => typeof u2 === "string" && u2.length > 0);
@@ -865,8 +1613,8 @@ var __pluginInit = (() => {
         console.warn("IMG.LY View: previews upload\xE9es sans URL exploitable \u2014 page_previews_ready non d\xE9clench\xE9");
       }
       return urls;
-    }).catch((err) => {
-      console.error("IMG.LY View: create_page_previews", err);
+    }).catch((err2) => {
+      console.error("IMG.LY View: create_page_previews", err2);
       return [];
     });
   }
@@ -876,8 +1624,8 @@ var __pluginInit = (() => {
       if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.saveToString !== "function") return;
       try {
         yield engine.scene.saveToString();
-      } catch (err) {
-        console.error("IMG.LY View: pre-PDF saveToString failed", err);
+      } catch (err2) {
+        console.error("IMG.LY View: pre-PDF saveToString failed", err2);
       }
     });
   }
@@ -892,17 +1640,42 @@ var __pluginInit = (() => {
         yield triggerPdfExport(instance, { download: false });
         instance.triggerEvent("document_saved");
         return true;
-      } catch (err) {
-        console.error("IMG.LY View: enregistrement document", err);
+      } catch (err2) {
+        console.error("IMG.LY View: enregistrement document", err2);
         return false;
       } finally {
         instance.data._saveInProgress = false;
       }
     });
   }
+  function triggerPreviewsZipDownload(instance) {
+    return __async(this, null, function* () {
+      const engine = instance.data.engine;
+      if (!(engine == null ? void 0 : engine.block)) return "";
+      const pageIds = resolveExportPageIds(instance);
+      if (!pageIds.length) return "";
+      const base = sanitizeFileBase(instance.data.documentTitle);
+      const safeZipName = `${base}-previews.zip`.replace(/[^\w.-]/g, "_") || "previews.zip";
+      try {
+        const items = yield exportAllPagePreviewPngs(engine, pageIds, base);
+        if (!items.length) return "";
+        const zipEntries = {};
+        for (const item of items) {
+          zipEntries[item.name] = new Uint8Array(yield item.blob.arrayBuffer());
+        }
+        const zipped = zipSync(zipEntries);
+        downloadBlob(new Blob([zipped], { type: "application/zip" }), safeZipName);
+        return "downloaded";
+      } catch (err2) {
+        console.error("IMG.LY View: previews ZIP export failed", err2);
+        return "";
+      }
+    });
+  }
   function triggerPdfExport(instance, options) {
     return __async(this, null, function* () {
       const download = !options || options.download !== false;
+      const mode = (options == null ? void 0 : options.mode) === "sequential" ? "sequential" : "imposed";
       const engine = instance.data.engine;
       const context = instance.data.bubbleContext || null;
       if (!(engine == null ? void 0 : engine.block)) return "";
@@ -911,7 +1684,7 @@ var __pluginInit = (() => {
         pageIds = instance.data.pageIds || [];
       }
       if (!pageIds.length) return "";
-      if (pageIds.length % 4 !== 0) {
+      if (mode === "imposed" && pageIds.length % 4 !== 0) {
         console.error("IMG.LY View: PDF export aborted \u2014 page count must be a multiple of 4:", pageIds.length);
         return "";
       }
@@ -921,27 +1694,27 @@ var __pluginInit = (() => {
       if (typeof engine.block.forceLoadResources === "function") {
         try {
           yield engine.block.forceLoadResources(pageIds);
-        } catch (err) {
-          console.warn("IMG.LY View: forceLoadResources avant export PDF", err);
+        } catch (err2) {
+          console.warn("IMG.LY View: forceLoadResources avant export PDF", err2);
         }
       }
       const base = sanitizeFileBase(instance.data.documentTitle);
-      const safePdfName = (base + ".pdf").replace(/[^\w.-]/g, "_") || "document.pdf";
+      const safePdfName = (base + (mode === "sequential" ? ".pdf" : "-impression.pdf")).replace(/[^\w.-]/g, "_") || "document.pdf";
       try {
-        const blob = yield buildFoldedA4Pdf(engine, pageIds);
+        const blob = mode === "sequential" ? yield buildSequentialPdf(engine, pageIds) : yield buildFoldedA4Pdf(engine, pageIds);
         const url = yield uploadBlob(context, safePdfName, blob);
-        if (typeof url === "string" && url.length > 0) {
+        if (mode === "imposed" && typeof url === "string" && url.length > 0) {
           instance.publishState("pdf_url", url);
           instance.triggerEvent("pdf_ready");
-        } else if (blob && blob.size > 0) {
+        } else if (mode === "imposed" && blob && blob.size > 0) {
           console.warn("IMG.LY View: PDF upload\xE9 dans Bubble mais URL non re\xE7ue \u2014 pdf_ready non d\xE9clench\xE9");
         }
         if (download) {
           downloadBlob(blob, safePdfName);
         }
         return url || (download ? "downloaded" : "");
-      } catch (err) {
-        console.error("IMG.LY View: PDF export failed", err);
+      } catch (err2) {
+        console.error("IMG.LY View: PDF export failed", err2);
         return "";
       }
     });
@@ -961,6 +1734,7 @@ var __pluginInit = (() => {
   }
   var init_exports = __esm({
     "plugins/imgly/imgly-view/src/exports.js"() {
+      init_browser();
       init_bubble_upload();
       init_constants();
       init_export_lock();
@@ -1018,8 +1792,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1029,8 +1803,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.blur";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.blur";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1064,8 +1838,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1075,8 +1849,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.color.palette";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.color.palette";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1110,8 +1884,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1121,8 +1895,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.crop.presets";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.crop.presets";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1156,8 +1930,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1167,8 +1941,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.effect";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.effect";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1202,8 +1976,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1213,8 +1987,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.filter";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.filter";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1248,8 +2022,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1259,8 +2033,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.sticker";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.sticker";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1294,8 +2068,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1305,8 +2079,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.text";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.text";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1340,8 +2114,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1351,8 +2125,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.text.components";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.text.components";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1386,8 +2160,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1397,8 +2171,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.typeface";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.typeface";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -1434,8 +2208,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     isExplicitMode() {
-      var _a, _b;
-      return (_b = (_a = this.config.include) == null ? void 0 : _a.some(((e2) => "string" == typeof e2))) != null ? _b : false;
+      var _a2, _b2;
+      return (_b2 = (_a2 = this.config.include) == null ? void 0 : _a2.some(((e2) => "string" == typeof e2))) != null ? _b2 : false;
     }
     getExplicitIncludes() {
       return this.config.include ? new Set(this.config.include.filter(((e2) => "string" == typeof e2))) : /* @__PURE__ */ new Set();
@@ -1448,8 +2222,8 @@ var __pluginInit = (() => {
     }
     initialize(_0) {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
-        const t = new Set(e2.asset.findAllSources()), r = this.isExplicitMode(), i = this.getExplicitIncludes(), o = this.getCustomizations(), n = /* @__PURE__ */ new Map();
-        if (r) for (const e3 of T) i.has(e3.id) && n.set(e3.id, e3);
+        const t = new Set(e2.asset.findAllSources()), r = this.isExplicitMode(), i2 = this.getExplicitIncludes(), o = this.getCustomizations(), n = /* @__PURE__ */ new Map();
+        if (r) for (const e3 of T) i2.has(e3.id) && n.set(e3.id, e3);
         else for (const e3 of T) n.set(e3.id, e3);
         for (const e3 of o) {
           const s2 = n.get(e3.id);
@@ -1457,21 +2231,21 @@ var __pluginInit = (() => {
         }
         const a = Array.from(n.values());
         for (const r2 of a) {
-          const { id: i2, mimeTypes: o2, assetLibraryEntries: n2 } = r2;
-          if (!t.has(i2) && (e2.asset.addLocalSource(i2, o2), this.addedAssetSourceIds.push(i2), s)) {
+          const { id: i3, mimeTypes: o2, assetLibraryEntries: n2 } = r2;
+          if (!t.has(i3) && (e2.asset.addLocalSource(i3, o2), this.addedAssetSourceIds.push(i3), s)) {
             const e3 = this.getAssetLibraryEntries(n2);
-            this.addedLibraryEntryMappings.set(i2, e3);
-            for (const t2 of e3) s.ui.updateAssetLibraryEntry(t2, { sourceIds: ({ currentIds: e4 }) => [.../* @__PURE__ */ new Set([...e4, i2])] });
+            this.addedLibraryEntryMappings.set(i3, e3);
+            for (const t2 of e3) s.ui.updateAssetLibraryEntry(t2, { sourceIds: ({ currentIds: e4 }) => [.../* @__PURE__ */ new Set([...e4, i3])] });
           }
         }
         s && s.onReset((() => this.cleanup({ engine: e2, cesdk: s })));
       });
     }
     cleanup({ engine: e2, cesdk: s }) {
-      var _a;
+      var _a2;
       for (const t of this.addedAssetSourceIds) {
         if (s) {
-          const e3 = (_a = this.addedLibraryEntryMappings.get(t)) != null ? _a : [];
+          const e3 = (_a2 = this.addedLibraryEntryMappings.get(t)) != null ? _a2 : [];
           for (const r of e3) s.ui.updateAssetLibraryEntry(r, { sourceIds: ({ currentIds: e4 }) => e4.filter(((e5) => e5 !== t)) });
         }
         try {
@@ -1491,8 +2265,8 @@ var __pluginInit = (() => {
       this.config = e2;
     }
     getAssetLibraryEntries(e2) {
-      var _a;
-      if ((_a = this.config.assetLibraryEntries) == null ? void 0 : _a[e2]) {
+      var _a2;
+      if ((_a2 = this.config.assetLibraryEntries) == null ? void 0 : _a2[e2]) {
         const s = this.config.assetLibraryEntries[e2];
         return Array.isArray(s) ? s : [s];
       }
@@ -1502,8 +2276,8 @@ var __pluginInit = (() => {
       return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
         const t = this.config.baseURL || (s == null ? void 0 : s.getBaseURL()) || e2.editor.getSetting("basePath");
         if (!t) throw new Error("Cannot determine baseURL");
-        const r = t.replace(/\/*$/, "/"), i = new Set(e2.asset.findAllSources()), o = "ly.img.vector.shape";
-        if (!i.has(o)) {
+        const r = t.replace(/\/*$/, "/"), i2 = new Set(e2.asset.findAllSources()), o = "ly.img.vector.shape";
+        if (!i2.has(o)) {
           const s2 = `${r}${o}/content.json`;
           yield e2.asset.addLocalAssetSourceFromJSONURI(s2, { matcher: this.config.include });
         }
@@ -3790,7 +4564,6 @@ var __pluginInit = (() => {
       // ============================
       // Right Section - Actions
       // ============================
-      "ly.img.exportPDF.navigationBar",
       "ly.img.zoom.navigationBar",
       "ly.img.preview.navigationBar",
       "imgly.bubble.save.navigationBar"
@@ -3884,13 +4657,13 @@ var __pluginInit = (() => {
 
   // plugins/imgly/imgly-view/src/page-insert.js
   function resolveTargetPageId(engine) {
-    var _a, _b, _c;
+    var _a2, _b2, _c;
     if (!(engine == null ? void 0 : engine.scene)) return null;
     const fromCurrent = engine.scene.getCurrentPage();
     if (fromCurrent != null) return fromCurrent;
-    const fromViewport = (_a = engine.scene.findNearestToViewPortCenterByType("page")[0]) != null ? _a : engine.scene.findNearestToViewPortCenterByType("//ly.img.ubq/page")[0];
+    const fromViewport = (_a2 = engine.scene.findNearestToViewPortCenterByType("page")[0]) != null ? _a2 : engine.scene.findNearestToViewPortCenterByType("//ly.img.ubq/page")[0];
     if (fromViewport != null) return fromViewport;
-    const pages = ((_c = (_b = engine.block) == null ? void 0 : _b.findByType) == null ? void 0 : _c.call(_b, "page")) || [];
+    const pages = ((_c = (_b2 = engine.block) == null ? void 0 : _b2.findByType) == null ? void 0 : _c.call(_b2, "page")) || [];
     return pages.length > 0 ? pages[0] : null;
   }
   var DEFAULT_VECTOR_FILL = {
@@ -3958,8 +4731,8 @@ var __pluginInit = (() => {
   }
   function insertVectorGraphicOnCurrentPage(engine, options) {
     return __async(this, null, function* () {
-      var _a;
-      if (!engine || !((_a = options == null ? void 0 : options.paths) == null ? void 0 : _a.length)) return null;
+      var _a2;
+      if (!engine || !((_a2 = options == null ? void 0 : options.paths) == null ? void 0 : _a2.length)) return null;
       const pageId = resolveTargetPageId(engine);
       if (pageId == null) {
         console.error("IMG.LY View: aucune page pour ins\xE9rer le vecteur");
@@ -4003,8 +4776,8 @@ var __pluginInit = (() => {
           engine.block.select(blockId);
         }
         return blockId;
-      } catch (err) {
-        console.error("IMG.LY View: insertion vectorielle \xE9chou\xE9e", err);
+      } catch (err2) {
+        console.error("IMG.LY View: insertion vectorielle \xE9chou\xE9e", err2);
         return null;
       }
     });
@@ -4026,8 +4799,8 @@ var __pluginInit = (() => {
       let blockId;
       try {
         blockId = yield engine.block.addImage(imageUrl);
-      } catch (err) {
-        console.error("IMG.LY View: addImage failed", imageUrl, err);
+      } catch (err2) {
+        console.error("IMG.LY View: addImage failed", imageUrl, err2);
         return null;
       }
       try {
@@ -4035,8 +4808,8 @@ var __pluginInit = (() => {
         if (typeof engine.block.select === "function") {
           engine.block.select(blockId);
         }
-      } catch (err) {
-        console.warn("IMG.LY View: redimensionnement image", err);
+      } catch (err2) {
+        console.warn("IMG.LY View: redimensionnement image", err2);
       }
       return blockId;
     });
@@ -4124,7 +4897,8 @@ var __pluginInit = (() => {
     "ly.img.exportVideo.navigationBar",
     "ly.img.shareScene.navigationBar",
     "ly.img.download.navigationBar",
-    "ly.img.export.navigationBar"
+    "ly.img.export.navigationBar",
+    "ly.img.exportPDF.navigationBar"
   ];
   function setupBubbleUpload(cesdk, instance) {
     if (!(cesdk == null ? void 0 : cesdk.actions) || !instance) return;
@@ -4139,59 +4913,120 @@ var __pluginInit = (() => {
       }
       try {
         yield instance.data.triggerSaveDocument();
-      } catch (err) {
-        console.error("IMG.LY View: enregistrement document", err);
+      } catch (err2) {
+        console.error("IMG.LY View: enregistrement document", err2);
       }
     });
-    cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
-      const loading = state("loading", false);
-      builder.Button("save-document", {
-        color: "accent",
-        variant: "regular",
-        label: "Enregistrer",
-        icon: "@imgly/Save",
-        isLoading: loading.value,
-        isDisabled: loading.value,
-        onClick: () => __async(null, null, function* () {
-          if (loading.value) return;
-          loading.setValue(true);
-          try {
-            yield runSaveDocument();
-          } finally {
-            loading.setValue(false);
-          }
-        })
-      });
-    });
-    cesdk.actions.register("saveDocument", runSaveDocument);
-    const runPdfExport = () => __async(null, null, function* () {
+    const runPdfDownload = (mode) => __async(null, null, function* () {
       if (typeof instance.data.triggerPdfExport !== "function") {
         console.error("IMG.LY View: export PDF indisponible (\xE9diteur non pr\xEAt)");
         return;
       }
       try {
-        yield instance.data.triggerPdfExport();
-      } catch (err) {
-        console.error("IMG.LY View: export PDF impos\xE9", err);
+        yield instance.data.triggerPdfExport({ mode, download: true });
+      } catch (err2) {
+        console.error("IMG.LY View: t\xE9l\xE9chargement PDF", err2);
       }
     });
-    cesdk.actions.register("exportImposedPdf", runPdfExport);
+    const runPreviewsZipDownload = () => __async(null, null, function* () {
+      if (typeof instance.data.triggerPreviewsZipDownload !== "function") {
+        console.error("IMG.LY View: export ZIP previews indisponible (\xE9diteur non pr\xEAt)");
+        return;
+      }
+      try {
+        yield instance.data.triggerPreviewsZipDownload();
+      } catch (err2) {
+        console.error("IMG.LY View: t\xE9l\xE9chargement ZIP previews", err2);
+      }
+    });
+    cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
+      const loading = state("loading", false);
+      builder.ButtonGroup("save-button-group", {
+        children: () => {
+          builder.Button("save-document", {
+            color: "accent",
+            variant: "regular",
+            label: "Enregistrer",
+            icon: "@imgly/Save",
+            isLoading: loading.value,
+            isDisabled: loading.value,
+            onClick: () => __async(null, null, function* () {
+              if (loading.value) return;
+              loading.setValue(true);
+              try {
+                yield runSaveDocument();
+              } finally {
+                loading.setValue(false);
+              }
+            })
+          });
+          builder.Dropdown("save-pdf-dropdown", {
+            color: "accent",
+            variant: "regular",
+            tooltip: "T\xE9l\xE9charger",
+            showIndicator: true,
+            isDisabled: loading.value,
+            children: ({ close }) => {
+              builder.Button("download-pdf-print", {
+                label: "PDF pour impression",
+                icon: "@imgly/Download",
+                onClick: () => __async(null, null, function* () {
+                  close();
+                  if (loading.value) return;
+                  loading.setValue(true);
+                  try {
+                    yield runPdfDownload("imposed");
+                  } finally {
+                    loading.setValue(false);
+                  }
+                })
+              });
+              builder.Button("download-pdf-standard", {
+                label: "PDF standard",
+                icon: "@imgly/Download",
+                onClick: () => __async(null, null, function* () {
+                  close();
+                  if (loading.value) return;
+                  loading.setValue(true);
+                  try {
+                    yield runPdfDownload("sequential");
+                  } finally {
+                    loading.setValue(false);
+                  }
+                })
+              });
+              builder.Button("download-previews-zip", {
+                label: "Images (zip)",
+                icon: "@imgly/Download",
+                onClick: () => __async(null, null, function* () {
+                  close();
+                  if (loading.value) return;
+                  loading.setValue(true);
+                  try {
+                    yield runPreviewsZipDownload();
+                  } finally {
+                    loading.setValue(false);
+                  }
+                })
+              });
+            }
+          });
+        }
+      });
+    });
+    cesdk.actions.register("saveDocument", runSaveDocument);
+    const runImposedPdfExport = () => __async(null, null, function* () {
+      yield runPdfDownload("imposed");
+    });
+    cesdk.actions.register("exportImposedPdf", runImposedPdfExport);
     cesdk.actions.register("exportDesign", (exportOptions) => __async(null, null, function* () {
       if ((exportOptions == null ? void 0 : exportOptions.mimeType) === "application/pdf") {
-        yield runPdfExport();
+        yield runImposedPdfExport();
       }
     }));
     for (const id of EXPORT_NAV_IDS_TO_REMOVE) {
       cesdk.ui.removeOrderComponent({ in: "ly.img.navigation.bar", match: id });
     }
-    cesdk.ui.updateOrderComponent(
-      { in: "ly.img.navigation.bar", match: "ly.img.exportPDF.navigationBar" },
-      {
-        onClick: runPdfExport,
-        label: "Exporter le PDF",
-        icon: "@imgly/Download"
-      }
-    );
   }
 
   // plugins/imgly/imgly-view/src/navigation-title.js
@@ -4238,8 +5073,8 @@ var __pluginInit = (() => {
     cesdk.ui.addIconSet("@imgly.bookmarks", BOOKMARK_ICON_SPRITE);
     let refreshPanel = null;
     cesdk.ui.registerComponent(DOCK_ID, ({ builder, payload }) => {
-      var _a;
-      const icon = (_a = payload == null ? void 0 : payload.icon) != null ? _a : BOOKMARK_ICON;
+      var _a2;
+      const icon = (_a2 = payload == null ? void 0 : payload.icon) != null ? _a2 : BOOKMARK_ICON;
       const isOpen = cesdk.ui.isPanelOpen(BOOKMARKS_PANEL_ID);
       builder.Button("open-bookmarks", {
         tooltip: "panel.imgly.bookmarks.label",
@@ -4291,8 +5126,8 @@ var __pluginInit = (() => {
             const onSelect = () => __async(null, null, function* () {
               try {
                 yield selectBookmarkItem(engine, cesdk, instance, item);
-              } catch (err) {
-                console.error("IMG.LY View: insertion contribution", err);
+              } catch (err2) {
+                console.error("IMG.LY View: insertion contribution", err2);
               }
             });
             builder.Section(`bookmark-item-${index}`, {
@@ -4532,7 +5367,7 @@ var __pluginInit = (() => {
     return null;
   }
   function parseSvgMarkup(svgText) {
-    var _a;
+    var _a2;
     if (typeof svgText !== "string" || !svgText.trim()) return null;
     if (typeof DOMParser === "undefined") return null;
     const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
@@ -4566,7 +5401,7 @@ var __pluginInit = (() => {
       return { d: d2, opacity, fillColor: fillColor2 || void 0 };
     }).filter(Boolean);
     if (paths.length === 0) return null;
-    const fillColor = (_a = paths.find((path) => path.fillColor)) == null ? void 0 : _a.fillColor;
+    const fillColor = (_a2 = paths.find((path) => path.fillColor)) == null ? void 0 : _a2.fillColor;
     return { width, height, paths, fillColor };
   }
   function fetchSvgMarkup(url) {
@@ -4589,16 +5424,16 @@ var __pluginInit = (() => {
   var ICONS_PANEL_ID = "imgly.icons.panel";
   function insertPhosphorIcon(engine, cesdk, instance, iconName, style) {
     return __async(this, null, function* () {
-      var _a;
+      var _a2;
       if (!engine || !iconName) return;
-      const safeStyle = normalizePhosphorStyle(style || ((_a = instance == null ? void 0 : instance.data) == null ? void 0 : _a.phosphorIconStyle));
+      const safeStyle = normalizePhosphorStyle(style || ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.phosphorIconStyle));
       const url = getPhosphorIconUrl(iconName, safeStyle);
       if (!url) return;
       let svgData;
       try {
         svgData = yield fetchPhosphorSvgData(url);
-      } catch (err) {
-        console.error("IMG.LY View: chargement SVG Phosphor", url, err);
+      } catch (err2) {
+        console.error("IMG.LY View: chargement SVG Phosphor", url, err2);
         return;
       }
       const blockId = yield insertVectorGraphicOnCurrentPage(engine, {
@@ -4629,9 +5464,9 @@ var __pluginInit = (() => {
     label: `panel.imgly.icons.style.${style}`
   }));
   function getPhosphorStyleOption(styleId) {
-    var _a;
+    var _a2;
     const safeStyle = normalizePhosphorStyle(styleId);
-    return (_a = PHOSPHOR_STYLE_OPTIONS.find((option) => option.id === safeStyle)) != null ? _a : PHOSPHOR_STYLE_OPTIONS[0];
+    return (_a2 = PHOSPHOR_STYLE_OPTIONS.find((option) => option.id === safeStyle)) != null ? _a2 : PHOSPHOR_STYLE_OPTIONS[0];
   }
   var PHOSPHOR_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg">
   <symbol id="@imgly.phosphor/Icons" viewBox="0 0 24 24" fill="none">
@@ -4709,8 +5544,8 @@ var __pluginInit = (() => {
       })
     });
     cesdk.ui.registerComponent(DOCK_ID2, ({ builder, payload }) => {
-      var _a;
-      const icon = (_a = payload == null ? void 0 : payload.icon) != null ? _a : PHOSPHOR_ICON;
+      var _a2;
+      const icon = (_a2 = payload == null ? void 0 : payload.icon) != null ? _a2 : PHOSPHOR_ICON;
       const isOpen = cesdk.ui.isPanelOpen(ICONS_PANEL_ID);
       builder.Button("open-icons", {
         tooltip: "panel.imgly.icons.label",
@@ -4730,9 +5565,9 @@ var __pluginInit = (() => {
       const versionState = state("phosphor-version", 0);
       builder.Section("phosphor-style-section", {
         children: () => {
-          var _a;
+          var _a2;
           const selectedStyle = getPhosphorStyleOption(
-            typeof styleState.value === "object" && ((_a = styleState.value) == null ? void 0 : _a.id) ? styleState.value.id : instance.data.phosphorIconStyle
+            typeof styleState.value === "object" && ((_a2 = styleState.value) == null ? void 0 : _a2.id) ? styleState.value.id : instance.data.phosphorIconStyle
           );
           builder.Select("phosphor-style", {
             inputLabel: "panel.imgly.icons.style",
@@ -4785,8 +5620,8 @@ var __pluginInit = (() => {
   }
   function applyJournalStickerAsset(engine, cesdk, asset) {
     return __async(this, null, function* () {
-      var _a;
-      const svgUrl = resolveStickerAssetUri((_a = asset == null ? void 0 : asset.meta) == null ? void 0 : _a.uri);
+      var _a2;
+      const svgUrl = resolveStickerAssetUri((_a2 = asset == null ? void 0 : asset.meta) == null ? void 0 : _a2.uri);
       if (!svgUrl) return void 0;
       const svgData = yield fetchSvgMarkup(svgUrl);
       yield insertVectorGraphicOnCurrentPage(engine, {
@@ -4802,11 +5637,11 @@ var __pluginInit = (() => {
     });
   }
   function prepareJournalAssetForSource(asset) {
-    var _a, _b;
+    var _a2, _b2;
     return __spreadProps(__spreadValues({}, asset), {
       meta: __spreadProps(__spreadValues({}, asset.meta), {
-        uri: resolveStickerAssetUri((_a = asset.meta) == null ? void 0 : _a.uri),
-        thumbUri: resolveStickerAssetUri((_b = asset.meta) == null ? void 0 : _b.thumbUri)
+        uri: resolveStickerAssetUri((_a2 = asset.meta) == null ? void 0 : _a2.uri),
+        thumbUri: resolveStickerAssetUri((_b2 = asset.meta) == null ? void 0 : _b2.thumbUri)
       })
     });
   }
@@ -4834,8 +5669,8 @@ var __pluginInit = (() => {
   }
   function setupJournalStickers(cesdk) {
     return __async(this, null, function* () {
-      var _a;
-      if (!((_a = cesdk == null ? void 0 : cesdk.engine) == null ? void 0 : _a.asset)) return;
+      var _a2;
+      if (!((_a2 = cesdk == null ? void 0 : cesdk.engine) == null ? void 0 : _a2.asset)) return;
       const engine = cesdk.engine;
       if (!engine.asset.findAllSources().includes(STICKER_SOURCE_ID)) {
         console.warn("IMG.LY View: source ly.img.sticker introuvable");
@@ -4844,8 +5679,8 @@ var __pluginInit = (() => {
       let journalAssets = [];
       try {
         journalAssets = yield loadJournalStickerAssets();
-      } catch (err) {
-        console.warn("IMG.LY View: journal stickers non charg\xE9s", err);
+      } catch (err2) {
+        console.warn("IMG.LY View: journal stickers non charg\xE9s", err2);
         return;
       }
       if (journalAssets.length === 0) return;
@@ -4990,7 +5825,8 @@ var __pluginInit = (() => {
         }, 300);
         wireHistoryListener(instance);
         instance.data.createPagePreviews = () => createPagePreviews(instance);
-        instance.data.triggerPdfExport = () => triggerPdfExport(instance);
+        instance.data.triggerPdfExport = (options) => triggerPdfExport(instance, options);
+        instance.data.triggerPreviewsZipDownload = () => triggerPreviewsZipDownload(instance);
         instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
         setupBubbleUpload(cesdk, instance);
         setupBubblePdfExport(cesdk, instance);
@@ -5005,9 +5841,9 @@ var __pluginInit = (() => {
         instance.data.cesdkReady = true;
         const pending = instance.data._pendingProperties;
         applyPropertiesUpdate(instance, pending || properties || {}, context);
-      } catch (err) {
-        console.error("IMG.LY View: init failed", err);
-        const detail = err && err.message ? String(err.message) : "";
+      } catch (err2) {
+        console.error("IMG.LY View: init failed", err2);
+        const detail = err2 && err2.message ? String(err2.message) : "";
         showBootError(host, detail ? "\xC9chec du chargement CE.SDK \u2014 " + detail : "\xC9chec du chargement CE.SDK \u2014 v\xE9rifiez la connexion r\xE9seau ou la licence.");
       }
     });

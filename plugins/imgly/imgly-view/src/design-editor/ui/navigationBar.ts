@@ -71,7 +71,6 @@ export function setupNavigationBar(cesdk: CreativeEditorSDK): void {
     // ============================
     // Right Section - Actions
     // ============================
-    'ly.img.exportPDF.navigationBar',
     'ly.img.zoom.navigationBar',
     'ly.img.preview.navigationBar',
     'imgly.bubble.save.navigationBar',

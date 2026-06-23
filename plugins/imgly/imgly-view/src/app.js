@@ -6,6 +6,7 @@ import { ensureFrenchLocale } from './design-editor/i18n.ts';
 import {
   createPagePreviews,
   triggerPdfExport,
+  triggerPreviewsZipDownload,
   triggerSaveDocument,
   wireHistoryListener,
 } from './exports.js';
@@ -172,7 +173,8 @@ async function initImglyEditor(instance, context, properties) {
     wireHistoryListener(instance);
 
     instance.data.createPagePreviews = () => createPagePreviews(instance);
-    instance.data.triggerPdfExport = () => triggerPdfExport(instance);
+    instance.data.triggerPdfExport = (options) => triggerPdfExport(instance, options);
+    instance.data.triggerPreviewsZipDownload = () => triggerPreviewsZipDownload(instance);
     instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
     setupBubbleUpload(cesdk, instance);
     setupBubblePdfExport(cesdk, instance);

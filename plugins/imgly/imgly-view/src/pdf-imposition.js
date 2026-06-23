@@ -166,3 +166,31 @@ export async function buildFoldedA4Pdf(engine, pageIds) {
   const pairs = buildImpositionPairs(totalPages);
   return composeImposedPdf(pagePdfBytes, pairs);
 }
+
+/**
+ * PDF standard : toutes les demi-pages à la suite, dans l’ordre éditeur.
+ * @param {import('@cesdk/engine').default} engine
+ * @param {number[]} pageIds
+ * @returns {Promise<Blob>}
+ */
+export async function buildSequentialPdf(engine, pageIds) {
+  if (!pageIds.length) {
+    throw new Error('Export PDF séquentiel : aucune page');
+  }
+
+  const pagePdfBytes = await Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+  if (pagePdfBytes.some((bytes) => !bytes)) {
+    throw new Error('Export PDF CE.SDK incomplet (page manquante)');
+  }
+
+  const outputDoc = await PDFDocument.create();
+  for (const bytes of pagePdfBytes) {
+    const srcDoc = await PDFDocument.load(await blobToArrayBuffer(bytes));
+    const [embedded] = await outputDoc.embedPdf(srcDoc);
+    const page = outputDoc.addPage([embedded.width, embedded.height]);
+    page.drawPage(embedded, { x: 0, y: 0 });
+  }
+
+  const outBytes = await outputDoc.save();
+  return new Blob([outBytes], { type: 'application/pdf' });
+}

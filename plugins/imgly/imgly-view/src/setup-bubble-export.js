@@ -16,6 +16,7 @@ const EXPORT_NAV_IDS_TO_REMOVE = [
   'ly.img.shareScene.navigationBar',
   'ly.img.download.navigationBar',
   'ly.img.export.navigationBar',
+  'ly.img.exportPDF.navigationBar',
 ];
 
 /** Branche uploadFile CE.SDK → context.uploadContent Bubble (URLs permanentes). */
@@ -25,7 +26,7 @@ export function setupBubbleUpload(cesdk, instance) {
 }
 
 /**
- * Bouton Enregistrer (JSON + previews + PDF) et export PDF imposé dans la barre CE.SDK.
+ * Bouton Enregistrer + menu PDF (imposé / séquentiel) dans la barre CE.SDK.
  */
 export function setupBubblePdfExport(cesdk, instance) {
   if (!cesdk?.ui || !instance?.data) return;
@@ -42,58 +43,122 @@ export function setupBubblePdfExport(cesdk, instance) {
     }
   };
 
+  const runPdfDownload = async (mode) => {
+    if (typeof instance.data.triggerPdfExport !== 'function') {
+      console.error('IMG.LY View: export PDF indisponible (éditeur non prêt)');
+      return;
+    }
+    try {
+      await instance.data.triggerPdfExport({ mode, download: true });
+    } catch (err) {
+      console.error('IMG.LY View: téléchargement PDF', err);
+    }
+  };
+
+  const runPreviewsZipDownload = async () => {
+    if (typeof instance.data.triggerPreviewsZipDownload !== 'function') {
+      console.error('IMG.LY View: export ZIP previews indisponible (éditeur non prêt)');
+      return;
+    }
+    try {
+      await instance.data.triggerPreviewsZipDownload();
+    } catch (err) {
+      console.error('IMG.LY View: téléchargement ZIP previews', err);
+    }
+  };
+
   cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
     const loading = state('loading', false);
-    builder.Button('save-document', {
-      color: 'accent',
-      variant: 'regular',
-      label: 'Enregistrer',
-      icon: '@imgly/Save',
-      isLoading: loading.value,
-      isDisabled: loading.value,
-      onClick: async () => {
-        if (loading.value) return;
-        loading.setValue(true);
-        try {
-          await runSaveDocument();
-        } finally {
-          loading.setValue(false);
-        }
+
+    builder.ButtonGroup('save-button-group', {
+      children: () => {
+        builder.Button('save-document', {
+          color: 'accent',
+          variant: 'regular',
+          label: 'Enregistrer',
+          icon: '@imgly/Save',
+          isLoading: loading.value,
+          isDisabled: loading.value,
+          onClick: async () => {
+            if (loading.value) return;
+            loading.setValue(true);
+            try {
+              await runSaveDocument();
+            } finally {
+              loading.setValue(false);
+            }
+          },
+        });
+
+        builder.Dropdown('save-pdf-dropdown', {
+          color: 'accent',
+          variant: 'regular',
+          tooltip: 'Télécharger',
+          showIndicator: true,
+          isDisabled: loading.value,
+          children: ({ close }) => {
+            builder.Button('download-pdf-print', {
+              label: 'PDF pour impression',
+              icon: '@imgly/Download',
+              onClick: async () => {
+                close();
+                if (loading.value) return;
+                loading.setValue(true);
+                try {
+                  await runPdfDownload('imposed');
+                } finally {
+                  loading.setValue(false);
+                }
+              },
+            });
+            builder.Button('download-pdf-standard', {
+              label: 'PDF standard',
+              icon: '@imgly/Download',
+              onClick: async () => {
+                close();
+                if (loading.value) return;
+                loading.setValue(true);
+                try {
+                  await runPdfDownload('sequential');
+                } finally {
+                  loading.setValue(false);
+                }
+              },
+            });
+            builder.Button('download-previews-zip', {
+              label: 'Images (zip)',
+              icon: '@imgly/Download',
+              onClick: async () => {
+                close();
+                if (loading.value) return;
+                loading.setValue(true);
+                try {
+                  await runPreviewsZipDownload();
+                } finally {
+                  loading.setValue(false);
+                }
+              },
+            });
+          },
+        });
       },
     });
   });
 
   cesdk.actions.register('saveDocument', runSaveDocument);
 
-  const runPdfExport = async () => {
-    if (typeof instance.data.triggerPdfExport !== 'function') {
-      console.error('IMG.LY View: export PDF indisponible (éditeur non prêt)');
-      return;
-    }
-    try {
-      await instance.data.triggerPdfExport();
-    } catch (err) {
-      console.error('IMG.LY View: export PDF imposé', err);
-    }
+  const runImposedPdfExport = async () => {
+    await runPdfDownload('imposed');
   };
 
-  cesdk.actions.register('exportImposedPdf', runPdfExport);
+  cesdk.actions.register('exportImposedPdf', runImposedPdfExport);
   cesdk.actions.register('exportDesign', async (exportOptions) => {
     if (exportOptions?.mimeType === 'application/pdf') {
-      await runPdfExport();
+      await runImposedPdfExport();
     }
   });
 
   for (const id of EXPORT_NAV_IDS_TO_REMOVE) {
     cesdk.ui.removeOrderComponent({ in: 'ly.img.navigation.bar', match: id });
   }
-
-  cesdk.ui.updateOrderComponent(
-    { in: 'ly.img.navigation.bar', match: 'ly.img.exportPDF.navigationBar' },
-    {
-      onClick: runPdfExport,
-      label: 'Exporter le PDF',
-      icon: '@imgly/Download',
-    },
-  );
 }
