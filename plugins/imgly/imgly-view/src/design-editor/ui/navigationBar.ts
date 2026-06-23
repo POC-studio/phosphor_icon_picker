@@ -59,14 +59,13 @@ export function setupNavigationBar(cesdk: CreativeEditorSDK): void {
     // ============================
     // Left Section - Document Settings & History
     // ============================
-    'ly.img.documentSettings.navigationBar',
+    'imgly.bubble.documentTitle.navigationBar',
     'ly.img.undoRedo.navigationBar',
 
     // ============================
-    // Center Section - Title
+    // Center Section
     // ============================
     'ly.img.spacer',
-    'ly.img.title.navigationBar',
     'ly.img.spacer',
 
     // ============================

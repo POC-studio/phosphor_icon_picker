@@ -8,7 +8,7 @@ import fr from '../i18n/fr.json';
 
 /** Corrections manuelles par-dessus la traduction auto. */
 const FR_OVERRIDES: Record<string, string> = {
-  'common.undo': 'Défaire',
+  'common.undo': 'Annuler',
   'common.redo': 'Rétablir',
   'component.library.elements': 'Éléments',
   'libraries.ly.img.templates.label': 'Modèles',

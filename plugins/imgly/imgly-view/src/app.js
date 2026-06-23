@@ -10,6 +10,7 @@ import {
 } from './exports.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
 import { setupBubblePdfExport } from './setup-bubble-export.js';
+import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
 import {
@@ -56,7 +57,11 @@ function applyPropertiesUpdate(instance, properties, context) {
   applyBookmarksFromProperties(instance, properties.bookmarks_json);
 
   const nextTitle = typeof properties.document_title === 'string' ? properties.document_title : '';
+  const titleChanged = nextTitle !== instance.data.documentTitle;
   instance.data.documentTitle = nextTitle;
+  if (titleChanged && instance.data.cesdk) {
+    syncNavigationDocumentTitle(instance.data.cesdk, instance);
+  }
 
   const nextSheetCount = parseSheetCountFromProperties(properties);
   const sheetCountChanged = nextSheetCount !== instance.data.sheetCount;
@@ -123,7 +128,7 @@ async function initImglyEditor(instance, context, properties) {
     if (typeof cesdk.disableNoSceneWarning === 'function') {
       cesdk.disableNoSceneWarning();
     }
-    instance.data.documentTitle = 'Titre du document';
+    instance.data.documentTitle = '';
     instance.data._lastPublishedCanvasJson = null;
     instance.data._suppressCanvasJsonPublish = true;
     instance.data._hydratedFromInitialJsonProperty = false;
@@ -146,6 +151,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.triggerPdfExport = () => triggerPdfExport(instance);
     instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
     setupBubblePdfExport(cesdk, instance);
+    setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);
     instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);

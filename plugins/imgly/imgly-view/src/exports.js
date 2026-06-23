@@ -179,7 +179,7 @@ export async function triggerSaveDocument(instance) {
   try {
     await publishSceneJson(instance, { force: true, skipPreviews: true });
     await createPagePreviews(instance);
-    await triggerPdfExport(instance);
+    await triggerPdfExport(instance, { download: false });
     instance.triggerEvent('document_saved');
     return true;
   } catch (err) {
@@ -190,7 +190,8 @@ export async function triggerSaveDocument(instance) {
   }
 }
 
-export async function triggerPdfExport(instance) {
+export async function triggerPdfExport(instance, options) {
+  const download = !options || options.download !== false;
   const engine = instance.data.engine;
   const context = instance.data.bubbleContext || null;
   if (!engine?.block) return '';
@@ -228,8 +229,10 @@ export async function triggerPdfExport(instance) {
       instance.publishState('pdf_url', url);
       instance.triggerEvent('pdf_ready');
     }
-    downloadBlob(blob, safePdfName);
-    return url || 'downloaded';
+    if (download) {
+      downloadBlob(blob, safePdfName);
+    }
+    return url || (download ? 'downloaded' : '');
   } catch (err) {
     console.error('IMG.LY View: PDF export failed', err);
     return '';
