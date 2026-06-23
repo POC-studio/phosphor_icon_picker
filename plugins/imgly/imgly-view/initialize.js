@@ -3762,6 +3762,31 @@ var __pluginInit = (() => {
     engine.block.alignHorizontally([blockId], "Center");
     engine.block.alignVertically([blockId], "Center");
   }
+  function colorsEqual(a, b2) {
+    if (!a || !b2) return false;
+    const eps = 2e-3;
+    return Math.abs(a.r - b2.r) < eps && Math.abs(a.g - b2.g) < eps && Math.abs(a.b - b2.b) < eps && Math.abs(a.a - b2.a) < eps;
+  }
+  function getPathLayerStyle(pathLayer, defaultFillColor) {
+    return {
+      fillColor: pathLayer.fillColor || defaultFillColor,
+      opacity: typeof pathLayer.opacity === "number" ? pathLayer.opacity : 1
+    };
+  }
+  function mergeCompatiblePathLayers(paths, defaultFillColor) {
+    if (paths.length <= 1) return paths;
+    const styles = paths.map((pathLayer) => getPathLayerStyle(pathLayer, defaultFillColor));
+    const reference = styles[0];
+    const canMerge = styles.every(
+      (style) => colorsEqual(style.fillColor, reference.fillColor) && Math.abs(style.opacity - reference.opacity) < 2e-3
+    );
+    if (!canMerge) return paths;
+    return [{
+      d: paths.map((pathLayer) => pathLayer.d.trim()).filter(Boolean).join(" "),
+      opacity: reference.opacity,
+      fillColor: paths[0].fillColor
+    }];
+  }
   function createVectorPathGraphic(engine, pathLayer, coordWidth, coordHeight, fillColor) {
     const graphic = engine.block.create("graphic");
     const shape = engine.block.createShape("vector_path");
@@ -3800,9 +3825,10 @@ var __pluginInit = (() => {
       const fillColor = options.fillColor || DEFAULT_VECTOR_FILL;
       const coordWidth = options.width > 0 ? options.width : 256;
       const coordHeight = options.height > 0 ? options.height : 256;
+      const pathLayers = mergeCompatiblePathLayers(options.paths, fillColor);
       const childIds = [];
       try {
-        for (const pathLayer of options.paths) {
+        for (const pathLayer of pathLayers) {
           const graphicId = createVectorPathGraphic(
             engine,
             pathLayer,
@@ -4313,10 +4339,45 @@ var __pluginInit = (() => {
     }
     return null;
   }
-  function parsePathFillColor(node) {
+  var NON_RENDERED_ANCESTORS = "defs, mask, clippath, symbol, metadata";
+  function isRenderableSvgNode(node) {
+    return !node.closest(NON_RENDERED_ANCESTORS);
+  }
+  function parseSvgClassFillRules(svg) {
+    const rules = /* @__PURE__ */ new Map();
+    for (const styleEl of svg.querySelectorAll("style")) {
+      const text = styleEl.textContent || "";
+      const re = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*\bfill\s*:\s*(#[0-9a-fA-F]{3,8})/gi;
+      let match = re.exec(text);
+      while (match) {
+        const color = parseHexColor(match[2]);
+        if (color) rules.set(match[1], color);
+        match = re.exec(text);
+      }
+    }
+    return rules;
+  }
+  function parsePathFillColor(node, classRules) {
     const fill = node.getAttribute("fill");
-    if (fill && fill !== "none" && fill.startsWith("#")) {
-      return parseHexColor(fill);
+    if (fill && fill !== "none") {
+      if (fill.startsWith("#")) {
+        return parseHexColor(fill);
+      }
+    }
+    const inlineStyle = node.getAttribute("style");
+    if (inlineStyle) {
+      const match = inlineStyle.match(/\bfill\s*:\s*(#[0-9a-fA-F]{3,8})/i);
+      if (match) {
+        return parseHexColor(match[1]);
+      }
+    }
+    const className = node.getAttribute("class");
+    if (className && classRules) {
+      for (const name of className.split(/\s+/)) {
+        if (classRules.has(name)) {
+          return classRules.get(name);
+        }
+      }
     }
     return null;
   }
@@ -4342,7 +4403,8 @@ var __pluginInit = (() => {
       if (w > 0) width = w;
       if (h > 0) height = h;
     }
-    const paths = Array.from(svg.querySelectorAll("path")).map((node) => {
+    const classRules = parseSvgClassFillRules(svg);
+    const paths = Array.from(svg.querySelectorAll("path")).filter(isRenderableSvgNode).map((node) => {
       const d2 = node.getAttribute("d");
       if (!d2) return null;
       let opacity = 1;
@@ -4350,7 +4412,7 @@ var __pluginInit = (() => {
         const parsed = parseFloat(node.getAttribute("opacity") || "");
         if (!Number.isNaN(parsed)) opacity = parsed;
       }
-      const fillColor2 = parsePathFillColor(node);
+      const fillColor2 = parsePathFillColor(node, classRules);
       return { d: d2, opacity, fillColor: fillColor2 || void 0 };
     }).filter(Boolean);
     if (paths.length === 0) return null;

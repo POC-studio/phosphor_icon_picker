@@ -27,14 +27,64 @@ function parseHexColor(hex) {
   return null;
 }
 
+const NON_RENDERED_ANCESTORS = 'defs, mask, clippath, symbol, metadata';
+
 /**
  * @param {Element} node
  */
-function parsePathFillColor(node) {
-  const fill = node.getAttribute('fill');
-  if (fill && fill !== 'none' && fill.startsWith('#')) {
-    return parseHexColor(fill);
+function isRenderableSvgNode(node) {
+  return !node.closest(NON_RENDERED_ANCESTORS);
+}
+
+/**
+ * @param {SVGSVGElement} svg
+ * @returns {Map<string, { r: number, g: number, b: number, a: number }>}
+ */
+function parseSvgClassFillRules(svg) {
+  /** @type {Map<string, { r: number, g: number, b: number, a: number }>} */
+  const rules = new Map();
+  for (const styleEl of svg.querySelectorAll('style')) {
+    const text = styleEl.textContent || '';
+    const re = /\.([a-zA-Z0-9_-]+)\s*\{[^}]*\bfill\s*:\s*(#[0-9a-fA-F]{3,8})/gi;
+    let match = re.exec(text);
+    while (match) {
+      const color = parseHexColor(match[2]);
+      if (color) rules.set(match[1], color);
+      match = re.exec(text);
+    }
   }
+  return rules;
+}
+
+/**
+ * @param {Element} node
+ * @param {Map<string, { r: number, g: number, b: number, a: number }>} classRules
+ */
+function parsePathFillColor(node, classRules) {
+  const fill = node.getAttribute('fill');
+  if (fill && fill !== 'none') {
+    if (fill.startsWith('#')) {
+      return parseHexColor(fill);
+    }
+  }
+
+  const inlineStyle = node.getAttribute('style');
+  if (inlineStyle) {
+    const match = inlineStyle.match(/\bfill\s*:\s*(#[0-9a-fA-F]{3,8})/i);
+    if (match) {
+      return parseHexColor(match[1]);
+    }
+  }
+
+  const className = node.getAttribute('class');
+  if (className && classRules) {
+    for (const name of className.split(/\s+/)) {
+      if (classRules.has(name)) {
+        return classRules.get(name);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -66,8 +116,11 @@ export function parseSvgMarkup(svgText) {
     if (h > 0) height = h;
   }
 
+  const classRules = parseSvgClassFillRules(svg);
+
   /** @type {SvgPathLayer[]} */
   const paths = Array.from(svg.querySelectorAll('path'))
+    .filter(isRenderableSvgNode)
     .map((node) => {
       const d = node.getAttribute('d');
       if (!d) return null;
@@ -76,7 +129,7 @@ export function parseSvgMarkup(svgText) {
         const parsed = parseFloat(node.getAttribute('opacity') || '');
         if (!Number.isNaN(parsed)) opacity = parsed;
       }
-      const fillColor = parsePathFillColor(node);
+      const fillColor = parsePathFillColor(node, classRules);
       return { d, opacity, fillColor: fillColor || undefined };
     })
     .filter(Boolean);

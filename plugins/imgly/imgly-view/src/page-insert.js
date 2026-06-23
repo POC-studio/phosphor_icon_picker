@@ -47,6 +47,55 @@ export function fitBlockOnPage(engine, blockId, pageId) {
 export const fitImageOnPage = fitBlockOnPage;
 
 /**
+ * @param {{ r: number, g: number, b: number, a: number } | undefined} a
+ * @param {{ r: number, g: number, b: number, a: number } | undefined} b
+ */
+function colorsEqual(a, b) {
+  if (!a || !b) return false;
+  const eps = 0.002;
+  return Math.abs(a.r - b.r) < eps
+    && Math.abs(a.g - b.g) < eps
+    && Math.abs(a.b - b.b) < eps
+    && Math.abs(a.a - b.a) < eps;
+}
+
+/**
+ * @param {{ d: string, opacity?: number, fillColor?: { r: number, g: number, b: number, a: number } }} pathLayer
+ * @param {{ r: number, g: number, b: number, a: number }} defaultFillColor
+ */
+function getPathLayerStyle(pathLayer, defaultFillColor) {
+  return {
+    fillColor: pathLayer.fillColor || defaultFillColor,
+    opacity: typeof pathLayer.opacity === 'number' ? pathLayer.opacity : 1,
+  };
+}
+
+/**
+ * Fusionne les paths en un seul vector_path quand couleur et opacité sont identiques
+ * (ex. stickers journal) pour permettre la recoloration en un clic dans CE.SDK.
+ *
+ * @param {{ d: string, opacity?: number, fillColor?: { r: number, g: number, b: number, a: number } }[]} paths
+ * @param {{ r: number, g: number, b: number, a: number }} defaultFillColor
+ */
+function mergeCompatiblePathLayers(paths, defaultFillColor) {
+  if (paths.length <= 1) return paths;
+
+  const styles = paths.map((pathLayer) => getPathLayerStyle(pathLayer, defaultFillColor));
+  const reference = styles[0];
+  const canMerge = styles.every(
+    (style) => colorsEqual(style.fillColor, reference.fillColor)
+      && Math.abs(style.opacity - reference.opacity) < 0.002,
+  );
+  if (!canMerge) return paths;
+
+  return [{
+    d: paths.map((pathLayer) => pathLayer.d.trim()).filter(Boolean).join(' '),
+    opacity: reference.opacity,
+    fillColor: paths[0].fillColor,
+  }];
+}
+
+/**
  * @param {import('@cesdk/engine').default} engine
  * @param {{ d: string, opacity?: number }} pathLayer
  * @param {number} coordWidth
@@ -101,10 +150,11 @@ export async function insertVectorGraphicOnCurrentPage(engine, options) {
   const fillColor = options.fillColor || DEFAULT_VECTOR_FILL;
   const coordWidth = options.width > 0 ? options.width : 256;
   const coordHeight = options.height > 0 ? options.height : 256;
+  const pathLayers = mergeCompatiblePathLayers(options.paths, fillColor);
   const childIds = [];
 
   try {
-    for (const pathLayer of options.paths) {
+    for (const pathLayer of pathLayers) {
       const graphicId = createVectorPathGraphic(
         engine,
         pathLayer,
