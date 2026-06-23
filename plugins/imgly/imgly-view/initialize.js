@@ -137,19 +137,16 @@ var __pluginInit = (() => {
   });
 
   // plugins/imgly/imgly-view/src/export-lock.js
-  function hideShowInExportUI() {
-    if (typeof document === "undefined" || document.getElementById(EXPORT_UI_STYLE_ID)) {
-      return;
+  function configureEditorRoleForHiddenExportToggle(engine) {
+    if (!(engine == null ? void 0 : engine.editor)) return;
+    engine.editor.setRole("Adopter");
+    if (typeof engine.editor.findAllScopes !== "function") return;
+    for (const scope of engine.editor.findAllScopes()) {
+      try {
+        engine.editor.setGlobalScope(scope, "Allow");
+      } catch (e2) {
+      }
     }
-    const style = document.createElement("style");
-    style.id = EXPORT_UI_STYLE_ID;
-    style.textContent = `
-    .UBQ_Section-module__block:has([name="exportable"]),
-    .UBQ_Section-module__block:has([data-cy="exportable"]) {
-      display: none !important;
-    }
-  `;
-    document.head.appendChild(style);
   }
   function ensureAllBlocksIncludedInExport(engine) {
     if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findAll !== "function") return;
@@ -258,16 +255,15 @@ var __pluginInit = (() => {
     }
   }
   function setupExportLock(engine) {
-    hideShowInExportUI();
+    configureEditorRoleForHiddenExportToggle(engine);
     hideAllPageCanvasBorders(engine);
     ensureAllBlocksIncludedInExport(engine);
     lockPageDeletion(engine);
     lockPageSelection(engine);
   }
-  var EXPORT_UI_STYLE_ID, TRANSPARENT_COLOR;
+  var TRANSPARENT_COLOR;
   var init_export_lock = __esm({
     "plugins/imgly/imgly-view/src/export-lock.js"() {
-      EXPORT_UI_STYLE_ID = "imgly-hide-show-in-export";
       TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
     }
   });
@@ -5800,7 +5796,8 @@ var __pluginInit = (() => {
       try {
         const cesdk = yield sdk.create(container, {
           license,
-          baseURL: engineBaseURL
+          baseURL: engineBaseURL,
+          role: "Adopter"
         });
         instance.data.cesdk = cesdk;
         instance.data.engine = cesdk.engine;

@@ -1,20 +1,24 @@
-const EXPORT_UI_STYLE_ID = 'imgly-hide-show-in-export';
 const TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
 
-/** Masque la section « Exporter / Afficher lors de l'exportation ». */
-export function hideShowInExportUI() {
-  if (typeof document === 'undefined' || document.getElementById(EXPORT_UI_STYLE_ID)) {
-    return;
-  }
-  const style = document.createElement('style');
-  style.id = EXPORT_UI_STYLE_ID;
-  style.textContent = `
-    .UBQ_Section-module__block:has([name="exportable"]),
-    .UBQ_Section-module__block:has([data-cy="exportable"]) {
-      display: none !important;
+/**
+ * Masque la section « Exporter / Afficher lors de l'exportation » via l’API rôles CE.SDK.
+ * `ui/manageExportable` n’est disponible qu’en rôle Creator ; Adopter conserve l’édition
+ * complète grâce aux scopes globaux Allow.
+ */
+export function configureEditorRoleForHiddenExportToggle(engine) {
+  if (!engine?.editor) return;
+
+  engine.editor.setRole('Adopter');
+
+  if (typeof engine.editor.findAllScopes !== 'function') return;
+
+  for (const scope of engine.editor.findAllScopes()) {
+    try {
+      engine.editor.setGlobalScope(scope, 'Allow');
+    } catch {
+      /* ignore invalid scopes */
     }
-  `;
-  document.head.appendChild(style);
+  }
 }
 
 /** Force includedInExport=true sur tous les blocs (toujours exportés). */
@@ -149,7 +153,7 @@ export function lockPageSelection(engine) {
 }
 
 export function setupExportLock(engine) {
-  hideShowInExportUI();
+  configureEditorRoleForHiddenExportToggle(engine);
   hideAllPageCanvasBorders(engine);
   ensureAllBlocksIncludedInExport(engine);
   lockPageDeletion(engine);

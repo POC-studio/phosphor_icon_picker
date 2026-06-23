@@ -145,6 +145,7 @@ async function initImglyEditor(instance, context, properties) {
     const cesdk = await sdk.create(container, {
       license,
       baseURL: engineBaseURL,
+      role: 'Adopter',
     });
 
     instance.data.cesdk = cesdk;
