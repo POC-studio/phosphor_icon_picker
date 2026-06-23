@@ -65,22 +65,28 @@ function downloadBlob(blob, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function publishSceneJson(instance) {
+export function publishSceneJson(instance, options) {
   const engine = instance.data.engine;
+  const force = options && options.force === true;
+  const skipPreviews = options && options.skipPreviews === true;
   if (!engine || !engine.scene || typeof engine.scene.saveToString !== 'function') {
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
-  if (instance.data._suppressCanvasJsonPublish === true) return Promise.resolve();
+  if (!force && instance.data._suppressCanvasJsonPublish === true) return Promise.resolve(false);
 
   return engine.scene.saveToString().then((sceneString) => {
-    if (typeof sceneString !== 'string' || sceneString.length === 0) return;
-    if (sceneString === instance.data._lastPublishedCanvasJson) return;
+    if (typeof sceneString !== 'string' || sceneString.length === 0) return false;
+    if (!force && sceneString === instance.data._lastPublishedCanvasJson) return false;
     instance.data._lastPublishedCanvasJson = sceneString;
     instance.publishState('canvas_json', sceneString);
     instance.triggerEvent('json_changed');
-    schedulePagePreviews(instance);
+    if (!skipPreviews) {
+      schedulePagePreviews(instance);
+    }
+    return true;
   }).catch((err) => {
     console.error('IMG.LY View: saveToString failed', err);
+    return false;
   });
 }
 
@@ -158,13 +164,29 @@ export function createPagePreviews(instance) {
 async function syncSceneBeforePdfExport(instance) {
   const engine = instance.data.engine;
   if (!engine?.scene || typeof engine.scene.saveToString !== 'function') return;
-  instance.data._suppressCanvasJsonPublish = true;
   try {
     await engine.scene.saveToString();
   } catch (err) {
     console.error('IMG.LY View: pre-PDF saveToString failed', err);
+  }
+}
+
+export async function triggerSaveDocument(instance) {
+  if (!instance || !instance.data) return false;
+  if (instance.data._saveInProgress === true) return false;
+
+  instance.data._saveInProgress = true;
+  try {
+    await publishSceneJson(instance, { force: true, skipPreviews: true });
+    await createPagePreviews(instance);
+    await triggerPdfExport(instance);
+    instance.triggerEvent('document_saved');
+    return true;
+  } catch (err) {
+    console.error('IMG.LY View: enregistrement document', err);
+    return false;
   } finally {
-    instance.data._suppressCanvasJsonPublish = false;
+    instance.data._saveInProgress = false;
   }
 }
 
@@ -225,6 +247,5 @@ export function wireHistoryListener(instance) {
     ensureAllBlocksIncludedInExport(engine);
     lockPageDeletion(engine);
     lockPageSelection(engine);
-    scheduleScenePublish(instance);
   });
 }

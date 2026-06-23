@@ -1,4 +1,3 @@
-import { scheduleScenePublish } from './exports.js';
 import { getPhosphorIconUrl, normalizePhosphorStyle } from './phosphor-icons.js';
 import { fetchPhosphorSvgData } from './phosphor-svg.js';
 import { insertVectorGraphicOnCurrentPage } from './page-insert.js';
@@ -40,8 +39,6 @@ export async function insertPhosphorIcon(engine, cesdk, instance, iconName, styl
   } catch {
     /* metadata optionnelle */
   }
-
-  scheduleScenePublish(instance);
 
   if (cesdk?.ui) {
     cesdk.ui.closePanel(ICONS_PANEL_ID);

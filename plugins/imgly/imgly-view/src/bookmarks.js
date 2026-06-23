@@ -1,4 +1,3 @@
-import { scheduleScenePublish } from './exports.js';
 import { insertImageOnCurrentPage } from './page-insert.js';
 
 export const BOOKMARKS_PANEL_ID = 'imgly.bookmarks.panel';
@@ -82,7 +81,6 @@ export async function insertContributionImage(engine, cesdk, instance, item) {
 
   instance.publishState('contribution_id', contributionId);
   instance.triggerEvent('contribution_added');
-  scheduleScenePublish(instance);
 
   if (cesdk?.ui) {
     cesdk.ui.closePanel(BOOKMARKS_PANEL_ID);

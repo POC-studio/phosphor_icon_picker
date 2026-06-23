@@ -187,7 +187,6 @@ export async function loadSceneFromString(instance, sceneString) {
     await engine.scene.loadFromString(sceneString.trim());
     instance.data.pageIds = getPageIds(engine);
     instance.data._lastPublishedCanvasJson = sceneString.trim();
-    instance.data._suppressCanvasJsonPublish = false;
     ensureBookletSceneLayout(engine, layout);
     ensureBookletGuides(engine, layout);
     hideAllPageCanvasBorders(engine);
@@ -197,7 +196,6 @@ export async function loadSceneFromString(instance, sceneString) {
     await fitSceneInView(instance.data.cesdk);
     return true;
   } catch (err) {
-    instance.data._suppressCanvasJsonPublish = false;
     console.error('IMG.LY View: loadFromString failed', err);
     return false;
   }

@@ -1,6 +1,9 @@
+export const BUBBLE_SAVE_NAV_ID = 'imgly.bubble.save.navigationBar';
+
 /** Boutons d’export / téléchargement CE.SDK à retirer de la barre de navigation. */
 const EXPORT_NAV_IDS_TO_REMOVE = [
   'ly.img.actions.navigationBar',
+  'ly.img.save.navigationBar',
   'ly.img.saveScene.navigationBar',
   'ly.img.exportImage.navigationBar',
   'ly.img.exportScene.navigationBar',
@@ -14,10 +17,45 @@ const EXPORT_NAV_IDS_TO_REMOVE = [
 ];
 
 /**
- * Un seul bouton PDF (livret imposé) — branchement direct, sans exportDesign CE.SDK.
+ * Bouton Enregistrer (JSON + previews + PDF) et export PDF imposé dans la barre CE.SDK.
  */
 export function setupBubblePdfExport(cesdk, instance) {
   if (!cesdk?.ui || !instance?.data) return;
+
+  const runSaveDocument = async () => {
+    if (typeof instance.data.triggerSaveDocument !== 'function') {
+      console.error('IMG.LY View: enregistrement indisponible (éditeur non prêt)');
+      return;
+    }
+    try {
+      await instance.data.triggerSaveDocument();
+    } catch (err) {
+      console.error('IMG.LY View: enregistrement document', err);
+    }
+  };
+
+  cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
+    const loading = state('loading', false);
+    builder.Button('save-document', {
+      color: 'accent',
+      variant: 'regular',
+      label: 'Enregistrer',
+      icon: '@imgly/Save',
+      isLoading: loading.value,
+      isDisabled: loading.value,
+      onClick: async () => {
+        if (loading.value) return;
+        loading.setValue(true);
+        try {
+          await runSaveDocument();
+        } finally {
+          loading.setValue(false);
+        }
+      },
+    });
+  });
+
+  cesdk.actions.register('saveDocument', runSaveDocument);
 
   const runPdfExport = async () => {
     if (typeof instance.data.triggerPdfExport !== 'function') {

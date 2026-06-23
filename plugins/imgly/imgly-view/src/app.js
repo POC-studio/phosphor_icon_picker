@@ -4,8 +4,8 @@ import { initDesignEditor } from './init-design-editor.ts';
 import { ensureFrenchLocale } from './design-editor/i18n.ts';
 import {
   createPagePreviews,
-  publishSceneJson,
   triggerPdfExport,
+  triggerSaveDocument,
   wireHistoryListener,
 } from './exports.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
@@ -46,9 +46,7 @@ async function recreateBookletScene(instance) {
   instance.data._suppressCanvasJsonPublish = true;
   instance.data.pageIds = await createBookletScene(cesdk, engine, instance.data.sheetCount);
   instance.data._lastPublishedCanvasJson = null;
-  instance.data._suppressCanvasJsonPublish = false;
   await fitSceneInView(cesdk);
-  void publishSceneJson(instance);
 }
 
 function applyPropertiesUpdate(instance, properties, context) {
@@ -146,6 +144,7 @@ async function initImglyEditor(instance, context, properties) {
 
     instance.data.createPagePreviews = () => createPagePreviews(instance);
     instance.data.triggerPdfExport = () => triggerPdfExport(instance);
+    instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
     setupBubblePdfExport(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);
@@ -157,13 +156,6 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.cesdkReady = true;
     const pending = instance.data._pendingProperties;
     applyPropertiesUpdate(instance, pending || properties || {}, context);
-
-    if (!instance.data._hydratedFromInitialJsonProperty && !(
-      properties && typeof properties.canvas_json === 'string' && properties.canvas_json.length > 0
-    )) {
-      instance.data._suppressCanvasJsonPublish = false;
-      void publishSceneJson(instance);
-    }
   } catch (err) {
     console.error('IMG.LY View: init failed', err);
     const detail = err && err.message ? String(err.message) : '';

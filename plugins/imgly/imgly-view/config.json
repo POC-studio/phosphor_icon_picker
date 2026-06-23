@@ -6,7 +6,8 @@
     "json_changed",
     "pdf_ready",
     "contribution_added",
-    "page_previews_ready"
+    "page_previews_ready",
+    "document_saved"
   ],
   "states": {
     "pdf_url": {
@@ -57,6 +58,12 @@
       "label": "Export PDF",
       "type": "run_script",
       "file": "actions/export-pdf.js"
+    },
+    {
+      "id": "save_document",
+      "label": "Save document",
+      "type": "run_script",
+      "file": "actions/save-document.js"
     }
   ]
 }
