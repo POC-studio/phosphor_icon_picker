@@ -310,7 +310,14 @@ async function loadPlugin(pluginName, elementName) {
 
     // Adapter le format affiché pour qu'il soit directement copiable dans Bubble
     const toBubbleCode = (source) => {
-      if (!source) return '';
+      if (source == null) return '';
+      if (typeof source !== 'string') {
+        if (typeof source === 'function') {
+          source = source.toString();
+        } else {
+          source = String(source);
+        }
+      }
       const lines = source.split('\n');
       const out = [];
       for (let line of lines) {
@@ -318,7 +325,7 @@ async function loadPlugin(pluginName, elementName) {
         // Supprimer les imports ES modules (Bubble ne les supporte pas)
         if (trimmed.startsWith('import ')) continue;
         // Transformer "export default function" en simple "function"
-        if (trimmed.startsWith('export default function')) {
+        if (trimmed.startsWith('export default function') || trimmed.startsWith('export default async function')) {
           out.push(line.replace('export default ', ''));
           continue;
         }
@@ -332,16 +339,16 @@ async function loadPlugin(pluginName, elementName) {
     displayCode('shared.html', sharedRaw.default);
     displayCode('initialize.js', toBubbleCode(initRaw.default));
     displayCode('update.js', toBubbleCode(updateRaw.default));
-    displayCode('preview.js', previewRaw.default);
+    displayCode('preview.js', toBubbleCode(previewRaw.default));
 
-    // Scripts d’actions d’élément (ex. actions/reset-button.js) : fichier brut pour copie dans Bubble
+    // Scripts d’actions d’élément : format Bubble (sans export default)
     if (config.actions && Array.isArray(config.actions)) {
       for (const action of config.actions) {
         if (!action || !action.file) continue;
         const actionRaw = await import(
-          /* @vite-ignore */ `./plugins/${pluginName}/${elementName}/${action.file}?raw`
+          `./plugins/${pluginName}/${elementName}/${action.file}?raw`
         ).catch(() => ({ default: '' }));
-        displayCode(action.file, actionRaw.default, { raw: true });
+        displayCode(action.file, toBubbleCode(actionRaw.default));
       }
     }
 
@@ -350,9 +357,9 @@ async function loadPlugin(pluginName, elementName) {
       for (const action of pluginConfig.actions) {
         if (!action || !action.file) continue;
         const actionRaw = await import(
-          /* @vite-ignore */ `./plugins/${pluginName}/${action.file}?raw`
+          `./plugins/${pluginName}/${action.file}?raw`
         ).catch(() => ({ default: '' }));
-        displayCode(action.file, actionRaw.default, { raw: true });
+        displayCode(action.file, toBubbleCode(actionRaw.default));
       }
     }
 
@@ -716,9 +723,12 @@ function displayCode(filename, code, options = {}) {
     container.innerHTML = '';
   }
   
-  if (!code) return; // Si le fichier est vide ou n'existe pas
+  if (code == null || code === '') return;
 
   let cleanCode = code;
+  if (typeof cleanCode !== 'string') {
+    cleanCode = typeof cleanCode === 'function' ? cleanCode.toString() : String(cleanCode);
+  }
   if (!options.raw) {
     // On nettoie le code (on enlève les import/export locaux de la sandbox)
     // 1) Enlever tous les imports

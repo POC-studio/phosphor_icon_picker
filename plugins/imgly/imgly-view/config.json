@@ -10,6 +10,10 @@
     "document_saved"
   ],
   "states": {
+    "canvas_json": {
+      "label": "JSON de la scène CE.SDK (publié à l’enregistrement)",
+      "type": "text"
+    },
     "pdf_url": {
       "label": "URL du PDF (Bubble, après upload)",
       "type": "text"
@@ -40,6 +44,11 @@
       "type": "long_text",
       "default": ""
     },
+    "canvas_json": {
+      "label": "Canvas JSON (persistance — lier au champ Bubble sauvegardé)",
+      "type": "long_text",
+      "default": ""
+    },
     "bookmarks_json": {
       "label": "Bookmarks (JSON) — { \"bookmarks\": [{ \"image_url\": \"…\", \"contributor\": \"…\" }] }",
       "type": "long_text",
@@ -49,19 +58,19 @@
   "actions": [
     {
       "id": "create_page_previews",
-      "label": "Create page previews",
+      "label": "Créer les previews",
       "type": "run_script",
       "file": "actions/create-page-previews.js"
     },
     {
       "id": "export_pdf",
-      "label": "Export PDF",
+      "label": "Exporter le PDF",
       "type": "run_script",
       "file": "actions/export-pdf.js"
     },
     {
       "id": "save_document",
-      "label": "Save document",
+      "label": "Enregistrer le document",
       "type": "run_script",
       "file": "actions/save-document.js"
     }
