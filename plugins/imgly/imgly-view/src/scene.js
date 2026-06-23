@@ -118,6 +118,82 @@ function ensureBookletSceneLayout(engine, layout) {
   }
 }
 
+/**
+ * Aligne le nombre de pages sur le layout livret (ajout de pages vides ou
+ * suppression des dernières pages).
+ *
+ * @param {import('@cesdk/engine').default} engine
+ * @param {ReturnType<typeof buildBookletPageLayout>} layout
+ * @returns {{ changed: boolean }}
+ */
+function syncPageCountToLayout(engine, layout) {
+  if (!engine?.block || !Array.isArray(layout) || layout.length === 0) {
+    return { changed: false };
+  }
+
+  const pageIds = getPageIds(engine);
+  const expected = layout.length;
+  if (pageIds.length === expected) {
+    return { changed: false };
+  }
+
+  if (pageIds.length > expected) {
+    for (const pageId of pageIds.slice(expected)) {
+      try {
+        engine.block.setScopeEnabled(pageId, 'lifecycle/destroy', true);
+        engine.block.destroy(pageId);
+      } catch {
+        /* ignore */
+      }
+    }
+  } else {
+    const parent = getPageParent(engine);
+    if (parent == null) return { changed: false };
+    for (let i = pageIds.length; i < expected; i += 1) {
+      const spec = layout[i];
+      if (!spec) continue;
+      createBookletPage(engine, parent, spec);
+    }
+  }
+
+  return { changed: true };
+}
+
+/**
+ * @param {object} instance
+ * @param {ReturnType<typeof buildBookletPageLayout>} layout
+ * @returns {Promise<{ changed: boolean }>}
+ */
+async function finalizeBookletScene(instance, layout) {
+  const engine = instance.data.engine;
+  if (!engine) return { changed: false };
+
+  const { changed } = syncPageCountToLayout(engine, layout);
+  instance.data.pageIds = getPageIds(engine);
+  ensureBookletSceneLayout(engine, layout);
+  ensureBookletGuides(engine, layout);
+  hideAllPageCanvasBorders(engine);
+  ensureAllBlocksIncludedInExport(engine);
+  lockPageDeletion(engine);
+  lockPageSelection(engine);
+
+  if (changed) {
+    const { publishSceneJson } = await import('./exports.js');
+    await publishSceneJson(instance, { force: true, skipPreviews: true });
+  } else if (typeof engine.scene.saveToString === 'function') {
+    try {
+      const sceneString = await engine.scene.saveToString();
+      if (typeof sceneString === 'string' && sceneString.length > 0) {
+        instance.data._lastPublishedCanvasJson = sceneString;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return { changed };
+}
+
 export function fitSceneInView(cesdk) {
   if (!cesdk || !cesdk.actions || typeof cesdk.actions.run !== 'function') {
     return Promise.resolve();
@@ -171,6 +247,22 @@ export async function createBookletScene(_cesdk, engine, sheetCount) {
   return getPageIds(engine);
 }
 
+export async function syncScenePageCount(instance) {
+  const engine = instance.data.engine;
+  if (!engine) return false;
+
+  const layout = buildBookletPageLayout(instance.data.sheetCount ?? 1);
+  instance.data._suppressCanvasJsonPublish = true;
+  try {
+    await finalizeBookletScene(instance, layout);
+    await fitSceneInView(instance.data.cesdk);
+    return true;
+  } catch (err) {
+    console.error('IMG.LY View: syncScenePageCount failed', err);
+    return false;
+  }
+}
+
 export async function loadSceneFromString(instance, sceneString) {
   const engine = instance.data.engine;
   if (!engine || !engine.scene || typeof engine.scene.loadFromString !== 'function') {
@@ -185,14 +277,7 @@ export async function loadSceneFromString(instance, sceneString) {
   instance.data._suppressCanvasJsonPublish = true;
   try {
     await engine.scene.loadFromString(sceneString.trim());
-    instance.data.pageIds = getPageIds(engine);
-    instance.data._lastPublishedCanvasJson = sceneString.trim();
-    ensureBookletSceneLayout(engine, layout);
-    ensureBookletGuides(engine, layout);
-    hideAllPageCanvasBorders(engine);
-    ensureAllBlocksIncludedInExport(engine);
-    lockPageDeletion(engine);
-    lockPageSelection(engine);
+    await finalizeBookletScene(instance, layout);
     await fitSceneInView(instance.data.cesdk);
     return true;
   } catch (err) {

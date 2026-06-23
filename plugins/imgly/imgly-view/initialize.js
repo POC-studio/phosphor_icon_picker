@@ -22,6 +22,14 @@ var __pluginInit = (() => {
     return a;
   };
   var __spreadProps = (a, b2) => __defProps(a, __getOwnPropDescs(b2));
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e2) {
+      throw err = [e2], e2;
+    }
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -57,38 +65,7 @@ var __pluginInit = (() => {
     });
   };
 
-  // plugins/imgly/imgly-view/src/index.js
-  var index_exports = {};
-  __export(index_exports, {
-    default: () => index_default
-  });
-
-  // plugins/imgly/imgly-view/src/shims/cesdk-js.js
-  function resolveCreativeEditorSDK() {
-    const sdk = typeof globalThis.CreativeEditorSDK !== "undefined" ? globalThis.CreativeEditorSDK : null;
-    if (sdk && typeof sdk.create === "function") return sdk;
-    return null;
-  }
-  var cesdkLazy = new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        const sdk = resolveCreativeEditorSDK();
-        if (!sdk) return void 0;
-        const value = sdk[prop];
-        return typeof value === "function" ? value.bind(sdk) : value;
-      }
-    }
-  );
-  var cesdk_js_default = cesdkLazy;
-
   // plugins/imgly/imgly-view/src/booklet-layout.js
-  var HALF_A4_WIDTH_MM = 148.5;
-  var PAGE_HEIGHT_MM = 210;
-  var BOOKLET_ROW_GAP_MM = 28;
-  var MAX_SHEET_COUNT = 20;
-  var BOOKLET_SCENE_LAYOUT = "Free";
-  var ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
   function clampSheetCount(value) {
     const n = Number.parseInt(String(value != null ? value : ""), 10);
     if (!Number.isFinite(n) || n < 1) return 1;
@@ -147,6 +124,878 @@ var __pluginInit = (() => {
     });
     return layout;
   }
+  var HALF_A4_WIDTH_MM, PAGE_HEIGHT_MM, BOOKLET_ROW_GAP_MM, MAX_SHEET_COUNT, BOOKLET_SCENE_LAYOUT, ROW_STEP_MM;
+  var init_booklet_layout = __esm({
+    "plugins/imgly/imgly-view/src/booklet-layout.js"() {
+      HALF_A4_WIDTH_MM = 148.5;
+      PAGE_HEIGHT_MM = 210;
+      BOOKLET_ROW_GAP_MM = 28;
+      MAX_SHEET_COUNT = 20;
+      BOOKLET_SCENE_LAYOUT = "Free";
+      ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/export-lock.js
+  function hideShowInExportUI() {
+    if (typeof document === "undefined" || document.getElementById(EXPORT_UI_STYLE_ID)) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = EXPORT_UI_STYLE_ID;
+    style.textContent = `
+    .UBQ_Section-module__block:has([name="exportable"]),
+    .UBQ_Section-module__block:has([data-cy="exportable"]) {
+      display: none !important;
+    }
+  `;
+    document.head.appendChild(style);
+  }
+  function ensureAllBlocksIncludedInExport(engine) {
+    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findAll !== "function") return;
+    for (const blockId of engine.block.findAll()) {
+      try {
+        if (typeof engine.block.isIncludedInExport === "function" && engine.block.isIncludedInExport(blockId)) {
+          continue;
+        }
+        if (typeof engine.block.setIncludedInExport === "function") {
+          engine.block.setIncludedInExport(blockId, true);
+        }
+      } catch (e2) {
+      }
+    }
+  }
+  function hidePageCanvasBorder(engine, pageId) {
+    if (!(engine == null ? void 0 : engine.block) || pageId == null) return;
+    try {
+      if (typeof engine.block.supportsStroke === "function" && engine.block.supportsStroke(pageId)) {
+        engine.block.setStrokeEnabled(pageId, false);
+      }
+      if (typeof engine.block.setFloat === "function") {
+        engine.block.setFloat(pageId, "stroke/width", 0);
+      }
+      if (typeof engine.block.setBool === "function") {
+        engine.block.setBool(pageId, "stroke/enabled", false);
+      }
+      if (typeof engine.block.supportsFill === "function" && engine.block.supportsFill(pageId)) {
+        engine.block.setFillEnabled(pageId, true);
+      }
+    } catch (e2) {
+    }
+  }
+  function readPageExportVisualState(engine, pageId) {
+    const state = {};
+    try {
+      if (typeof engine.block.isStrokeEnabled === "function") {
+        state.strokeEnabled = engine.block.isStrokeEnabled(pageId);
+      }
+      if (typeof engine.block.isFillEnabled === "function") {
+        state.fillEnabled = engine.block.isFillEnabled(pageId);
+      }
+    } catch (e2) {
+    }
+    return state;
+  }
+  function restorePageExportVisualState(engine, pageId, state) {
+    try {
+      if (state.strokeEnabled !== void 0 && typeof engine.block.setStrokeEnabled === "function") {
+        engine.block.setStrokeEnabled(pageId, state.strokeEnabled);
+      }
+      if (state.fillEnabled !== void 0 && typeof engine.block.setFillEnabled === "function") {
+        engine.block.setFillEnabled(pageId, state.fillEnabled);
+      }
+    } catch (e2) {
+    }
+  }
+  function withPageHiddenForExport(engine, pageId, exportFn) {
+    return __async(this, null, function* () {
+      const previous = readPageExportVisualState(engine, pageId);
+      try {
+        hidePageCanvasBorder(engine, pageId);
+        if (typeof engine.block.setFillEnabled === "function") {
+          engine.block.setFillEnabled(pageId, false);
+        }
+        return yield exportFn();
+      } finally {
+        restorePageExportVisualState(engine, pageId, previous);
+        hidePageCanvasBorder(engine, pageId);
+      }
+    });
+  }
+  function hideAllPageCanvasBorders(engine) {
+    var _a;
+    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
+    if ((_a = engine.editor) == null ? void 0 : _a.setSetting) {
+      try {
+        engine.editor.setSetting("page/innerBorderColor", TRANSPARENT_COLOR);
+        engine.editor.setSetting("page/outerBorderColor", TRANSPARENT_COLOR);
+      } catch (e2) {
+      }
+    }
+    const pageIds = engine.block.findByType("page") || [];
+    for (const pageId of pageIds) {
+      hidePageCanvasBorder(engine, pageId);
+    }
+  }
+  function lockPageDeletion(engine) {
+    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
+    const pageIds = engine.block.findByType("page") || [];
+    for (const pageId of pageIds) {
+      try {
+        engine.block.setScopeEnabled(pageId, "lifecycle/destroy", false);
+      } catch (e2) {
+      }
+    }
+  }
+  function lockPageSelection(engine) {
+    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
+    const pageIds = engine.block.findByType("page") || [];
+    for (const pageId of pageIds) {
+      try {
+        engine.block.setBool(pageId, "selectionEnabled", false);
+      } catch (e2) {
+      }
+    }
+  }
+  function setupExportLock(engine) {
+    hideShowInExportUI();
+    hideAllPageCanvasBorders(engine);
+    ensureAllBlocksIncludedInExport(engine);
+    lockPageDeletion(engine);
+    lockPageSelection(engine);
+  }
+  var EXPORT_UI_STYLE_ID, TRANSPARENT_COLOR;
+  var init_export_lock = __esm({
+    "plugins/imgly/imgly-view/src/export-lock.js"() {
+      EXPORT_UI_STYLE_ID = "imgly-hide-show-in-export";
+      TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/bubble-upload.js
+  function normalizeBubbleUploadUrl(err, url) {
+    if (err) return "";
+    if (typeof url !== "string") return "";
+    let trimmed = url.trim();
+    if (!trimmed) return "";
+    if (/^\/\//.test(trimmed)) trimmed = `https:${trimmed}`;
+    if (/^https?:\/\//i.test(trimmed) || /^blob:/i.test(trimmed)) return trimmed;
+    return trimmed;
+  }
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== "string" || dataUrl.indexOf(",") < 0) {
+          reject(new Error("Invalid data URL from blob"));
+          return;
+        }
+        resolve(dataUrl.split(",")[1]);
+      };
+      reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function fileToBase64(file) {
+    return blobToBase64(file);
+  }
+  function uploadBase64(context, fileName, base64) {
+    if (!context || typeof context.uploadContent !== "function" || !base64) {
+      return Promise.resolve("");
+    }
+    return new Promise((resolve) => {
+      try {
+        context.uploadContent(fileName, base64, (err, url) => {
+          resolve(normalizeBubbleUploadUrl(err, url));
+        });
+      } catch (e2) {
+        console.error("IMG.LY View: uploadContent failed", e2);
+        resolve("");
+      }
+    });
+  }
+  function uploadBlob(context, fileName, blob) {
+    if (!blob) return Promise.resolve("");
+    return blobToBase64(blob).then((base64) => uploadBase64(context, fileName, base64)).catch((err) => {
+      console.error("IMG.LY View: blobToBase64 failed", err);
+      return "";
+    });
+  }
+  function safeUploadFileName(file) {
+    const raw = file && typeof file.name === "string" ? file.name.trim() : "";
+    const safe = raw.replace(/[^\w.-]/g, "_");
+    if (safe) return safe;
+    const ext = file && typeof file.type === "string" && file.type.includes("/") ? file.type.split("/").pop() : "bin";
+    return `upload-${Date.now()}.${ext}`;
+  }
+  function uploadFileToBubble(instance, file, onProgress) {
+    return __async(this, null, function* () {
+      var _a, _b;
+      const context = ((_a = instance == null ? void 0 : instance.data) == null ? void 0 : _a.bubbleContext) || null;
+      const cesdk = ((_b = instance == null ? void 0 : instance.data) == null ? void 0 : _b.cesdk) || null;
+      if (!file) {
+        throw new Error("No file to upload");
+      }
+      if (typeof onProgress === "function") {
+        try {
+          onProgress(0);
+        } catch (e2) {
+        }
+      }
+      const fileName = safeUploadFileName(file);
+      if (context && typeof context.uploadContent === "function") {
+        const base64 = yield fileToBase64(file);
+        const url = yield uploadBase64(context, fileName, base64);
+        if (url) {
+          if (typeof onProgress === "function") {
+            try {
+              onProgress(1);
+            } catch (e2) {
+            }
+          }
+          return {
+            id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            meta: {
+              uri: url,
+              thumbUri: url,
+              mimeType: file.type || "application/octet-stream"
+            }
+          };
+        }
+        console.warn("IMG.LY View: uploadContent sans URL utilisable pour", fileName);
+      }
+      if ((cesdk == null ? void 0 : cesdk.utils) && typeof cesdk.utils.localUpload === "function") {
+        console.warn("IMG.LY View: repli localUpload (sandbox / pas de context Bubble)");
+        return cesdk.utils.localUpload(file, { context: { source: "user-upload" } });
+      }
+      throw new Error("Upload indisponible (context Bubble ou CE.SDK manquant)");
+    });
+  }
+  var init_bubble_upload = __esm({
+    "plugins/imgly/imgly-view/src/bubble-upload.js"() {
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/constants.js
+  var PAGE_PREVIEWS_DEBOUNCE_MS, PAGE_PREVIEWS_COOLDOWN_MS, SCENE_PUBLISH_DEBOUNCE_MS;
+  var init_constants = __esm({
+    "plugins/imgly/imgly-view/src/constants.js"() {
+      PAGE_PREVIEWS_DEBOUNCE_MS = 1500;
+      PAGE_PREVIEWS_COOLDOWN_MS = 3e4;
+      SCENE_PUBLISH_DEBOUNCE_MS = 400;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/shims/pdf-lib.js
+  var lib, PDFDocument, PageSizes, concatTransformationMatrix, popGraphicsState, pushGraphicsState;
+  var init_pdf_lib = __esm({
+    "plugins/imgly/imgly-view/src/shims/pdf-lib.js"() {
+      lib = typeof PDFLib !== "undefined" ? PDFLib : {};
+      PDFDocument = lib.PDFDocument;
+      PageSizes = lib.PageSizes;
+      concatTransformationMatrix = lib.concatTransformationMatrix;
+      popGraphicsState = lib.popGraphicsState;
+      pushGraphicsState = lib.pushGraphicsState;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/pdf-imposition.js
+  function buildImpositionPairs(totalPages) {
+    if (totalPages % 4 !== 0) {
+      throw new Error(`Nombre de pages invalide pour imposition: ${totalPages}`);
+    }
+    const numSheets = totalPages / 4;
+    const pairs = [];
+    for (let s = 0; s < numSheets; s += 1) {
+      pairs.push([totalPages - 2 * s, 1 + 2 * s]);
+      pairs.push([2 + 2 * s, totalPages - 1 - 2 * s]);
+    }
+    return pairs;
+  }
+  function mmToPt(mm) {
+    return mm * 72 / 25.4;
+  }
+  function blobToArrayBuffer(blob) {
+    if (blob instanceof ArrayBuffer) return blob;
+    if (blob == null ? void 0 : blob.arrayBuffer) return blob.arrayBuffer();
+    return blob;
+  }
+  function logUnexpectedPageSize(widthPt, heightPt) {
+    const expectedW = mmToPt(HALF_A4_WIDTH_MM);
+    const expectedH = mmToPt(PAGE_HEIGHT_MM);
+    const tolerance = 2;
+    if (Math.abs(widthPt - expectedW) > tolerance || Math.abs(heightPt - expectedH) > tolerance) {
+      console.warn(
+        "IMG.LY View: taille PDF page inattendue",
+        { widthPt, heightPt, expectedW, expectedH }
+      );
+    }
+  }
+  function drawImposedSpread(outPage, leftEmbedded, rightEmbedded, flip180) {
+    const a4W = mmToPt(A4_WIDTH_MM);
+    const a4H = mmToPt(A4_HEIGHT_MM);
+    const halfW = mmToPt(HALF_A4_WIDTH_MM);
+    logUnexpectedPageSize(leftEmbedded.width, leftEmbedded.height);
+    logUnexpectedPageSize(rightEmbedded.width, rightEmbedded.height);
+    outPage.pushOperators(pushGraphicsState());
+    if (flip180 && PDF_DUPLEX_FLIP_INSIDE_PAGE) {
+      outPage.pushOperators(
+        concatTransformationMatrix(-1, 0, 0, -1, a4W, a4H)
+      );
+    }
+    if (PDF_ROTATE_CLOCKWISE) {
+      outPage.pushOperators(
+        concatTransformationMatrix(0, 1, -1, 0, a4W, 0)
+      );
+    } else {
+      outPage.pushOperators(
+        concatTransformationMatrix(0, -1, 1, 0, 0, a4H)
+      );
+    }
+    outPage.drawPage(leftEmbedded, { x: 0, y: 0 });
+    outPage.drawPage(rightEmbedded, { x: halfW, y: 0 });
+    outPage.pushOperators(popGraphicsState());
+  }
+  function composeImposedPdf(pagePdfBytesList, pairs) {
+    return __async(this, null, function* () {
+      const outputDoc = yield PDFDocument.create();
+      for (let i = 0; i < pairs.length; i += 1) {
+        const [leftNum, rightNum] = pairs[i];
+        const leftBytes = pagePdfBytesList[leftNum - 1];
+        const rightBytes = pagePdfBytesList[rightNum - 1];
+        if (!leftBytes || !rightBytes) {
+          throw new Error(`PDF manquant pour la paire [${leftNum}|${rightNum}]`);
+        }
+        const leftDoc = yield PDFDocument.load(yield blobToArrayBuffer(leftBytes));
+        const rightDoc = yield PDFDocument.load(yield blobToArrayBuffer(rightBytes));
+        const [leftEmbedded] = yield outputDoc.embedPdf(leftDoc);
+        const [rightEmbedded] = yield outputDoc.embedPdf(rightDoc);
+        const outPage = outputDoc.addPage(PageSizes.A4);
+        drawImposedSpread(outPage, leftEmbedded, rightEmbedded, i % 2 === 1);
+      }
+      const bytes = yield outputDoc.save();
+      return new Blob([bytes], { type: "application/pdf" });
+    });
+  }
+  function exportPagePdf(engine, pageId) {
+    return __async(this, null, function* () {
+      if (!(engine == null ? void 0 : engine.block) || pageId == null) return null;
+      const blob = yield withPageHiddenForExport(engine, pageId, () => engine.block.export(pageId, {
+        mimeType: "application/pdf",
+        exportPdfWithHighCompatibility: true
+      }));
+      if (!blob) return null;
+      return blobToArrayBuffer(blob);
+    });
+  }
+  function buildFoldedA4Pdf(engine, pageIds) {
+    return __async(this, null, function* () {
+      const totalPages = pageIds.length;
+      if (totalPages % 4 !== 0) {
+        throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
+      }
+      const pagePdfBytes = yield Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+      if (pagePdfBytes.some((bytes) => !bytes)) {
+        throw new Error("Export PDF CE.SDK incomplet (page manquante)");
+      }
+      const pairs = buildImpositionPairs(totalPages);
+      return composeImposedPdf(pagePdfBytes, pairs);
+    });
+  }
+  var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE, A4_WIDTH_MM, A4_HEIGHT_MM;
+  var init_pdf_imposition = __esm({
+    "plugins/imgly/imgly-view/src/pdf-imposition.js"() {
+      init_pdf_lib();
+      init_booklet_layout();
+      init_export_lock();
+      PDF_ROTATE_CLOCKWISE = false;
+      PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
+      A4_WIDTH_MM = 210;
+      A4_HEIGHT_MM = 297;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/scene.js
+  function applyBookletPagePositions(engine, layout) {
+    if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
+    const pageIds = getPageIds(engine);
+    if (pageIds.length !== layout.length) return;
+    pageIds.forEach((pageId, index) => {
+      const spec = layout[index];
+      if (!spec) return;
+      try {
+        engine.block.setWidthMode(pageId, "Absolute");
+        engine.block.setHeightMode(pageId, "Absolute");
+        engine.block.setPositionXMode(pageId, "Absolute");
+        engine.block.setPositionYMode(pageId, "Absolute");
+        engine.block.setWidth(pageId, spec.width);
+        engine.block.setHeight(pageId, spec.height);
+        engine.block.setPositionX(pageId, spec.x);
+        engine.block.setPositionY(pageId, spec.y);
+      } catch (e2) {
+      }
+    });
+  }
+  function ensureBookletGuides(engine, layout) {
+    if (!Array.isArray(layout) || layout.length === 0) return;
+    const pageIds = getPageIds(engine);
+    if (pageIds.length !== layout.length) return;
+    pageIds.forEach((pageId, index) => {
+      const spec = layout[index];
+      try {
+        engine.block.setClipped(pageId, true);
+      } catch (e2) {
+      }
+      hidePageCanvasBorder(engine, pageId);
+      if (spec == null ? void 0 : spec.name) {
+        try {
+          engine.block.setName(pageId, spec.name);
+        } catch (e2) {
+        }
+      }
+    });
+  }
+  function getPageIds(engine) {
+    if (!engine || !engine.block || typeof engine.block.findByType !== "function") return [];
+    return engine.block.findByType("page") || [];
+  }
+  function getPageParent(engine) {
+    const scene = engine.scene.get();
+    if (scene == null) return null;
+    const stacks = engine.block.findByType("stack") || [];
+    return stacks.length > 0 ? stacks[0] : scene;
+  }
+  function createBookletPage(engine, parent, spec) {
+    const page = engine.block.create("page");
+    engine.block.setWidthMode(page, "Absolute");
+    engine.block.setHeightMode(page, "Absolute");
+    engine.block.setPositionXMode(page, "Absolute");
+    engine.block.setPositionYMode(page, "Absolute");
+    engine.block.setWidth(page, spec.width);
+    engine.block.setHeight(page, spec.height);
+    engine.block.setPositionX(page, spec.x);
+    engine.block.setPositionY(page, spec.y);
+    engine.block.setClipped(page, true);
+    engine.block.setBool(page, "selectionEnabled", false);
+    engine.block.setScopeEnabled(page, "lifecycle/destroy", false);
+    hidePageCanvasBorder(engine, page);
+    if (spec.name) {
+      engine.block.setName(page, spec.name);
+    }
+    engine.block.appendChild(parent, page);
+    return page;
+  }
+  function ensureBookletSceneLayout(engine, layout) {
+    if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.setLayout !== "function") return;
+    if (!Array.isArray(layout) || layout.length === 0) return;
+    if (getPageIds(engine).length !== layout.length) return;
+    try {
+      if (engine.scene.getLayout() !== BOOKLET_SCENE_LAYOUT) {
+        for (const pageId of getPageIds(engine)) {
+          try {
+            engine.block.setBool(pageId, "transformLocked", false);
+          } catch (e2) {
+          }
+        }
+        engine.scene.setLayout(BOOKLET_SCENE_LAYOUT);
+      }
+      applyBookletPagePositions(engine, layout);
+    } catch (err) {
+      console.warn("IMG.LY View: ensureBookletSceneLayout failed", err);
+    }
+  }
+  function syncPageCountToLayout(engine, layout) {
+    if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) {
+      return { changed: false };
+    }
+    const pageIds = getPageIds(engine);
+    const expected = layout.length;
+    if (pageIds.length === expected) {
+      return { changed: false };
+    }
+    if (pageIds.length > expected) {
+      for (const pageId of pageIds.slice(expected)) {
+        try {
+          engine.block.setScopeEnabled(pageId, "lifecycle/destroy", true);
+          engine.block.destroy(pageId);
+        } catch (e2) {
+        }
+      }
+    } else {
+      const parent = getPageParent(engine);
+      if (parent == null) return { changed: false };
+      for (let i = pageIds.length; i < expected; i += 1) {
+        const spec = layout[i];
+        if (!spec) continue;
+        createBookletPage(engine, parent, spec);
+      }
+    }
+    return { changed: true };
+  }
+  function finalizeBookletScene(instance, layout) {
+    return __async(this, null, function* () {
+      const engine = instance.data.engine;
+      if (!engine) return { changed: false };
+      const { changed } = syncPageCountToLayout(engine, layout);
+      instance.data.pageIds = getPageIds(engine);
+      ensureBookletSceneLayout(engine, layout);
+      ensureBookletGuides(engine, layout);
+      hideAllPageCanvasBorders(engine);
+      ensureAllBlocksIncludedInExport(engine);
+      lockPageDeletion(engine);
+      lockPageSelection(engine);
+      if (changed) {
+        const { publishSceneJson: publishSceneJson2 } = yield Promise.resolve().then(() => (init_exports(), exports_exports));
+        yield publishSceneJson2(instance, { force: true, skipPreviews: true });
+      } else if (typeof engine.scene.saveToString === "function") {
+        try {
+          const sceneString = yield engine.scene.saveToString();
+          if (typeof sceneString === "string" && sceneString.length > 0) {
+            instance.data._lastPublishedCanvasJson = sceneString;
+          }
+        } catch (e2) {
+        }
+      }
+      return { changed };
+    });
+  }
+  function fitSceneInView(cesdk) {
+    if (!cesdk || !cesdk.actions || typeof cesdk.actions.run !== "function") {
+      return Promise.resolve();
+    }
+    return Promise.resolve(
+      cesdk.actions.run("zoom.toPage", { page: "first", autoFit: true })
+    ).catch((err) => {
+      console.error("IMG.LY View: zoom.toPage failed", err);
+    });
+  }
+  function createBookletScene(_cesdk, engine, sheetCount) {
+    return __async(this, null, function* () {
+      if (!engine || !engine.scene || !engine.block) return [];
+      const layout = buildBookletPageLayout(sheetCount);
+      engine.scene.create(BOOKLET_SCENE_LAYOUT);
+      if (typeof engine.scene.setDesignUnit === "function") {
+        engine.scene.setDesignUnit("Millimeter");
+      }
+      if (typeof engine.scene.setMode === "function") {
+        engine.scene.setMode("Design");
+      }
+      const scene = engine.scene.get();
+      if (scene == null) return [];
+      engine.block.setFloat(scene, "scene/dpi", 300);
+      engine.block.setFloat(scene, "scene/pageDimensions/width", layout[0].width);
+      engine.block.setFloat(scene, "scene/pageDimensions/height", layout[0].height);
+      for (const pageId of getPageIds(engine)) {
+        try {
+          engine.block.destroy(pageId);
+        } catch (e2) {
+        }
+      }
+      const parent = getPageParent(engine);
+      if (parent == null) return [];
+      for (const spec of layout) {
+        createBookletPage(engine, parent, spec);
+      }
+      ensureBookletSceneLayout(engine, layout);
+      ensureBookletGuides(engine, layout);
+      hideAllPageCanvasBorders(engine);
+      ensureAllBlocksIncludedInExport(engine);
+      lockPageDeletion(engine);
+      lockPageSelection(engine);
+      return getPageIds(engine);
+    });
+  }
+  function syncScenePageCount(instance) {
+    return __async(this, null, function* () {
+      var _a;
+      const engine = instance.data.engine;
+      if (!engine) return false;
+      const layout = buildBookletPageLayout((_a = instance.data.sheetCount) != null ? _a : 1);
+      instance.data._suppressCanvasJsonPublish = true;
+      try {
+        yield finalizeBookletScene(instance, layout);
+        yield fitSceneInView(instance.data.cesdk);
+        return true;
+      } catch (err) {
+        console.error("IMG.LY View: syncScenePageCount failed", err);
+        return false;
+      }
+    });
+  }
+  function loadSceneFromString(instance, sceneString) {
+    return __async(this, null, function* () {
+      var _a;
+      const engine = instance.data.engine;
+      if (!engine || !engine.scene || typeof engine.scene.loadFromString !== "function") {
+        return false;
+      }
+      if (typeof sceneString !== "string" || sceneString.trim().length === 0) {
+        return false;
+      }
+      const layout = buildBookletPageLayout((_a = instance.data.sheetCount) != null ? _a : 1);
+      instance.data._suppressCanvasJsonPublish = true;
+      try {
+        yield engine.scene.loadFromString(sceneString.trim());
+        yield finalizeBookletScene(instance, layout);
+        yield fitSceneInView(instance.data.cesdk);
+        return true;
+      } catch (err) {
+        console.error("IMG.LY View: loadFromString failed", err);
+        return false;
+      }
+    });
+  }
+  var init_scene = __esm({
+    "plugins/imgly/imgly-view/src/scene.js"() {
+      init_booklet_layout();
+      init_export_lock();
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/exports.js
+  var exports_exports = {};
+  __export(exports_exports, {
+    createPagePreviews: () => createPagePreviews,
+    publishSceneJson: () => publishSceneJson,
+    schedulePagePreviews: () => schedulePagePreviews,
+    scheduleScenePublish: () => scheduleScenePublish,
+    triggerPdfExport: () => triggerPdfExport,
+    triggerSaveDocument: () => triggerSaveDocument,
+    wireHistoryListener: () => wireHistoryListener
+  });
+  function sanitizeFileBase(title) {
+    const raw = typeof title === "string" ? title.trim() : "";
+    const safe = raw.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
+    return safe || "document";
+  }
+  function downloadBlob(blob, fileName) {
+    if (!blob || typeof document === "undefined") return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "document.pdf";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  }
+  function publishSceneJson(instance, options) {
+    const engine = instance.data.engine;
+    const force = options && options.force === true;
+    const skipPreviews = options && options.skipPreviews === true;
+    if (!engine || !engine.scene || typeof engine.scene.saveToString !== "function") {
+      return Promise.resolve(false);
+    }
+    if (!force && instance.data._suppressCanvasJsonPublish === true) return Promise.resolve(false);
+    return engine.scene.saveToString().then((sceneString) => {
+      if (typeof sceneString !== "string" || sceneString.length === 0) return false;
+      if (!force && sceneString === instance.data._lastPublishedCanvasJson) return false;
+      instance.data._lastPublishedCanvasJson = sceneString;
+      instance.publishState("canvas_json", sceneString);
+      instance.triggerEvent("json_changed");
+      if (!skipPreviews) {
+        schedulePagePreviews(instance);
+      }
+      return true;
+    }).catch((err) => {
+      console.error("IMG.LY View: saveToString failed", err);
+      return false;
+    });
+  }
+  function scheduleScenePublish(instance) {
+    if (!instance || !instance.data) return;
+    if (instance.data._suppressCanvasJsonPublish === true) return;
+    if (instance.data._scheduleScenePublishTimer) {
+      clearTimeout(instance.data._scheduleScenePublishTimer);
+    }
+    instance.data._scheduleScenePublishTimer = setTimeout(() => {
+      instance.data._scheduleScenePublishTimer = null;
+      publishSceneJson(instance);
+    }, SCENE_PUBLISH_DEBOUNCE_MS);
+  }
+  function schedulePagePreviews(instance) {
+    if (!instance || !instance.data) return;
+    if (instance.data._suppressCanvasJsonPublish === true) return;
+    const d2 = instance.data;
+    const sinceLast = Date.now() - (d2._lastPagePreviewsAt || 0);
+    const delay = sinceLast < PAGE_PREVIEWS_COOLDOWN_MS ? Math.max(PAGE_PREVIEWS_DEBOUNCE_MS, PAGE_PREVIEWS_COOLDOWN_MS - sinceLast) : PAGE_PREVIEWS_DEBOUNCE_MS;
+    if (d2._schedulePagePreviewsTimer) {
+      clearTimeout(d2._schedulePagePreviewsTimer);
+    }
+    d2._schedulePagePreviewsTimer = setTimeout(() => {
+      d2._schedulePagePreviewsTimer = null;
+      if (typeof d2.createPagePreviews === "function") {
+        d2.createPagePreviews();
+      }
+    }, delay);
+  }
+  function createPagePreviews(instance) {
+    const engine = instance.data.engine;
+    const context = instance.data.bubbleContext || null;
+    if (!engine || !engine.block) return Promise.resolve([]);
+    let pageIds = getPageIds(engine);
+    if (!pageIds.length) {
+      pageIds = instance.data.pageIds || [];
+    }
+    if (!pageIds.length) return Promise.resolve([]);
+    const base = sanitizeFileBase(instance.data.documentTitle);
+    const runId = (instance.data._pagePreviewsRunId || 0) + 1;
+    instance.data._pagePreviewsRunId = runId;
+    instance.data._lastPagePreviewsAt = Date.now();
+    const exportOne = (pageId, index) => engine.block.export(pageId, {
+      mimeType: "image/png",
+      targetWidth: 500
+    }).then((blob) => {
+      const safeName = (base + "-preview-" + (index + 1) + ".png").replace(/[^\w.-]/g, "_");
+      return uploadBlob(context, safeName, blob);
+    }).catch((err) => {
+      console.error("IMG.LY View: page preview export failed", err);
+      return "";
+    });
+    return Promise.all(pageIds.map(exportOne)).then((uploaded) => {
+      if (instance.data._pagePreviewsRunId !== runId) return uploaded;
+      instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || "";
+      const urls = uploaded.filter((u2) => typeof u2 === "string" && u2.length > 0);
+      instance.publishState("page_previews", urls);
+      if (urls.length > 0) {
+        instance.triggerEvent("page_previews_ready");
+      } else {
+        console.warn("IMG.LY View: previews upload\xE9es sans URL exploitable \u2014 page_previews_ready non d\xE9clench\xE9");
+      }
+      return urls;
+    }).catch((err) => {
+      console.error("IMG.LY View: create_page_previews", err);
+      return [];
+    });
+  }
+  function syncSceneBeforePdfExport(instance) {
+    return __async(this, null, function* () {
+      const engine = instance.data.engine;
+      if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.saveToString !== "function") return;
+      try {
+        yield engine.scene.saveToString();
+      } catch (err) {
+        console.error("IMG.LY View: pre-PDF saveToString failed", err);
+      }
+    });
+  }
+  function triggerSaveDocument(instance) {
+    return __async(this, null, function* () {
+      if (!instance || !instance.data) return false;
+      if (instance.data._saveInProgress === true) return false;
+      instance.data._saveInProgress = true;
+      try {
+        yield publishSceneJson(instance, { force: true, skipPreviews: true });
+        yield createPagePreviews(instance);
+        yield triggerPdfExport(instance, { download: false });
+        instance.triggerEvent("document_saved");
+        return true;
+      } catch (err) {
+        console.error("IMG.LY View: enregistrement document", err);
+        return false;
+      } finally {
+        instance.data._saveInProgress = false;
+      }
+    });
+  }
+  function triggerPdfExport(instance, options) {
+    return __async(this, null, function* () {
+      const download = !options || options.download !== false;
+      const engine = instance.data.engine;
+      const context = instance.data.bubbleContext || null;
+      if (!(engine == null ? void 0 : engine.block)) return "";
+      let pageIds = getPageIds(engine);
+      if (!pageIds.length) {
+        pageIds = instance.data.pageIds || [];
+      }
+      if (!pageIds.length) return "";
+      if (pageIds.length % 4 !== 0) {
+        console.error("IMG.LY View: PDF export aborted \u2014 page count must be a multiple of 4:", pageIds.length);
+        return "";
+      }
+      ensureAllBlocksIncludedInExport(engine);
+      hideAllPageCanvasBorders(engine);
+      yield syncSceneBeforePdfExport(instance);
+      if (typeof engine.block.forceLoadResources === "function") {
+        try {
+          yield engine.block.forceLoadResources(pageIds);
+        } catch (err) {
+          console.warn("IMG.LY View: forceLoadResources avant export PDF", err);
+        }
+      }
+      const base = sanitizeFileBase(instance.data.documentTitle);
+      const safePdfName = (base + ".pdf").replace(/[^\w.-]/g, "_") || "document.pdf";
+      try {
+        const blob = yield buildFoldedA4Pdf(engine, pageIds);
+        const url = yield uploadBlob(context, safePdfName, blob);
+        if (typeof url === "string" && url.length > 0) {
+          instance.publishState("pdf_url", url);
+          instance.triggerEvent("pdf_ready");
+        } else if (blob && blob.size > 0) {
+          console.warn("IMG.LY View: PDF upload\xE9 dans Bubble mais URL non re\xE7ue \u2014 pdf_ready non d\xE9clench\xE9");
+        }
+        if (download) {
+          downloadBlob(blob, safePdfName);
+        }
+        return url || (download ? "downloaded" : "");
+      } catch (err) {
+        console.error("IMG.LY View: PDF export failed", err);
+        return "";
+      }
+    });
+  }
+  function wireHistoryListener(instance) {
+    const engine = instance.data.engine;
+    if (!engine || !engine.editor || typeof engine.editor.onHistoryUpdated !== "function") return;
+    if (typeof instance.data._unsubscribeHistory === "function") {
+      instance.data._unsubscribeHistory();
+    }
+    instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated((kind) => {
+      if (kind === "Activated") return;
+      ensureAllBlocksIncludedInExport(engine);
+      lockPageDeletion(engine);
+      lockPageSelection(engine);
+    });
+  }
+  var init_exports = __esm({
+    "plugins/imgly/imgly-view/src/exports.js"() {
+      init_bubble_upload();
+      init_constants();
+      init_export_lock();
+      init_pdf_imposition();
+      init_scene();
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/index.js
+  var index_exports = {};
+  __export(index_exports, {
+    default: () => index_default
+  });
+
+  // plugins/imgly/imgly-view/src/shims/cesdk-js.js
+  function resolveCreativeEditorSDK() {
+    const sdk = typeof globalThis.CreativeEditorSDK !== "undefined" ? globalThis.CreativeEditorSDK : null;
+    if (sdk && typeof sdk.create === "function") return sdk;
+    return null;
+  }
+  var cesdkLazy = new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        const sdk = resolveCreativeEditorSDK();
+        if (!sdk) return void 0;
+        const value = sdk[prop];
+        return typeof value === "function" ? value.bind(sdk) : value;
+      }
+    }
+  );
+  var cesdk_js_default = cesdkLazy;
+
+  // plugins/imgly/imgly-view/src/app.js
+  init_booklet_layout();
 
   // plugins/imgly/imgly-view/src/cesdk-content-base-url.js
   var PRODUCTION_CESDK_CONTENT_BASE_URL = "https://poc-studio.github.io/phosphor_icon_picker/public/cesdk-assets/";
@@ -2966,138 +3815,8 @@ var __pluginInit = (() => {
     setupDock(cesdk);
   }
 
-  // plugins/imgly/imgly-view/src/export-lock.js
-  var EXPORT_UI_STYLE_ID = "imgly-hide-show-in-export";
-  var TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
-  function hideShowInExportUI() {
-    if (typeof document === "undefined" || document.getElementById(EXPORT_UI_STYLE_ID)) {
-      return;
-    }
-    const style = document.createElement("style");
-    style.id = EXPORT_UI_STYLE_ID;
-    style.textContent = `
-    .UBQ_Section-module__block:has([name="exportable"]),
-    .UBQ_Section-module__block:has([data-cy="exportable"]) {
-      display: none !important;
-    }
-  `;
-    document.head.appendChild(style);
-  }
-  function ensureAllBlocksIncludedInExport(engine) {
-    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findAll !== "function") return;
-    for (const blockId of engine.block.findAll()) {
-      try {
-        if (typeof engine.block.isIncludedInExport === "function" && engine.block.isIncludedInExport(blockId)) {
-          continue;
-        }
-        if (typeof engine.block.setIncludedInExport === "function") {
-          engine.block.setIncludedInExport(blockId, true);
-        }
-      } catch (e2) {
-      }
-    }
-  }
-  function hidePageCanvasBorder(engine, pageId) {
-    if (!(engine == null ? void 0 : engine.block) || pageId == null) return;
-    try {
-      if (typeof engine.block.supportsStroke === "function" && engine.block.supportsStroke(pageId)) {
-        engine.block.setStrokeEnabled(pageId, false);
-      }
-      if (typeof engine.block.setFloat === "function") {
-        engine.block.setFloat(pageId, "stroke/width", 0);
-      }
-      if (typeof engine.block.setBool === "function") {
-        engine.block.setBool(pageId, "stroke/enabled", false);
-      }
-      if (typeof engine.block.supportsFill === "function" && engine.block.supportsFill(pageId)) {
-        engine.block.setFillEnabled(pageId, true);
-      }
-    } catch (e2) {
-    }
-  }
-  function readPageExportVisualState(engine, pageId) {
-    const state = {};
-    try {
-      if (typeof engine.block.isStrokeEnabled === "function") {
-        state.strokeEnabled = engine.block.isStrokeEnabled(pageId);
-      }
-      if (typeof engine.block.isFillEnabled === "function") {
-        state.fillEnabled = engine.block.isFillEnabled(pageId);
-      }
-    } catch (e2) {
-    }
-    return state;
-  }
-  function restorePageExportVisualState(engine, pageId, state) {
-    try {
-      if (state.strokeEnabled !== void 0 && typeof engine.block.setStrokeEnabled === "function") {
-        engine.block.setStrokeEnabled(pageId, state.strokeEnabled);
-      }
-      if (state.fillEnabled !== void 0 && typeof engine.block.setFillEnabled === "function") {
-        engine.block.setFillEnabled(pageId, state.fillEnabled);
-      }
-    } catch (e2) {
-    }
-  }
-  function withPageHiddenForExport(engine, pageId, exportFn) {
-    return __async(this, null, function* () {
-      const previous = readPageExportVisualState(engine, pageId);
-      try {
-        hidePageCanvasBorder(engine, pageId);
-        if (typeof engine.block.setFillEnabled === "function") {
-          engine.block.setFillEnabled(pageId, false);
-        }
-        return yield exportFn();
-      } finally {
-        restorePageExportVisualState(engine, pageId, previous);
-        hidePageCanvasBorder(engine, pageId);
-      }
-    });
-  }
-  function hideAllPageCanvasBorders(engine) {
-    var _a;
-    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
-    if ((_a = engine.editor) == null ? void 0 : _a.setSetting) {
-      try {
-        engine.editor.setSetting("page/innerBorderColor", TRANSPARENT_COLOR);
-        engine.editor.setSetting("page/outerBorderColor", TRANSPARENT_COLOR);
-      } catch (e2) {
-      }
-    }
-    const pageIds = engine.block.findByType("page") || [];
-    for (const pageId of pageIds) {
-      hidePageCanvasBorder(engine, pageId);
-    }
-  }
-  function lockPageDeletion(engine) {
-    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
-    const pageIds = engine.block.findByType("page") || [];
-    for (const pageId of pageIds) {
-      try {
-        engine.block.setScopeEnabled(pageId, "lifecycle/destroy", false);
-      } catch (e2) {
-      }
-    }
-  }
-  function lockPageSelection(engine) {
-    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.findByType !== "function") return;
-    const pageIds = engine.block.findByType("page") || [];
-    for (const pageId of pageIds) {
-      try {
-        engine.block.setBool(pageId, "selectionEnabled", false);
-      } catch (e2) {
-      }
-    }
-  }
-  function setupExportLock(engine) {
-    hideShowInExportUI();
-    hideAllPageCanvasBorders(engine);
-    ensureAllBlocksIncludedInExport(engine);
-    lockPageDeletion(engine);
-    lockPageSelection(engine);
-  }
-
   // plugins/imgly/imgly-view/src/design-editor/plugin.ts
+  init_export_lock();
   var DesignEditorConfig = class {
     constructor() {
       /**
@@ -3160,578 +3879,8 @@ var __pluginInit = (() => {
     });
   }
 
-  // plugins/imgly/imgly-view/src/bubble-upload.js
-  function normalizeBubbleUploadUrl(err, url) {
-    if (err) return "";
-    if (typeof url !== "string") return "";
-    let trimmed = url.trim();
-    if (!trimmed) return "";
-    if (/^\/\//.test(trimmed)) trimmed = `https:${trimmed}`;
-    if (/^https?:\/\//i.test(trimmed) || /^blob:/i.test(trimmed)) return trimmed;
-    return trimmed;
-  }
-  function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result;
-        if (typeof dataUrl !== "string" || dataUrl.indexOf(",") < 0) {
-          reject(new Error("Invalid data URL from blob"));
-          return;
-        }
-        resolve(dataUrl.split(",")[1]);
-      };
-      reader.onerror = () => reject(reader.error || new Error("FileReader failed"));
-      reader.readAsDataURL(blob);
-    });
-  }
-  function fileToBase64(file) {
-    return blobToBase64(file);
-  }
-  function uploadBase64(context, fileName, base64) {
-    if (!context || typeof context.uploadContent !== "function" || !base64) {
-      return Promise.resolve("");
-    }
-    return new Promise((resolve) => {
-      try {
-        context.uploadContent(fileName, base64, (err, url) => {
-          resolve(normalizeBubbleUploadUrl(err, url));
-        });
-      } catch (e2) {
-        console.error("IMG.LY View: uploadContent failed", e2);
-        resolve("");
-      }
-    });
-  }
-  function uploadBlob(context, fileName, blob) {
-    if (!blob) return Promise.resolve("");
-    return blobToBase64(blob).then((base64) => uploadBase64(context, fileName, base64)).catch((err) => {
-      console.error("IMG.LY View: blobToBase64 failed", err);
-      return "";
-    });
-  }
-  function safeUploadFileName(file) {
-    const raw = file && typeof file.name === "string" ? file.name.trim() : "";
-    const safe = raw.replace(/[^\w.-]/g, "_");
-    if (safe) return safe;
-    const ext = file && typeof file.type === "string" && file.type.includes("/") ? file.type.split("/").pop() : "bin";
-    return `upload-${Date.now()}.${ext}`;
-  }
-  function uploadFileToBubble(instance, file, onProgress) {
-    return __async(this, null, function* () {
-      var _a, _b;
-      const context = ((_a = instance == null ? void 0 : instance.data) == null ? void 0 : _a.bubbleContext) || null;
-      const cesdk = ((_b = instance == null ? void 0 : instance.data) == null ? void 0 : _b.cesdk) || null;
-      if (!file) {
-        throw new Error("No file to upload");
-      }
-      if (typeof onProgress === "function") {
-        try {
-          onProgress(0);
-        } catch (e2) {
-        }
-      }
-      const fileName = safeUploadFileName(file);
-      if (context && typeof context.uploadContent === "function") {
-        const base64 = yield fileToBase64(file);
-        const url = yield uploadBase64(context, fileName, base64);
-        if (url) {
-          if (typeof onProgress === "function") {
-            try {
-              onProgress(1);
-            } catch (e2) {
-            }
-          }
-          return {
-            id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            meta: {
-              uri: url,
-              thumbUri: url,
-              mimeType: file.type || "application/octet-stream"
-            }
-          };
-        }
-        console.warn("IMG.LY View: uploadContent sans URL utilisable pour", fileName);
-      }
-      if ((cesdk == null ? void 0 : cesdk.utils) && typeof cesdk.utils.localUpload === "function") {
-        console.warn("IMG.LY View: repli localUpload (sandbox / pas de context Bubble)");
-        return cesdk.utils.localUpload(file, { context: { source: "user-upload" } });
-      }
-      throw new Error("Upload indisponible (context Bubble ou CE.SDK manquant)");
-    });
-  }
-
-  // plugins/imgly/imgly-view/src/constants.js
-  var PAGE_PREVIEWS_DEBOUNCE_MS = 1500;
-  var PAGE_PREVIEWS_COOLDOWN_MS = 3e4;
-
-  // plugins/imgly/imgly-view/src/shims/pdf-lib.js
-  var lib = typeof PDFLib !== "undefined" ? PDFLib : {};
-  var PDFDocument = lib.PDFDocument;
-  var PageSizes = lib.PageSizes;
-  var concatTransformationMatrix = lib.concatTransformationMatrix;
-  var popGraphicsState = lib.popGraphicsState;
-  var pushGraphicsState = lib.pushGraphicsState;
-
-  // plugins/imgly/imgly-view/src/pdf-imposition.js
-  var PDF_ROTATE_CLOCKWISE = false;
-  var PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
-  var A4_WIDTH_MM = 210;
-  var A4_HEIGHT_MM = 297;
-  function buildImpositionPairs(totalPages) {
-    if (totalPages % 4 !== 0) {
-      throw new Error(`Nombre de pages invalide pour imposition: ${totalPages}`);
-    }
-    const numSheets = totalPages / 4;
-    const pairs = [];
-    for (let s = 0; s < numSheets; s += 1) {
-      pairs.push([totalPages - 2 * s, 1 + 2 * s]);
-      pairs.push([2 + 2 * s, totalPages - 1 - 2 * s]);
-    }
-    return pairs;
-  }
-  function mmToPt(mm) {
-    return mm * 72 / 25.4;
-  }
-  function blobToArrayBuffer(blob) {
-    if (blob instanceof ArrayBuffer) return blob;
-    if (blob == null ? void 0 : blob.arrayBuffer) return blob.arrayBuffer();
-    return blob;
-  }
-  function logUnexpectedPageSize(widthPt, heightPt) {
-    const expectedW = mmToPt(HALF_A4_WIDTH_MM);
-    const expectedH = mmToPt(PAGE_HEIGHT_MM);
-    const tolerance = 2;
-    if (Math.abs(widthPt - expectedW) > tolerance || Math.abs(heightPt - expectedH) > tolerance) {
-      console.warn(
-        "IMG.LY View: taille PDF page inattendue",
-        { widthPt, heightPt, expectedW, expectedH }
-      );
-    }
-  }
-  function drawImposedSpread(outPage, leftEmbedded, rightEmbedded, flip180) {
-    const a4W = mmToPt(A4_WIDTH_MM);
-    const a4H = mmToPt(A4_HEIGHT_MM);
-    const halfW = mmToPt(HALF_A4_WIDTH_MM);
-    logUnexpectedPageSize(leftEmbedded.width, leftEmbedded.height);
-    logUnexpectedPageSize(rightEmbedded.width, rightEmbedded.height);
-    outPage.pushOperators(pushGraphicsState());
-    if (flip180 && PDF_DUPLEX_FLIP_INSIDE_PAGE) {
-      outPage.pushOperators(
-        concatTransformationMatrix(-1, 0, 0, -1, a4W, a4H)
-      );
-    }
-    if (PDF_ROTATE_CLOCKWISE) {
-      outPage.pushOperators(
-        concatTransformationMatrix(0, 1, -1, 0, a4W, 0)
-      );
-    } else {
-      outPage.pushOperators(
-        concatTransformationMatrix(0, -1, 1, 0, 0, a4H)
-      );
-    }
-    outPage.drawPage(leftEmbedded, { x: 0, y: 0 });
-    outPage.drawPage(rightEmbedded, { x: halfW, y: 0 });
-    outPage.pushOperators(popGraphicsState());
-  }
-  function composeImposedPdf(pagePdfBytesList, pairs) {
-    return __async(this, null, function* () {
-      const outputDoc = yield PDFDocument.create();
-      for (let i = 0; i < pairs.length; i += 1) {
-        const [leftNum, rightNum] = pairs[i];
-        const leftBytes = pagePdfBytesList[leftNum - 1];
-        const rightBytes = pagePdfBytesList[rightNum - 1];
-        if (!leftBytes || !rightBytes) {
-          throw new Error(`PDF manquant pour la paire [${leftNum}|${rightNum}]`);
-        }
-        const leftDoc = yield PDFDocument.load(yield blobToArrayBuffer(leftBytes));
-        const rightDoc = yield PDFDocument.load(yield blobToArrayBuffer(rightBytes));
-        const [leftEmbedded] = yield outputDoc.embedPdf(leftDoc);
-        const [rightEmbedded] = yield outputDoc.embedPdf(rightDoc);
-        const outPage = outputDoc.addPage(PageSizes.A4);
-        drawImposedSpread(outPage, leftEmbedded, rightEmbedded, i % 2 === 1);
-      }
-      const bytes = yield outputDoc.save();
-      return new Blob([bytes], { type: "application/pdf" });
-    });
-  }
-  function exportPagePdf(engine, pageId) {
-    return __async(this, null, function* () {
-      if (!(engine == null ? void 0 : engine.block) || pageId == null) return null;
-      const blob = yield withPageHiddenForExport(engine, pageId, () => engine.block.export(pageId, {
-        mimeType: "application/pdf",
-        exportPdfWithHighCompatibility: true
-      }));
-      if (!blob) return null;
-      return blobToArrayBuffer(blob);
-    });
-  }
-  function buildFoldedA4Pdf(engine, pageIds) {
-    return __async(this, null, function* () {
-      const totalPages = pageIds.length;
-      if (totalPages % 4 !== 0) {
-        throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
-      }
-      const pagePdfBytes = yield Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
-      if (pagePdfBytes.some((bytes) => !bytes)) {
-        throw new Error("Export PDF CE.SDK incomplet (page manquante)");
-      }
-      const pairs = buildImpositionPairs(totalPages);
-      return composeImposedPdf(pagePdfBytes, pairs);
-    });
-  }
-
-  // plugins/imgly/imgly-view/src/scene.js
-  function applyBookletPagePositions(engine, layout) {
-    if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
-    const pageIds = getPageIds(engine);
-    if (pageIds.length !== layout.length) return;
-    pageIds.forEach((pageId, index) => {
-      const spec = layout[index];
-      if (!spec) return;
-      try {
-        engine.block.setWidthMode(pageId, "Absolute");
-        engine.block.setHeightMode(pageId, "Absolute");
-        engine.block.setPositionXMode(pageId, "Absolute");
-        engine.block.setPositionYMode(pageId, "Absolute");
-        engine.block.setWidth(pageId, spec.width);
-        engine.block.setHeight(pageId, spec.height);
-        engine.block.setPositionX(pageId, spec.x);
-        engine.block.setPositionY(pageId, spec.y);
-      } catch (e2) {
-      }
-    });
-  }
-  function ensureBookletGuides(engine, layout) {
-    if (!Array.isArray(layout) || layout.length === 0) return;
-    const pageIds = getPageIds(engine);
-    if (pageIds.length !== layout.length) return;
-    pageIds.forEach((pageId, index) => {
-      const spec = layout[index];
-      try {
-        engine.block.setClipped(pageId, true);
-      } catch (e2) {
-      }
-      hidePageCanvasBorder(engine, pageId);
-      if (spec == null ? void 0 : spec.name) {
-        try {
-          engine.block.setName(pageId, spec.name);
-        } catch (e2) {
-        }
-      }
-    });
-  }
-  function getPageIds(engine) {
-    if (!engine || !engine.block || typeof engine.block.findByType !== "function") return [];
-    return engine.block.findByType("page") || [];
-  }
-  function getPageParent(engine) {
-    const scene = engine.scene.get();
-    if (scene == null) return null;
-    const stacks = engine.block.findByType("stack") || [];
-    return stacks.length > 0 ? stacks[0] : scene;
-  }
-  function createBookletPage(engine, parent, spec) {
-    const page = engine.block.create("page");
-    engine.block.setWidthMode(page, "Absolute");
-    engine.block.setHeightMode(page, "Absolute");
-    engine.block.setPositionXMode(page, "Absolute");
-    engine.block.setPositionYMode(page, "Absolute");
-    engine.block.setWidth(page, spec.width);
-    engine.block.setHeight(page, spec.height);
-    engine.block.setPositionX(page, spec.x);
-    engine.block.setPositionY(page, spec.y);
-    engine.block.setClipped(page, true);
-    engine.block.setBool(page, "selectionEnabled", false);
-    engine.block.setScopeEnabled(page, "lifecycle/destroy", false);
-    hidePageCanvasBorder(engine, page);
-    if (spec.name) {
-      engine.block.setName(page, spec.name);
-    }
-    engine.block.appendChild(parent, page);
-    return page;
-  }
-  function ensureBookletSceneLayout(engine, layout) {
-    if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.setLayout !== "function") return;
-    if (!Array.isArray(layout) || layout.length === 0) return;
-    if (getPageIds(engine).length !== layout.length) return;
-    try {
-      if (engine.scene.getLayout() !== BOOKLET_SCENE_LAYOUT) {
-        for (const pageId of getPageIds(engine)) {
-          try {
-            engine.block.setBool(pageId, "transformLocked", false);
-          } catch (e2) {
-          }
-        }
-        engine.scene.setLayout(BOOKLET_SCENE_LAYOUT);
-      }
-      applyBookletPagePositions(engine, layout);
-    } catch (err) {
-      console.warn("IMG.LY View: ensureBookletSceneLayout failed", err);
-    }
-  }
-  function fitSceneInView(cesdk) {
-    if (!cesdk || !cesdk.actions || typeof cesdk.actions.run !== "function") {
-      return Promise.resolve();
-    }
-    return Promise.resolve(
-      cesdk.actions.run("zoom.toPage", { page: "first", autoFit: true })
-    ).catch((err) => {
-      console.error("IMG.LY View: zoom.toPage failed", err);
-    });
-  }
-  function createBookletScene(_cesdk, engine, sheetCount) {
-    return __async(this, null, function* () {
-      if (!engine || !engine.scene || !engine.block) return [];
-      const layout = buildBookletPageLayout(sheetCount);
-      engine.scene.create(BOOKLET_SCENE_LAYOUT);
-      if (typeof engine.scene.setDesignUnit === "function") {
-        engine.scene.setDesignUnit("Millimeter");
-      }
-      if (typeof engine.scene.setMode === "function") {
-        engine.scene.setMode("Design");
-      }
-      const scene = engine.scene.get();
-      if (scene == null) return [];
-      engine.block.setFloat(scene, "scene/dpi", 300);
-      engine.block.setFloat(scene, "scene/pageDimensions/width", layout[0].width);
-      engine.block.setFloat(scene, "scene/pageDimensions/height", layout[0].height);
-      for (const pageId of getPageIds(engine)) {
-        try {
-          engine.block.destroy(pageId);
-        } catch (e2) {
-        }
-      }
-      const parent = getPageParent(engine);
-      if (parent == null) return [];
-      for (const spec of layout) {
-        createBookletPage(engine, parent, spec);
-      }
-      ensureBookletSceneLayout(engine, layout);
-      ensureBookletGuides(engine, layout);
-      hideAllPageCanvasBorders(engine);
-      ensureAllBlocksIncludedInExport(engine);
-      lockPageDeletion(engine);
-      lockPageSelection(engine);
-      return getPageIds(engine);
-    });
-  }
-  function loadSceneFromString(instance, sceneString) {
-    return __async(this, null, function* () {
-      var _a;
-      const engine = instance.data.engine;
-      if (!engine || !engine.scene || typeof engine.scene.loadFromString !== "function") {
-        return false;
-      }
-      if (typeof sceneString !== "string" || sceneString.trim().length === 0) {
-        return false;
-      }
-      const layout = buildBookletPageLayout((_a = instance.data.sheetCount) != null ? _a : 1);
-      instance.data._suppressCanvasJsonPublish = true;
-      try {
-        yield engine.scene.loadFromString(sceneString.trim());
-        instance.data.pageIds = getPageIds(engine);
-        instance.data._lastPublishedCanvasJson = sceneString.trim();
-        ensureBookletSceneLayout(engine, layout);
-        ensureBookletGuides(engine, layout);
-        hideAllPageCanvasBorders(engine);
-        ensureAllBlocksIncludedInExport(engine);
-        lockPageDeletion(engine);
-        lockPageSelection(engine);
-        yield fitSceneInView(instance.data.cesdk);
-        return true;
-      } catch (err) {
-        console.error("IMG.LY View: loadFromString failed", err);
-        return false;
-      }
-    });
-  }
-
-  // plugins/imgly/imgly-view/src/exports.js
-  function sanitizeFileBase(title) {
-    const raw = typeof title === "string" ? title.trim() : "";
-    const safe = raw.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
-    return safe || "document";
-  }
-  function downloadBlob(blob, fileName) {
-    if (!blob || typeof document === "undefined") return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName || "document.pdf";
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1e3);
-  }
-  function publishSceneJson(instance, options) {
-    const engine = instance.data.engine;
-    const force = options && options.force === true;
-    const skipPreviews = options && options.skipPreviews === true;
-    if (!engine || !engine.scene || typeof engine.scene.saveToString !== "function") {
-      return Promise.resolve(false);
-    }
-    if (!force && instance.data._suppressCanvasJsonPublish === true) return Promise.resolve(false);
-    return engine.scene.saveToString().then((sceneString) => {
-      if (typeof sceneString !== "string" || sceneString.length === 0) return false;
-      if (!force && sceneString === instance.data._lastPublishedCanvasJson) return false;
-      instance.data._lastPublishedCanvasJson = sceneString;
-      instance.publishState("canvas_json", sceneString);
-      instance.triggerEvent("json_changed");
-      if (!skipPreviews) {
-        schedulePagePreviews(instance);
-      }
-      return true;
-    }).catch((err) => {
-      console.error("IMG.LY View: saveToString failed", err);
-      return false;
-    });
-  }
-  function schedulePagePreviews(instance) {
-    if (!instance || !instance.data) return;
-    if (instance.data._suppressCanvasJsonPublish === true) return;
-    const d2 = instance.data;
-    const sinceLast = Date.now() - (d2._lastPagePreviewsAt || 0);
-    const delay = sinceLast < PAGE_PREVIEWS_COOLDOWN_MS ? Math.max(PAGE_PREVIEWS_DEBOUNCE_MS, PAGE_PREVIEWS_COOLDOWN_MS - sinceLast) : PAGE_PREVIEWS_DEBOUNCE_MS;
-    if (d2._schedulePagePreviewsTimer) {
-      clearTimeout(d2._schedulePagePreviewsTimer);
-    }
-    d2._schedulePagePreviewsTimer = setTimeout(() => {
-      d2._schedulePagePreviewsTimer = null;
-      if (typeof d2.createPagePreviews === "function") {
-        d2.createPagePreviews();
-      }
-    }, delay);
-  }
-  function createPagePreviews(instance) {
-    const engine = instance.data.engine;
-    const context = instance.data.bubbleContext || null;
-    if (!engine || !engine.block) return Promise.resolve([]);
-    let pageIds = getPageIds(engine);
-    if (!pageIds.length) {
-      pageIds = instance.data.pageIds || [];
-    }
-    if (!pageIds.length) return Promise.resolve([]);
-    const base = sanitizeFileBase(instance.data.documentTitle);
-    const runId = (instance.data._pagePreviewsRunId || 0) + 1;
-    instance.data._pagePreviewsRunId = runId;
-    instance.data._lastPagePreviewsAt = Date.now();
-    const exportOne = (pageId, index) => engine.block.export(pageId, {
-      mimeType: "image/png",
-      targetWidth: 500
-    }).then((blob) => {
-      const safeName = (base + "-preview-" + (index + 1) + ".png").replace(/[^\w.-]/g, "_");
-      return uploadBlob(context, safeName, blob);
-    }).catch((err) => {
-      console.error("IMG.LY View: page preview export failed", err);
-      return "";
-    });
-    return Promise.all(pageIds.map(exportOne)).then((uploaded) => {
-      if (instance.data._pagePreviewsRunId !== runId) return uploaded;
-      instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || "";
-      const urls = uploaded.filter((u2) => typeof u2 === "string" && u2.length > 0);
-      instance.publishState("page_previews", urls);
-      if (urls.length > 0) {
-        instance.triggerEvent("page_previews_ready");
-      } else {
-        console.warn("IMG.LY View: previews upload\xE9es sans URL exploitable \u2014 page_previews_ready non d\xE9clench\xE9");
-      }
-      return urls;
-    }).catch((err) => {
-      console.error("IMG.LY View: create_page_previews", err);
-      return [];
-    });
-  }
-  function syncSceneBeforePdfExport(instance) {
-    return __async(this, null, function* () {
-      const engine = instance.data.engine;
-      if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.saveToString !== "function") return;
-      try {
-        yield engine.scene.saveToString();
-      } catch (err) {
-        console.error("IMG.LY View: pre-PDF saveToString failed", err);
-      }
-    });
-  }
-  function triggerSaveDocument(instance) {
-    return __async(this, null, function* () {
-      if (!instance || !instance.data) return false;
-      if (instance.data._saveInProgress === true) return false;
-      instance.data._saveInProgress = true;
-      try {
-        yield publishSceneJson(instance, { force: true, skipPreviews: true });
-        yield createPagePreviews(instance);
-        yield triggerPdfExport(instance, { download: false });
-        instance.triggerEvent("document_saved");
-        return true;
-      } catch (err) {
-        console.error("IMG.LY View: enregistrement document", err);
-        return false;
-      } finally {
-        instance.data._saveInProgress = false;
-      }
-    });
-  }
-  function triggerPdfExport(instance, options) {
-    return __async(this, null, function* () {
-      const download = !options || options.download !== false;
-      const engine = instance.data.engine;
-      const context = instance.data.bubbleContext || null;
-      if (!(engine == null ? void 0 : engine.block)) return "";
-      let pageIds = getPageIds(engine);
-      if (!pageIds.length) {
-        pageIds = instance.data.pageIds || [];
-      }
-      if (!pageIds.length) return "";
-      if (pageIds.length % 4 !== 0) {
-        console.error("IMG.LY View: PDF export aborted \u2014 page count must be a multiple of 4:", pageIds.length);
-        return "";
-      }
-      ensureAllBlocksIncludedInExport(engine);
-      hideAllPageCanvasBorders(engine);
-      yield syncSceneBeforePdfExport(instance);
-      if (typeof engine.block.forceLoadResources === "function") {
-        try {
-          yield engine.block.forceLoadResources(pageIds);
-        } catch (err) {
-          console.warn("IMG.LY View: forceLoadResources avant export PDF", err);
-        }
-      }
-      const base = sanitizeFileBase(instance.data.documentTitle);
-      const safePdfName = (base + ".pdf").replace(/[^\w.-]/g, "_") || "document.pdf";
-      try {
-        const blob = yield buildFoldedA4Pdf(engine, pageIds);
-        const url = yield uploadBlob(context, safePdfName, blob);
-        if (typeof url === "string" && url.length > 0) {
-          instance.publishState("pdf_url", url);
-          instance.triggerEvent("pdf_ready");
-        } else if (blob && blob.size > 0) {
-          console.warn("IMG.LY View: PDF upload\xE9 dans Bubble mais URL non re\xE7ue \u2014 pdf_ready non d\xE9clench\xE9");
-        }
-        if (download) {
-          downloadBlob(blob, safePdfName);
-        }
-        return url || (download ? "downloaded" : "");
-      } catch (err) {
-        console.error("IMG.LY View: PDF export failed", err);
-        return "";
-      }
-    });
-  }
-  function wireHistoryListener(instance) {
-    const engine = instance.data.engine;
-    if (!engine || !engine.editor || typeof engine.editor.onHistoryUpdated !== "function") return;
-    if (typeof instance.data._unsubscribeHistory === "function") {
-      instance.data._unsubscribeHistory();
-    }
-    instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated((kind) => {
-      if (kind === "Activated") return;
-      ensureAllBlocksIncludedInExport(engine);
-      lockPageDeletion(engine);
-      lockPageSelection(engine);
-    });
-  }
+  // plugins/imgly/imgly-view/src/app.js
+  init_exports();
 
   // plugins/imgly/imgly-view/src/page-insert.js
   function resolveTargetPageId(engine) {
@@ -3961,6 +4110,7 @@ var __pluginInit = (() => {
   }
 
   // plugins/imgly/imgly-view/src/setup-bubble-export.js
+  init_bubble_upload();
   var BUBBLE_SAVE_NAV_ID = "imgly.bubble.save.navigationBar";
   var EXPORT_NAV_IDS_TO_REMOVE = [
     "ly.img.actions.navigationBar",
@@ -4708,6 +4858,7 @@ var __pluginInit = (() => {
   }
 
   // plugins/imgly/imgly-view/src/app.js
+  init_scene();
   function getHostElement(instance) {
     if (!instance || !instance.canvas) return null;
     if (typeof instance.canvas[0] !== "undefined") return instance.canvas[0];
@@ -4754,6 +4905,8 @@ var __pluginInit = (() => {
     if (hasBubbleCanvasJson) {
       if (incomingCanvasJson !== instance.data._lastPublishedCanvasJson) {
         void loadSceneFromString(instance, incomingCanvasJson);
+      } else if (sheetCountChanged && instance.data.cesdkReady) {
+        void syncScenePageCount(instance);
       }
       return;
     }

@@ -19,6 +19,7 @@ import {
   createBookletScene,
   fitSceneInView,
   loadSceneFromString,
+  syncScenePageCount,
 } from './scene.js';
 
 function getHostElement(instance) {
@@ -75,6 +76,8 @@ function applyPropertiesUpdate(instance, properties, context) {
   if (hasBubbleCanvasJson) {
     if (incomingCanvasJson !== instance.data._lastPublishedCanvasJson) {
       void loadSceneFromString(instance, incomingCanvasJson);
+    } else if (sheetCountChanged && instance.data.cesdkReady) {
+      void syncScenePageCount(instance);
     }
     return;
   }
