@@ -44,6 +44,14 @@ function parseSheetCountFromProperties(properties) {
   return clampSheetCount(properties.pages);
 }
 
+function resolveImglyLicense(context) {
+  if (!context || !context.keys) return '';
+  const raw = context.keys.IMGLY_key ?? context.keys['IMGLY_key'];
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : '';
+}
+
 async function recreateBookletScene(instance) {
   const cesdk = instance.data.cesdk;
   const engine = instance.data.engine;
@@ -142,18 +150,21 @@ async function initImglyEditor(instance, context, properties) {
   container.style.position = 'relative';
   host.appendChild(container);
 
-  const license = '';
+  const license = resolveImglyLicense(context);
   const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${CreativeEditorSDK.version}/assets/`;
   const contentBaseURL = getCesdkContentBaseURL();
   const pendingProps = instance.data._pendingProperties;
   const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
 
   try {
-    const cesdk = await sdk.create(container, {
-      license,
+    const createOptions = {
       baseURL: engineBaseURL,
       role: 'Adopter',
-    });
+    };
+    if (license) {
+      createOptions.license = license;
+    }
+    const cesdk = await sdk.create(container, createOptions);
 
     instance.data.cesdk = cesdk;
     instance.data.engine = cesdk.engine;

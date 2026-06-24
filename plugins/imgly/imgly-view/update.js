@@ -2,7 +2,7 @@ export default function(instance, properties, context) {
   if (!properties) return;
 
   instance.data._pendingProperties = properties;
-  if (instance.data.bubbleContext == null && context) {
+  if (context) {
     instance.data.bubbleContext = context;
   }
 

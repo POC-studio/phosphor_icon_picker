@@ -5855,6 +5855,14 @@ var __pluginInit = (() => {
     if (!properties) return 1;
     return clampSheetCount(properties.pages);
   }
+  function resolveImglyLicense(context) {
+    var _a2;
+    if (!context || !context.keys) return "";
+    const raw = (_a2 = context.keys.IMGLY_key) != null ? _a2 : context.keys["IMGLY_key"];
+    if (typeof raw !== "string") return "";
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : "";
+  }
   function recreateBookletScene(instance) {
     return __async(this, null, function* () {
       const cesdk = instance.data.cesdk;
@@ -5942,17 +5950,20 @@ var __pluginInit = (() => {
       container.style.overflow = "hidden";
       container.style.position = "relative";
       host.appendChild(container);
-      const license = "";
+      const license = resolveImglyLicense(context);
       const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${cesdk_js_default.version}/assets/`;
       const contentBaseURL = getCesdkContentBaseURL();
       const pendingProps = instance.data._pendingProperties;
       const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
       try {
-        const cesdk = yield sdk.create(container, {
-          license,
+        const createOptions = {
           baseURL: engineBaseURL,
           role: "Adopter"
-        });
+        };
+        if (license) {
+          createOptions.license = license;
+        }
+        const cesdk = yield sdk.create(container, createOptions);
         instance.data.cesdk = cesdk;
         instance.data.engine = cesdk.engine;
         instance.data.bubbleContext = context || null;
