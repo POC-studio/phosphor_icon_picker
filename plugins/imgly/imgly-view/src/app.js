@@ -181,6 +181,8 @@ async function initImglyEditor(instance, context, properties) {
 
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
+    instance.publishState('trimed_pdf_url', '');
+    instance.publishState('image_uploaded_url', '');
     setUnsavedChanges(instance, false);
 
     await initDesignEditor(cesdk, { contentBaseURL });

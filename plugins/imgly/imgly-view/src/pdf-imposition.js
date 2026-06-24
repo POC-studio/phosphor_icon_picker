@@ -15,12 +15,14 @@ import {
   PAGE_HEIGHT_MM,
 } from './booklet-layout.js';
 import { withPageHiddenForExport } from './export-lock.js';
+import {
+  A4_HEIGHT_MM,
+  A4_WIDTH_MM,
+  PRINTER_MARGIN_MM,
+} from './printer-margins.js';
 
 const PDF_ROTATE_CLOCKWISE = false;
 const PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
-
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
 
 /** Paires 1-indexées [gauche, droite] pour saddle-stitch. */
 export function buildImpositionPairs(totalPages) {
@@ -193,4 +195,26 @@ export async function buildSequentialPdf(engine, pageIds) {
 
   const outBytes = await outputDoc.save();
   return new Blob([outBytes], { type: 'application/pdf' });
+}
+
+/**
+ * Rogne chaque feuille A4 du PDF imposé selon les marges imprimeur (sans rescale).
+ * @param {Blob} imposedPdfBlob
+ * @returns {Promise<Blob>}
+ */
+export async function trimImposedPdfForPrinter(imposedPdfBlob) {
+  const doc = await PDFDocument.load(await blobToArrayBuffer(imposedPdfBlob));
+  const { left, bottom, right, top } = PRINTER_MARGIN_MM;
+  const trimW = mmToPt(A4_WIDTH_MM - left - right);
+  const trimH = mmToPt(A4_HEIGHT_MM - top - bottom);
+  const cropX = mmToPt(left);
+  const cropY = mmToPt(bottom);
+
+  for (const page of doc.getPages()) {
+    page.setMediaBox(cropX, cropY, trimW, trimH);
+    page.setCropBox(cropX, cropY, trimW, trimH);
+  }
+
+  const bytes = await doc.save();
+  return new Blob([bytes], { type: 'application/pdf' });
 }

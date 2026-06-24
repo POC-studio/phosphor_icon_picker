@@ -94,6 +94,10 @@ export async function uploadFileToBubble(instance, file, onProgress) {
       if (typeof onProgress === 'function') {
         try { onProgress(1); } catch (e) { /* ignore */ }
       }
+      if (file.type?.startsWith('image/') && instance?.publishState && instance?.triggerEvent) {
+        instance.publishState('image_uploaded_url', url);
+        instance.triggerEvent('image_uploaded');
+      }
       return {
         id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         meta: {

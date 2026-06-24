@@ -7,7 +7,7 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
-import { buildFoldedA4Pdf, buildSequentialPdf } from './pdf-imposition.js';
+import { buildFoldedA4Pdf, buildSequentialPdf, trimImposedPdfForPrinter } from './pdf-imposition.js';
 import { getPageIds } from './scene.js';
 
 function sanitizeFileBase(title) {
@@ -175,7 +175,7 @@ export async function triggerSaveDocument(instance) {
   try {
     await publishSceneJson(instance, { force: true, skipPreviews: true });
     await createPagePreviews(instance);
-    await triggerPdfExport(instance, { download: false });
+    await triggerPdfExport(instance, { download: false, generateTrimmed: true });
     setUnsavedChanges(instance, false);
     instance.triggerEvent('document_saved');
     return true;
@@ -217,6 +217,7 @@ export async function triggerPreviewsZipDownload(instance) {
 
 export async function triggerPdfExport(instance, options) {
   const download = !options || options.download !== false;
+  const generateTrimmed = options?.generateTrimmed === true;
   const mode = options?.mode === 'sequential' ? 'sequential' : 'imposed';
   const engine = instance.data.engine;
   const context = instance.data.bubbleContext || null;
@@ -258,6 +259,21 @@ export async function triggerPdfExport(instance, options) {
       instance.triggerEvent('pdf_ready');
     } else if (mode === 'imposed' && blob && blob.size > 0) {
       console.warn('IMG.LY View: PDF uploadé dans Bubble mais URL non reçue — pdf_ready non déclenché');
+    }
+    if (generateTrimmed && mode === 'imposed' && blob && blob.size > 0) {
+      try {
+        const trimmedBlob = await trimImposedPdfForPrinter(blob);
+        const safeTrimmedName = (base + '-trimed-impression.pdf').replace(/[^\w.-]/g, '_') || 'document-trimed-impression.pdf';
+        const trimmedUrl = await uploadBlob(context, safeTrimmedName, trimmedBlob);
+        if (typeof trimmedUrl === 'string' && trimmedUrl.length > 0) {
+          instance.publishState('trimed_pdf_url', trimmedUrl);
+          instance.triggerEvent('trimed_pdf_ready');
+        } else {
+          console.warn('IMG.LY View: PDF trimé uploadé dans Bubble mais URL non reçue — trimed_pdf_ready non déclenché');
+        }
+      } catch (err) {
+        console.warn('IMG.LY View: échec génération/upload PDF trimé (pdf_url inchangé)', err);
+      }
     }
     if (download) {
       downloadBlob(blob, safePdfName);

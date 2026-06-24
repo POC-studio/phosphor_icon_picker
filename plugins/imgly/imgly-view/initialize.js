@@ -1160,7 +1160,7 @@ var __pluginInit = (() => {
   }
   function uploadFileToBubble(instance, file, onProgress) {
     return __async(this, null, function* () {
-      var _a2, _b2;
+      var _a2, _b2, _c;
       const context = ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleContext) || null;
       const cesdk = ((_b2 = instance == null ? void 0 : instance.data) == null ? void 0 : _b2.cesdk) || null;
       if (!file) {
@@ -1182,6 +1182,10 @@ var __pluginInit = (() => {
               onProgress(1);
             } catch (e2) {
             }
+          }
+          if (((_c = file.type) == null ? void 0 : _c.startsWith("image/")) && (instance == null ? void 0 : instance.publishState) && (instance == null ? void 0 : instance.triggerEvent)) {
+            instance.publishState("image_uploaded_url", url);
+            instance.triggerEvent("image_uploaded");
           }
           return {
             id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1226,6 +1230,21 @@ var __pluginInit = (() => {
       concatTransformationMatrix = lib.concatTransformationMatrix;
       popGraphicsState = lib.popGraphicsState;
       pushGraphicsState = lib.pushGraphicsState;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/printer-margins.js
+  var PRINTER_MARGIN_MM, A4_WIDTH_MM, A4_HEIGHT_MM;
+  var init_printer_margins = __esm({
+    "plugins/imgly/imgly-view/src/printer-margins.js"() {
+      PRINTER_MARGIN_MM = {
+        top: 3,
+        bottom: 5,
+        left: 3.5,
+        right: 3.5
+      };
+      A4_WIDTH_MM = 210;
+      A4_HEIGHT_MM = 297;
     }
   });
 
@@ -1352,16 +1371,31 @@ var __pluginInit = (() => {
       return new Blob([outBytes], { type: "application/pdf" });
     });
   }
-  var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE, A4_WIDTH_MM, A4_HEIGHT_MM;
+  function trimImposedPdfForPrinter(imposedPdfBlob) {
+    return __async(this, null, function* () {
+      const doc = yield PDFDocument.load(yield blobToArrayBuffer(imposedPdfBlob));
+      const { left, bottom, right, top } = PRINTER_MARGIN_MM;
+      const trimW = mmToPt(A4_WIDTH_MM - left - right);
+      const trimH = mmToPt(A4_HEIGHT_MM - top - bottom);
+      const cropX = mmToPt(left);
+      const cropY = mmToPt(bottom);
+      for (const page of doc.getPages()) {
+        page.setMediaBox(cropX, cropY, trimW, trimH);
+        page.setCropBox(cropX, cropY, trimW, trimH);
+      }
+      const bytes = yield doc.save();
+      return new Blob([bytes], { type: "application/pdf" });
+    });
+  }
+  var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE;
   var init_pdf_imposition = __esm({
     "plugins/imgly/imgly-view/src/pdf-imposition.js"() {
       init_pdf_lib();
       init_booklet_layout();
       init_export_lock();
+      init_printer_margins();
       PDF_ROTATE_CLOCKWISE = false;
       PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
-      A4_WIDTH_MM = 210;
-      A4_HEIGHT_MM = 297;
     }
   });
 
@@ -1778,7 +1812,7 @@ var __pluginInit = (() => {
       try {
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
         yield createPagePreviews(instance);
-        yield triggerPdfExport(instance, { download: false });
+        yield triggerPdfExport(instance, { download: false, generateTrimmed: true });
         setUnsavedChanges(instance, false);
         instance.triggerEvent("document_saved");
         return true;
@@ -1817,6 +1851,7 @@ var __pluginInit = (() => {
   function triggerPdfExport(instance, options) {
     return __async(this, null, function* () {
       const download = !options || options.download !== false;
+      const generateTrimmed = (options == null ? void 0 : options.generateTrimmed) === true;
       const mode = (options == null ? void 0 : options.mode) === "sequential" ? "sequential" : "imposed";
       const engine = instance.data.engine;
       const context = instance.data.bubbleContext || null;
@@ -1850,6 +1885,21 @@ var __pluginInit = (() => {
           instance.triggerEvent("pdf_ready");
         } else if (mode === "imposed" && blob && blob.size > 0) {
           console.warn("IMG.LY View: PDF upload\xE9 dans Bubble mais URL non re\xE7ue \u2014 pdf_ready non d\xE9clench\xE9");
+        }
+        if (generateTrimmed && mode === "imposed" && blob && blob.size > 0) {
+          try {
+            const trimmedBlob = yield trimImposedPdfForPrinter(blob);
+            const safeTrimmedName = (base + "-trimed-impression.pdf").replace(/[^\w.-]/g, "_") || "document-trimed-impression.pdf";
+            const trimmedUrl = yield uploadBlob(context, safeTrimmedName, trimmedBlob);
+            if (typeof trimmedUrl === "string" && trimmedUrl.length > 0) {
+              instance.publishState("trimed_pdf_url", trimmedUrl);
+              instance.triggerEvent("trimed_pdf_ready");
+            } else {
+              console.warn("IMG.LY View: PDF trim\xE9 upload\xE9 dans Bubble mais URL non re\xE7ue \u2014 trimed_pdf_ready non d\xE9clench\xE9");
+            }
+          } catch (err2) {
+            console.warn("IMG.LY View: \xE9chec g\xE9n\xE9ration/upload PDF trim\xE9 (pdf_url inchang\xE9)", err2);
+          }
         }
         if (download) {
           downloadBlob(blob, safePdfName);
@@ -5978,6 +6028,8 @@ var __pluginInit = (() => {
         instance.data.bookmarksList = [];
         instance.publishState("contribution_id", "");
         instance.publishState("pdf_url", "");
+        instance.publishState("trimed_pdf_url", "");
+        instance.publishState("image_uploaded_url", "");
         setUnsavedChanges(instance, false);
         yield initDesignEditor(cesdk, { contentBaseURL });
         ensureFrenchLocale(cesdk);

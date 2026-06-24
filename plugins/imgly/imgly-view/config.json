@@ -4,6 +4,8 @@
   "events": [
     "json_changed",
     "pdf_ready",
+    "trimed_pdf_ready",
+    "image_uploaded",
     "contribution_added",
     "page_previews_ready",
     "document_saved"
@@ -15,6 +17,14 @@
     },
     "pdf_url": {
       "label": "URL du PDF (Bubble, après upload)",
+      "type": "text"
+    },
+    "trimed_pdf_url": {
+      "label": "URL du PDF trimé pour l’imprimeur (Bubble, après upload)",
+      "type": "text"
+    },
+    "image_uploaded_url": {
+      "label": "URL de la dernière image uploadée (sidebar Images)",
       "type": "text"
     },
     "contribution_id": {
