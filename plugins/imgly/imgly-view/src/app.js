@@ -12,11 +12,13 @@ import {
   wireHistoryListener,
 } from './exports.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
+import { applyImagesFromProperties } from './team-images.js';
 import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
 import { setupJournalStickers } from './setup-journal-stickers.js';
+import { setupTeamImages } from './setup-team-images.js';
 import {
   createBookletScene,
   fitSceneInView,
@@ -74,6 +76,7 @@ function applyPropertiesUpdate(instance, properties, context) {
   instance.data.bubbleContext = context || instance.data.bubbleContext || null;
 
   applyBookmarksFromProperties(instance, properties.bookmarks_json);
+  applyImagesFromProperties(instance, properties.images_json);
 
   const nextTitle = typeof properties.document_title === 'string' ? properties.document_title : '';
   const titleChanged = nextTitle !== instance.data.documentTitle;
@@ -178,6 +181,8 @@ async function initImglyEditor(instance, context, properties) {
     instance.data._suppressCanvasJsonPublish = true;
     instance.data._hydratedFromInitialJsonProperty = false;
     instance.data.bookmarksList = [];
+    instance.data.teamImageUrls = [];
+    instance.data._lastAppliedImagesJson = '';
 
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
@@ -203,6 +208,7 @@ async function initImglyEditor(instance, context, properties) {
     setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);
+    setupTeamImages(cesdk, instance);
     await setupJournalStickers(cesdk);
     instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
     instance.data.applyPropertiesUpdate = (props, ctx) => {

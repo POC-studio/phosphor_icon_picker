@@ -29,6 +29,11 @@ const FR_OVERRIDES: Record<string, string> = {
   'panel.imgly.icons.style.light': 'Light',
   'panel.imgly.icons.style.duotone': 'Duotone',
   'libraries.imgly.phosphor.label': 'Icônes Phosphor',
+  'panel.imgly.team.images.panel': 'Images',
+  'panel.imgly.team.images.label': 'Images',
+  'panel.imgly.teamImages.upload': 'Uploader une image',
+  'panel.imgly.teamImages.empty': 'Aucun élément',
+  'panel.imgly.teamImages.add': 'Ajouter au canvas',
 };
 
 export function setupTranslations(cesdk: CreativeEditorSDK): void {

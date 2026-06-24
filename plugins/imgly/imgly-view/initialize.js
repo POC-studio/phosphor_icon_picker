@@ -2392,65 +2392,6 @@ var __pluginInit = (() => {
       this.addedAssetSourceIds = [];
     }
   };
-  var T = [{ id: "ly.img.image.upload", mimeTypes: ["image/jpeg", "image/png", "image/webp", "image/svg+xml", "image/bmp", "image/gif"], assetLibraryEntries: ["ly.img.image", "ly.img.upload"] }, { id: "ly.img.video.upload", mimeTypes: ["application/json", "video/mp4", "video/quicktime", "video/webm", "video/matroska", "image/gif"], assetLibraryEntries: ["ly.img.video", "ly.img.upload"] }, { id: "ly.img.audio.upload", mimeTypes: ["audio/mpeg", "audio/mp3", "audio/x-m4a", "audio/wav"], assetLibraryEntries: ["ly.img.audio", "ly.img.upload"] }];
-  var F = class {
-    constructor(e2 = {}) {
-      __publicField(this, "name", "cesdk-upload-asset-sources");
-      __publicField(this, "version", cesdk_js_default.version);
-      __publicField(this, "addedAssetSourceIds", []);
-      __publicField(this, "addedLibraryEntryMappings", /* @__PURE__ */ new Map());
-      this.config = e2;
-    }
-    isExplicitMode() {
-      var _a2, _b2;
-      return (_b2 = (_a2 = this.config.include) == null ? void 0 : _a2.some(((e2) => "string" == typeof e2))) != null ? _b2 : false;
-    }
-    getExplicitIncludes() {
-      return this.config.include ? new Set(this.config.include.filter(((e2) => "string" == typeof e2))) : /* @__PURE__ */ new Set();
-    }
-    getCustomizations() {
-      return this.config.include ? this.config.include.filter(((e2) => "object" == typeof e2)) : [];
-    }
-    getAssetLibraryEntries(e2) {
-      return e2 ? Array.isArray(e2) ? e2 : [e2] : [];
-    }
-    initialize(_0) {
-      return __async(this, arguments, function* ({ engine: e2, cesdk: s }) {
-        const t = new Set(e2.asset.findAllSources()), r = this.isExplicitMode(), i2 = this.getExplicitIncludes(), o = this.getCustomizations(), n = /* @__PURE__ */ new Map();
-        if (r) for (const e3 of T) i2.has(e3.id) && n.set(e3.id, e3);
-        else for (const e3 of T) n.set(e3.id, e3);
-        for (const e3 of o) {
-          const s2 = n.get(e3.id);
-          s2 ? n.set(e3.id, __spreadValues(__spreadValues({}, s2), e3)) : n.set(e3.id, e3);
-        }
-        const a = Array.from(n.values());
-        for (const r2 of a) {
-          const { id: i3, mimeTypes: o2, assetLibraryEntries: n2 } = r2;
-          if (!t.has(i3) && (e2.asset.addLocalSource(i3, o2), this.addedAssetSourceIds.push(i3), s)) {
-            const e3 = this.getAssetLibraryEntries(n2);
-            this.addedLibraryEntryMappings.set(i3, e3);
-            for (const t2 of e3) s.ui.updateAssetLibraryEntry(t2, { sourceIds: ({ currentIds: e4 }) => [.../* @__PURE__ */ new Set([...e4, i3])] });
-          }
-        }
-        s && s.onReset((() => this.cleanup({ engine: e2, cesdk: s })));
-      });
-    }
-    cleanup({ engine: e2, cesdk: s }) {
-      var _a2;
-      for (const t of this.addedAssetSourceIds) {
-        if (s) {
-          const e3 = (_a2 = this.addedLibraryEntryMappings.get(t)) != null ? _a2 : [];
-          for (const r of e3) s.ui.updateAssetLibraryEntry(r, { sourceIds: ({ currentIds: e4 }) => e4.filter(((e5) => e5 !== t)) });
-        }
-        try {
-          e2.asset.removeSource(t);
-        } catch (e3) {
-          console.warn("Unable to remove source with id: ", t);
-        }
-      }
-      this.addedAssetSourceIds = [], this.addedLibraryEntryMappings.clear();
-    }
-  };
   var j = class {
     constructor(e2 = {}) {
       __publicField(this, "name", "cesdk-vectorshape-asset-source");
@@ -4486,7 +4427,12 @@ var __pluginInit = (() => {
     "panel.imgly.icons.style.fill": "Fill",
     "panel.imgly.icons.style.light": "Light",
     "panel.imgly.icons.style.duotone": "Duotone",
-    "libraries.imgly.phosphor.label": "Ic\xF4nes Phosphor"
+    "libraries.imgly.phosphor.label": "Ic\xF4nes Phosphor",
+    "panel.imgly.team.images.panel": "Images",
+    "panel.imgly.team.images.label": "Images",
+    "panel.imgly.teamImages.upload": "Uploader une image",
+    "panel.imgly.teamImages.empty": "Aucun \xE9l\xE9ment",
+    "panel.imgly.teamImages.add": "Ajouter au canvas"
   };
   function setupTranslations(cesdk) {
     cesdk.i18n.setTranslations({
@@ -4827,11 +4773,6 @@ var __pluginInit = (() => {
       yield cesdk.addPlugin(new e());
       yield cesdk.addPlugin(new d());
       yield cesdk.addPlugin(new u());
-      yield cesdk.addPlugin(
-        new F({
-          include: ["ly.img.image.upload"]
-        })
-      );
       yield cesdk.addPlugin(new p());
       yield cesdk.addPlugin(new b());
       yield cesdk.addPlugin(
@@ -5073,6 +5014,54 @@ var __pluginInit = (() => {
     }
     if (typeof instance.data.refreshBookmarksPanel === "function") {
       instance.data.refreshBookmarksPanel();
+    }
+  }
+
+  // plugins/imgly/imgly-view/src/team-images.js
+  function parseImagesJson(raw) {
+    let urls = null;
+    if (Array.isArray(raw)) {
+      urls = raw;
+    } else if (raw && typeof raw === "object" && Array.isArray(raw.images)) {
+      urls = raw.images;
+    } else if (typeof raw === "string" && raw.trim().length > 0) {
+      try {
+        const parsed = JSON.parse(raw.trim());
+        if (Array.isArray(parsed)) {
+          urls = parsed;
+        } else if (parsed && Array.isArray(parsed.images)) {
+          urls = parsed.images;
+        }
+      } catch (e2) {
+        return null;
+      }
+    }
+    if (!urls) return null;
+    const seen = /* @__PURE__ */ new Set();
+    return urls.map((entry) => entry != null ? String(entry).trim() : "").filter((url) => {
+      if (url.length === 0 || !/^https?:\/\//i.test(url)) return false;
+      if (seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
+  }
+  function applyImagesFromProperties(instance, rawImagesJson, clearIfEmpty = true) {
+    if (!(instance == null ? void 0 : instance.data)) return;
+    const parsed = parseImagesJson(rawImagesJson);
+    const canonical = parsed ? JSON.stringify(parsed) : "";
+    if (parsed) {
+      if (canonical === instance.data._lastAppliedImagesJson) return;
+      instance.data._lastAppliedImagesJson = canonical;
+      instance.data.teamImageUrls = parsed;
+    } else if (clearIfEmpty && (rawImagesJson == null || rawImagesJson === "")) {
+      if (instance.data._lastAppliedImagesJson === "") return;
+      instance.data._lastAppliedImagesJson = "";
+      instance.data.teamImageUrls = [];
+    } else {
+      return;
+    }
+    if (instance.data.cesdkReady && typeof instance.data.refreshTeamImagesPanel === "function") {
+      instance.data.refreshTeamImagesPanel();
     }
   }
 
@@ -5886,6 +5875,117 @@ var __pluginInit = (() => {
     });
   }
 
+  // plugins/imgly/imgly-view/src/setup-team-images.js
+  init_bubble_upload();
+  var TEAM_IMAGES_PANEL_ID = "imgly.team.images.panel";
+  var DOCK_ID3 = "imgly.team.images.dock";
+  var IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/svg+xml,image/bmp,image/gif";
+  function setupTeamImages(cesdk, instance) {
+    if (!(cesdk == null ? void 0 : cesdk.ui) || !(instance == null ? void 0 : instance.data)) return;
+    let refreshPanel = null;
+    cesdk.ui.registerComponent(DOCK_ID3, ({ builder, payload }) => {
+      var _a2;
+      const icon = (_a2 = payload == null ? void 0 : payload.icon) != null ? _a2 : "@imgly/Image";
+      const isOpen = cesdk.ui.isPanelOpen(TEAM_IMAGES_PANEL_ID);
+      builder.Button("open-team-images", {
+        tooltip: "libraries.ly.img.image.label",
+        icon,
+        isSelected: isOpen,
+        onClick: () => {
+          if (cesdk.ui.isPanelOpen(TEAM_IMAGES_PANEL_ID)) {
+            cesdk.ui.closePanel(TEAM_IMAGES_PANEL_ID);
+          } else {
+            cesdk.ui.openPanel(TEAM_IMAGES_PANEL_ID);
+          }
+        }
+      });
+    });
+    cesdk.ui.registerPanel(TEAM_IMAGES_PANEL_ID, ({ builder, state, engine }) => {
+      const versionState = state("version", 0);
+      refreshPanel = () => {
+        versionState.setValue(versionState.value + 1);
+      };
+      builder.Section("team-images-upload", {
+        children: () => {
+          builder.Button("upload-image", {
+            label: "panel.imgly.teamImages.upload",
+            icon: "@imgly/Upload",
+            onClick: () => __async(null, null, function* () {
+              try {
+                const file = yield cesdk.utils.loadFile({
+                  accept: IMAGE_ACCEPT,
+                  returnType: "File"
+                });
+                if (!file) return;
+                yield uploadFileToBubble(instance, file, void 0);
+              } catch (err2) {
+                console.error("IMG.LY View: upload image", err2);
+              }
+            })
+          });
+        }
+      });
+      builder.Section("team-images-list", {
+        children: () => {
+          void versionState.value;
+          const urls = Array.isArray(instance.data.teamImageUrls) ? instance.data.teamImageUrls : [];
+          if (urls.length === 0) {
+            builder.Text("team-images-empty", {
+              content: cesdk.i18n.translate("panel.imgly.teamImages.empty")
+            });
+            return;
+          }
+          urls.forEach((url, index) => {
+            builder.Section(`team-image-${index}`, {
+              children: () => {
+                builder.MediaPreview(`team-image-preview-${index}`, {
+                  size: "medium",
+                  preview: {
+                    type: "image",
+                    uri: url,
+                    fillType: "cover"
+                  },
+                  action: {
+                    icon: "@imgly/Plus",
+                    tooltip: "panel.imgly.teamImages.add",
+                    onClick: () => __async(null, null, function* () {
+                      try {
+                        yield insertImageOnCurrentPage(engine, url);
+                        cesdk.ui.closePanel(TEAM_IMAGES_PANEL_ID);
+                      } catch (err2) {
+                        console.error("IMG.LY View: insertion image \xE9quipe", err2);
+                      }
+                    })
+                  }
+                });
+              }
+            });
+          });
+        }
+      });
+    });
+    cesdk.ui.setPanelPosition(TEAM_IMAGES_PANEL_ID, "left");
+    cesdk.ui.setPanelFloating(TEAM_IMAGES_PANEL_ID, false);
+    const dockOrder = cesdk.ui.getComponentOrder({ in: "ly.img.dock" });
+    const nextDockOrder = dockOrder.map((item) => {
+      if (item.key === "ly.img.image") {
+        return {
+          id: DOCK_ID3,
+          key: "imgly.team.images",
+          icon: "@imgly/Image",
+          label: "libraries.ly.img.image.label"
+        };
+      }
+      return item;
+    });
+    cesdk.ui.setComponentOrder({ in: "ly.img.dock" }, nextDockOrder);
+    instance.data.refreshTeamImagesPanel = () => {
+      if (typeof refreshPanel === "function") {
+        refreshPanel();
+      }
+    };
+  }
+
   // plugins/imgly/imgly-view/src/app.js
   init_scene();
   function getHostElement(instance) {
@@ -5934,6 +6034,7 @@ var __pluginInit = (() => {
     if (!properties) return;
     instance.data.bubbleContext = context || instance.data.bubbleContext || null;
     applyBookmarksFromProperties(instance, properties.bookmarks_json);
+    applyImagesFromProperties(instance, properties.images_json);
     const nextTitle = typeof properties.document_title === "string" ? properties.document_title : "";
     const titleChanged = nextTitle !== instance.data.documentTitle;
     instance.data.documentTitle = nextTitle;
@@ -6026,6 +6127,8 @@ var __pluginInit = (() => {
         instance.data._suppressCanvasJsonPublish = true;
         instance.data._hydratedFromInitialJsonProperty = false;
         instance.data.bookmarksList = [];
+        instance.data.teamImageUrls = [];
+        instance.data._lastAppliedImagesJson = "";
         instance.publishState("contribution_id", "");
         instance.publishState("pdf_url", "");
         instance.publishState("trimed_pdf_url", "");
@@ -6048,6 +6151,7 @@ var __pluginInit = (() => {
         setupNavigationDocumentTitle(cesdk, instance);
         setupBookmarks(cesdk, instance);
         setupIcons(cesdk, instance);
+        setupTeamImages(cesdk, instance);
         yield setupJournalStickers(cesdk);
         instance.data.loadSceneFromString = (sceneString) => loadSceneFromString(instance, sceneString);
         instance.data.applyPropertiesUpdate = (props, ctx) => {

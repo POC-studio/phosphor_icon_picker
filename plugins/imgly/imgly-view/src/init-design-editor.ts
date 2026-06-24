@@ -15,7 +15,6 @@ import {
   TextAssetSource,
   TextComponentAssetSource,
   TypefaceAssetSource,
-  UploadAssetSources,
   VectorShapeAssetSource,
 } from '@cesdk/cesdk-js/plugins';
 
@@ -41,11 +40,7 @@ export async function initDesignEditor(
   await cesdk.addPlugin(new ColorPaletteAssetSource());
   await cesdk.addPlugin(new CropPresetsAssetSource());
 
-  await cesdk.addPlugin(
-    new UploadAssetSources({
-      include: ['ly.img.image.upload'],
-    }),
-  );
+  // Pas de UploadAssetSources : uploads Bubble via uploadFile (drag-and-drop), sans galerie locale.
 
   await cesdk.addPlugin(new EffectsAssetSource());
   await cesdk.addPlugin(new FiltersAssetSource());
