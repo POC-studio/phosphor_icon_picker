@@ -256,13 +256,18 @@ export async function syncScenePageCount(instance) {
 
   const layout = buildBookletPageLayout(instance.data.sheetCount ?? 1);
   instance.data._suppressCanvasJsonPublish = true;
+  instance.data._suppressUnsavedChanges = true;
   try {
     await finalizeBookletScene(instance, layout);
     await fitSceneInView(instance.data.cesdk);
+    const { setUnsavedChanges } = await import('./exports.js');
+    setUnsavedChanges(instance, false);
     return true;
   } catch (err) {
     console.error('IMG.LY View: syncScenePageCount failed', err);
     return false;
+  } finally {
+    instance.data._suppressUnsavedChanges = false;
   }
 }
 
@@ -278,13 +283,18 @@ export async function loadSceneFromString(instance, sceneString) {
   const layout = buildBookletPageLayout(instance.data.sheetCount ?? 1);
 
   instance.data._suppressCanvasJsonPublish = true;
+  instance.data._suppressUnsavedChanges = true;
   try {
     await engine.scene.loadFromString(sceneString.trim());
     await finalizeBookletScene(instance, layout);
     await fitSceneInView(instance.data.cesdk);
+    const { setUnsavedChanges } = await import('./exports.js');
+    setUnsavedChanges(instance, false);
     return true;
   } catch (err) {
     console.error('IMG.LY View: loadFromString failed', err);
     return false;
+  } finally {
+    instance.data._suppressUnsavedChanges = false;
   }
 }

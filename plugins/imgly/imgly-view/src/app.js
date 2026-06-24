@@ -7,6 +7,7 @@ import {
   createPagePreviews,
   triggerPdfExport,
   triggerPreviewsZipDownload,
+  setUnsavedChanges,
   triggerSaveDocument,
   wireHistoryListener,
 } from './exports.js';
@@ -49,9 +50,15 @@ async function recreateBookletScene(instance) {
   if (!cesdk || !engine) return;
 
   instance.data._suppressCanvasJsonPublish = true;
-  instance.data.pageIds = await createBookletScene(cesdk, engine, instance.data.sheetCount);
-  instance.data._lastPublishedCanvasJson = null;
-  await fitSceneInView(cesdk);
+  instance.data._suppressUnsavedChanges = true;
+  try {
+    instance.data.pageIds = await createBookletScene(cesdk, engine, instance.data.sheetCount);
+    instance.data._lastPublishedCanvasJson = null;
+    await fitSceneInView(cesdk);
+    setUnsavedChanges(instance, false);
+  } finally {
+    instance.data._suppressUnsavedChanges = false;
+  }
 }
 
 function applyPropertiesUpdate(instance, properties, context) {
@@ -163,6 +170,7 @@ async function initImglyEditor(instance, context, properties) {
 
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
+    setUnsavedChanges(instance, false);
 
     await initDesignEditor(cesdk, { contentBaseURL });
     ensureFrenchLocale(cesdk);

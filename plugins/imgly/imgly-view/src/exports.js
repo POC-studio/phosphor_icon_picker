@@ -29,6 +29,11 @@ function downloadBlob(blob, fileName) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function setUnsavedChanges(instance, value) {
+  if (!instance?.publishState) return;
+  instance.publishState('unsaved_changes', value === true);
+}
+
 export function publishSceneJson(instance, options) {
   const engine = instance.data.engine;
   const force = options && options.force === true;
@@ -171,6 +176,7 @@ export async function triggerSaveDocument(instance) {
     await publishSceneJson(instance, { force: true, skipPreviews: true });
     await createPagePreviews(instance);
     await triggerPdfExport(instance, { download: false });
+    setUnsavedChanges(instance, false);
     instance.triggerEvent('document_saved');
     return true;
   } catch (err) {
@@ -269,8 +275,10 @@ export function wireHistoryListener(instance) {
   if (typeof instance.data._unsubscribeHistory === 'function') {
     instance.data._unsubscribeHistory();
   }
-  instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated((kind) => {
-    if (kind === 'Activated') return;
+  instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated(() => {
+    if (instance.data._suppressUnsavedChanges === true) return;
+    if (instance.data._saveInProgress === true) return;
+    setUnsavedChanges(instance, true);
     ensureAllBlocksIncludedInExport(engine);
     lockPageDeletion(engine);
     lockPageSelection(engine);

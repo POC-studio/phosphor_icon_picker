@@ -1563,13 +1563,18 @@ var __pluginInit = (() => {
       if (!engine) return false;
       const layout = buildBookletPageLayout((_a2 = instance.data.sheetCount) != null ? _a2 : 1);
       instance.data._suppressCanvasJsonPublish = true;
+      instance.data._suppressUnsavedChanges = true;
       try {
         yield finalizeBookletScene(instance, layout);
         yield fitSceneInView(instance.data.cesdk);
+        const { setUnsavedChanges: setUnsavedChanges2 } = yield Promise.resolve().then(() => (init_exports(), exports_exports));
+        setUnsavedChanges2(instance, false);
         return true;
       } catch (err2) {
         console.error("IMG.LY View: syncScenePageCount failed", err2);
         return false;
+      } finally {
+        instance.data._suppressUnsavedChanges = false;
       }
     });
   }
@@ -1585,14 +1590,19 @@ var __pluginInit = (() => {
       }
       const layout = buildBookletPageLayout((_a2 = instance.data.sheetCount) != null ? _a2 : 1);
       instance.data._suppressCanvasJsonPublish = true;
+      instance.data._suppressUnsavedChanges = true;
       try {
         yield engine.scene.loadFromString(sceneString.trim());
         yield finalizeBookletScene(instance, layout);
         yield fitSceneInView(instance.data.cesdk);
+        const { setUnsavedChanges: setUnsavedChanges2 } = yield Promise.resolve().then(() => (init_exports(), exports_exports));
+        setUnsavedChanges2(instance, false);
         return true;
       } catch (err2) {
         console.error("IMG.LY View: loadFromString failed", err2);
         return false;
+      } finally {
+        instance.data._suppressUnsavedChanges = false;
       }
     });
   }
@@ -1611,6 +1621,7 @@ var __pluginInit = (() => {
     publishSceneJson: () => publishSceneJson,
     schedulePagePreviews: () => schedulePagePreviews,
     scheduleScenePublish: () => scheduleScenePublish,
+    setUnsavedChanges: () => setUnsavedChanges,
     triggerPdfExport: () => triggerPdfExport,
     triggerPreviewsZipDownload: () => triggerPreviewsZipDownload,
     triggerSaveDocument: () => triggerSaveDocument,
@@ -1632,6 +1643,10 @@ var __pluginInit = (() => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  }
+  function setUnsavedChanges(instance, value) {
+    if (!(instance == null ? void 0 : instance.publishState)) return;
+    instance.publishState("unsaved_changes", value === true);
   }
   function publishSceneJson(instance, options) {
     const engine = instance.data.engine;
@@ -1764,6 +1779,7 @@ var __pluginInit = (() => {
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
         yield createPagePreviews(instance);
         yield triggerPdfExport(instance, { download: false });
+        setUnsavedChanges(instance, false);
         instance.triggerEvent("document_saved");
         return true;
       } catch (err2) {
@@ -1851,8 +1867,10 @@ var __pluginInit = (() => {
     if (typeof instance.data._unsubscribeHistory === "function") {
       instance.data._unsubscribeHistory();
     }
-    instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated((kind) => {
-      if (kind === "Activated") return;
+    instance.data._unsubscribeHistory = engine.editor.onHistoryUpdated(() => {
+      if (instance.data._suppressUnsavedChanges === true) return;
+      if (instance.data._saveInProgress === true) return;
+      setUnsavedChanges(instance, true);
       ensureAllBlocksIncludedInExport(engine);
       lockPageDeletion(engine);
       lockPageSelection(engine);
@@ -5843,9 +5861,15 @@ var __pluginInit = (() => {
       const engine = instance.data.engine;
       if (!cesdk || !engine) return;
       instance.data._suppressCanvasJsonPublish = true;
-      instance.data.pageIds = yield createBookletScene(cesdk, engine, instance.data.sheetCount);
-      instance.data._lastPublishedCanvasJson = null;
-      yield fitSceneInView(cesdk);
+      instance.data._suppressUnsavedChanges = true;
+      try {
+        instance.data.pageIds = yield createBookletScene(cesdk, engine, instance.data.sheetCount);
+        instance.data._lastPublishedCanvasJson = null;
+        yield fitSceneInView(cesdk);
+        setUnsavedChanges(instance, false);
+      } finally {
+        instance.data._suppressUnsavedChanges = false;
+      }
     });
   }
   function applyPropertiesUpdate(instance, properties, context) {
@@ -5943,6 +5967,7 @@ var __pluginInit = (() => {
         instance.data.bookmarksList = [];
         instance.publishState("contribution_id", "");
         instance.publishState("pdf_url", "");
+        setUnsavedChanges(instance, false);
         yield initDesignEditor(cesdk, { contentBaseURL });
         ensureFrenchLocale(cesdk);
         instance.data.pageIds = yield createBookletScene(cesdk, cesdk.engine, sheetCount);

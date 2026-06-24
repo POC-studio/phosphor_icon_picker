@@ -25,6 +25,10 @@
       "label": "Previews des demi-pages (URLs, ordre naturel)",
       "type": "text",
       "is_list": true
+    },
+    "unsaved_changes": {
+      "label": "Modifications non enregistrées",
+      "type": "boolean"
     }
   },
   "properties": {
