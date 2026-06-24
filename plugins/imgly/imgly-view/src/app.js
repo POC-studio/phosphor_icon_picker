@@ -154,14 +154,13 @@ async function initImglyEditor(instance, context, properties) {
   host.appendChild(container);
 
   const license = resolveImglyLicense(context);
-  const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${CreativeEditorSDK.version}/assets/`;
-  const contentBaseURL = getCesdkContentBaseURL();
+  const assetsBaseURL = getCesdkContentBaseURL();
   const pendingProps = instance.data._pendingProperties;
   const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
 
   try {
     const createOptions = {
-      baseURL: engineBaseURL,
+      baseURL: assetsBaseURL,
       role: 'Adopter',
     };
     if (license) {
@@ -190,7 +189,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.publishState('image_uploaded_url', '');
     setUnsavedChanges(instance, false);
 
-    await initDesignEditor(cesdk, { contentBaseURL });
+    await initDesignEditor(cesdk, { contentBaseURL: assetsBaseURL });
     ensureFrenchLocale(cesdk);
     instance.data.pageIds = await createBookletScene(cesdk, cesdk.engine, sheetCount);
 

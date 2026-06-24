@@ -34,23 +34,21 @@ export async function initDesignEditor(
   cesdk: CreativeEditorSDK,
   { contentBaseURL }: InitDesignEditorOptions,
 ) {
+  const localAssets = { baseURL: contentBaseURL };
+
   await cesdk.addPlugin(new DesignEditorConfig());
 
-  await cesdk.addPlugin(new BlurAssetSource());
-  await cesdk.addPlugin(new ColorPaletteAssetSource());
-  await cesdk.addPlugin(new CropPresetsAssetSource());
+  await cesdk.addPlugin(new BlurAssetSource(localAssets));
+  await cesdk.addPlugin(new ColorPaletteAssetSource(localAssets));
+  await cesdk.addPlugin(new CropPresetsAssetSource(localAssets));
 
   // Pas de UploadAssetSources : uploads Bubble via uploadFile (drag-and-drop), sans galerie locale.
 
-  await cesdk.addPlugin(new EffectsAssetSource());
-  await cesdk.addPlugin(new FiltersAssetSource());
-  await cesdk.addPlugin(
-    new StickerAssetSource({
-      baseURL: contentBaseURL,
-    }),
-  );
-  await cesdk.addPlugin(new TextAssetSource());
-  await cesdk.addPlugin(new TextComponentAssetSource());
-  await cesdk.addPlugin(new TypefaceAssetSource());
-  await cesdk.addPlugin(new VectorShapeAssetSource());
+  await cesdk.addPlugin(new EffectsAssetSource(localAssets));
+  await cesdk.addPlugin(new FiltersAssetSource(localAssets));
+  await cesdk.addPlugin(new StickerAssetSource(localAssets));
+  await cesdk.addPlugin(new TextAssetSource(localAssets));
+  await cesdk.addPlugin(new TextComponentAssetSource(localAssets));
+  await cesdk.addPlugin(new TypefaceAssetSource(localAssets));
+  await cesdk.addPlugin(new VectorShapeAssetSource(localAssets));
 }

@@ -2,7 +2,7 @@ const PRODUCTION_CESDK_CONTENT_BASE_URL =
   'https://poc-studio.github.io/phosphor_icon_picker/public/cesdk-assets/';
 
 /**
- * Base URL for self-hosted CE.SDK content libraries (stickers, etc.).
+ * Base URL for self-hosted CE.SDK assets (engine + content libraries).
  * Local sandbox serves `public/cesdk-assets/`; Bubble loads from GitHub Pages.
  */
 export function getCesdkContentBaseURL() {

@@ -4769,21 +4769,18 @@ var __pluginInit = (() => {
   // plugins/imgly/imgly-view/src/init-design-editor.ts
   function initDesignEditor(_0, _1) {
     return __async(this, arguments, function* (cesdk, { contentBaseURL }) {
+      const localAssets = { baseURL: contentBaseURL };
       yield cesdk.addPlugin(new DesignEditorConfig());
-      yield cesdk.addPlugin(new e());
-      yield cesdk.addPlugin(new d());
-      yield cesdk.addPlugin(new u());
-      yield cesdk.addPlugin(new p());
-      yield cesdk.addPlugin(new b());
-      yield cesdk.addPlugin(
-        new E({
-          baseURL: contentBaseURL
-        })
-      );
-      yield cesdk.addPlugin(new v());
-      yield cesdk.addPlugin(new U());
-      yield cesdk.addPlugin(new C());
-      yield cesdk.addPlugin(new j());
+      yield cesdk.addPlugin(new e(localAssets));
+      yield cesdk.addPlugin(new d(localAssets));
+      yield cesdk.addPlugin(new u(localAssets));
+      yield cesdk.addPlugin(new p(localAssets));
+      yield cesdk.addPlugin(new b(localAssets));
+      yield cesdk.addPlugin(new E(localAssets));
+      yield cesdk.addPlugin(new v(localAssets));
+      yield cesdk.addPlugin(new U(localAssets));
+      yield cesdk.addPlugin(new C(localAssets));
+      yield cesdk.addPlugin(new j(localAssets));
     });
   }
 
@@ -6102,13 +6099,12 @@ var __pluginInit = (() => {
       container.style.position = "relative";
       host.appendChild(container);
       const license = resolveImglyLicense(context);
-      const engineBaseURL = `https://cdn.img.ly/packages/imgly/cesdk-js/${cesdk_js_default.version}/assets/`;
-      const contentBaseURL = getCesdkContentBaseURL();
+      const assetsBaseURL = getCesdkContentBaseURL();
       const pendingProps = instance.data._pendingProperties;
       const sheetCount = parseSheetCountFromProperties(pendingProps || properties);
       try {
         const createOptions = {
-          baseURL: engineBaseURL,
+          baseURL: assetsBaseURL,
           role: "Adopter"
         };
         if (license) {
@@ -6134,7 +6130,7 @@ var __pluginInit = (() => {
         instance.publishState("trimed_pdf_url", "");
         instance.publishState("image_uploaded_url", "");
         setUnsavedChanges(instance, false);
-        yield initDesignEditor(cesdk, { contentBaseURL });
+        yield initDesignEditor(cesdk, { contentBaseURL: assetsBaseURL });
         ensureFrenchLocale(cesdk);
         instance.data.pageIds = yield createBookletScene(cesdk, cesdk.engine, sheetCount);
         yield fitSceneInView(cesdk);
