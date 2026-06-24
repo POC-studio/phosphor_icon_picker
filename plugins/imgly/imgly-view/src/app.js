@@ -11,6 +11,7 @@ import {
   triggerSaveDocument,
   wireHistoryListener,
 } from './exports.js';
+import { setMarginsWarning } from './margin-warning.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
 import { applyImagesFromProperties } from './team-images.js';
 import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
@@ -188,6 +189,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.publishState('trimed_pdf_url', '');
     instance.publishState('image_uploaded_url', '');
     setUnsavedChanges(instance, false);
+    setMarginsWarning(instance, false);
 
     await initDesignEditor(cesdk, { contentBaseURL: assetsBaseURL });
     ensureFrenchLocale(cesdk);

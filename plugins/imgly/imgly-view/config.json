@@ -39,6 +39,10 @@
     "unsaved_changes": {
       "label": "Modifications non enregistrées",
       "type": "boolean"
+    },
+    "margins_warning": {
+      "label": "Éléments dans les marges de sécurité (5 mm)",
+      "type": "boolean"
     }
   },
   "properties": {

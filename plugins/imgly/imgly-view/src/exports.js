@@ -8,6 +8,7 @@ import {
   lockPageSelection,
 } from './export-lock.js';
 import { buildFoldedA4Pdf, buildSequentialPdf, trimImposedPdfForPrinter } from './pdf-imposition.js';
+import { publishMarginsWarningFromScan } from './margin-warning.js';
 import { getPageIds } from './scene.js';
 
 function sanitizeFileBase(title) {
@@ -173,6 +174,7 @@ export async function triggerSaveDocument(instance) {
 
   instance.data._saveInProgress = true;
   try {
+    publishMarginsWarningFromScan(instance);
     await publishSceneJson(instance, { force: true, skipPreviews: true });
     await createPagePreviews(instance);
     await triggerPdfExport(instance, { download: false, generateTrimmed: true });

@@ -1399,6 +1399,122 @@ var __pluginInit = (() => {
     }
   });
 
+  // plugins/imgly/imgly-view/src/margin-warning.js
+  function readGlobalBounds(engine, blockId) {
+    try {
+      const width = engine.block.getGlobalBoundingBoxWidth(blockId);
+      const height = engine.block.getGlobalBoundingBoxHeight(blockId);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+      if (width < MIN_CONTENT_SIZE_MM || height < MIN_CONTENT_SIZE_MM) return null;
+      return {
+        x: engine.block.getGlobalBoundingBoxX(blockId),
+        y: engine.block.getGlobalBoundingBoxY(blockId),
+        width,
+        height
+      };
+    } catch (e2) {
+      return null;
+    }
+  }
+  function boundsViolateSafeZone(bounds, safe) {
+    const right = bounds.x + bounds.width;
+    const bottom = bounds.y + bounds.height;
+    return bounds.x < safe.left - BOUNDS_EPSILON_MM || bounds.y < safe.top - BOUNDS_EPSILON_MM || right > safe.right + BOUNDS_EPSILON_MM || bottom > safe.bottom + BOUNDS_EPSILON_MM;
+  }
+  function getPageSafeZoneGlobal(engine, pageId, pageNumber) {
+    const pageW = engine.block.getWidth(pageId) || HALF_A4_WIDTH_MM;
+    const pageH = engine.block.getHeight(pageId) || PAGE_HEIGHT_MM;
+    const margins = getSafetyMarginsForPageNumber(pageNumber);
+    const pageX = engine.block.getGlobalBoundingBoxX(pageId);
+    const pageY = engine.block.getGlobalBoundingBoxY(pageId);
+    return {
+      left: pageX + margins.left,
+      top: pageY + margins.top,
+      right: pageX + pageW - margins.right,
+      bottom: pageY + pageH - margins.bottom
+    };
+  }
+  function shouldSkipBlockType(engine, blockId) {
+    try {
+      const type = engine.block.getType(blockId);
+      return type === "page" || type === "camera";
+    } catch (e2) {
+      return true;
+    }
+  }
+  function pageHasMarginViolation(engine, pageId, safe) {
+    function walk(blockId) {
+      if (isSafetyMarginGuideBlock(engine, blockId)) return false;
+      if (shouldSkipBlockType(engine, blockId)) return false;
+      const bounds = readGlobalBounds(engine, blockId);
+      if (bounds && boundsViolateSafeZone(bounds, safe)) {
+        return true;
+      }
+      let children2 = [];
+      try {
+        children2 = engine.block.getChildren(blockId) || [];
+      } catch (e2) {
+        return false;
+      }
+      for (const childId of children2) {
+        if (walk(childId)) return true;
+      }
+      return false;
+    }
+    let children = [];
+    try {
+      children = engine.block.getChildren(pageId) || [];
+    } catch (e2) {
+      return false;
+    }
+    for (const childId of children) {
+      if (walk(childId)) return true;
+    }
+    return false;
+  }
+  function scanMarginViolations(engine) {
+    if (!(engine == null ? void 0 : engine.block)) return false;
+    const pageIds = engine.block.findByType("page") || [];
+    for (let index = 0; index < pageIds.length; index += 1) {
+      const pageId = pageIds[index];
+      const safe = getPageSafeZoneGlobal(engine, pageId, index + 1);
+      if (pageHasMarginViolation(engine, pageId, safe)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function setMarginsWarning(instance, value) {
+    if (!(instance == null ? void 0 : instance.publishState)) return;
+    instance.publishState("margins_warning", value === true);
+  }
+  function publishMarginsWarningFromScan(instance) {
+    var _a2;
+    const engine = (_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.engine;
+    if (!engine) {
+      setMarginsWarning(instance, false);
+      return false;
+    }
+    try {
+      const hasViolation = scanMarginViolations(engine);
+      setMarginsWarning(instance, hasViolation);
+      return hasViolation;
+    } catch (err2) {
+      console.error("IMG.LY View: scan marges", err2);
+      setMarginsWarning(instance, false);
+      return false;
+    }
+  }
+  var BOUNDS_EPSILON_MM, MIN_CONTENT_SIZE_MM;
+  var init_margin_warning = __esm({
+    "plugins/imgly/imgly-view/src/margin-warning.js"() {
+      init_booklet_layout();
+      init_safety_margins();
+      BOUNDS_EPSILON_MM = 0.05;
+      MIN_CONTENT_SIZE_MM = 0.01;
+    }
+  });
+
   // plugins/imgly/imgly-view/src/scene.js
   function applyBookletPagePositions(engine, layout) {
     if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
@@ -1810,6 +1926,7 @@ var __pluginInit = (() => {
       if (instance.data._saveInProgress === true) return false;
       instance.data._saveInProgress = true;
       try {
+        publishMarginsWarningFromScan(instance);
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
         yield createPagePreviews(instance);
         yield triggerPdfExport(instance, { download: false, generateTrimmed: true });
@@ -1933,6 +2050,7 @@ var __pluginInit = (() => {
       init_constants();
       init_export_lock();
       init_pdf_imposition();
+      init_margin_warning();
       init_scene();
     }
   });
@@ -4786,6 +4904,7 @@ var __pluginInit = (() => {
 
   // plugins/imgly/imgly-view/src/app.js
   init_exports();
+  init_margin_warning();
 
   // plugins/imgly/imgly-view/src/page-insert.js
   function resolveTargetPageId(engine) {
@@ -6130,6 +6249,7 @@ var __pluginInit = (() => {
         instance.publishState("trimed_pdf_url", "");
         instance.publishState("image_uploaded_url", "");
         setUnsavedChanges(instance, false);
+        setMarginsWarning(instance, false);
         yield initDesignEditor(cesdk, { contentBaseURL: assetsBaseURL });
         ensureFrenchLocale(cesdk);
         instance.data.pageIds = yield createBookletScene(cesdk, cesdk.engine, sheetCount);
