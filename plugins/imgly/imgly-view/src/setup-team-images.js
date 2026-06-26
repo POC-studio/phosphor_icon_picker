@@ -87,7 +87,7 @@ export function setupTeamImages(cesdk, instance) {
                   tooltip: 'panel.imgly.teamImages.add',
                   onClick: async () => {
                     try {
-                      await insertImageOnCurrentPage(engine, url);
+                      await insertImageOnCurrentPage(engine, url, instance);
                       cesdk.ui.closePanel(TEAM_IMAGES_PANEL_ID);
                     } catch (err) {
                       console.error('IMG.LY View: insertion image équipe', err);

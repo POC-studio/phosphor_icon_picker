@@ -10,6 +10,7 @@ import {
 import { buildFoldedA4Pdf, buildSequentialPdf, trimImposedPdfForPrinter } from './pdf-imposition.js';
 import { publishMarginsWarningFromScan } from './margin-warning.js';
 import { getPageIds } from './scene.js';
+import { saveSceneToPersistableString } from './scene-save.js';
 
 function sanitizeFileBase(title) {
   const raw = typeof title === 'string' ? title.trim() : '';
@@ -32,7 +33,12 @@ function downloadBlob(blob, fileName) {
 
 export function setUnsavedChanges(instance, value) {
   if (!instance?.publishState) return;
-  instance.publishState('unsaved_changes', value === true);
+  const hasUnsaved = value === true;
+  instance.data.hasUnsavedChanges = hasUnsaved;
+  instance.publishState('unsaved_changes', hasUnsaved);
+  if (typeof instance.data.notifySaveUiState === 'function') {
+    instance.data.notifySaveUiState();
+  }
 }
 
 export function publishSceneJson(instance, options) {
@@ -44,7 +50,7 @@ export function publishSceneJson(instance, options) {
   }
   if (!force && instance.data._suppressCanvasJsonPublish === true) return Promise.resolve(false);
 
-  return engine.scene.saveToString().then((sceneString) => {
+  return saveSceneToPersistableString(engine, instance).then((sceneString) => {
     if (typeof sceneString !== 'string' || sceneString.length === 0) return false;
     if (!force && sceneString === instance.data._lastPublishedCanvasJson) return false;
     instance.data._lastPublishedCanvasJson = sceneString;
@@ -157,12 +163,11 @@ export function createPagePreviews(instance) {
   });
 }
 
-/** Figé l'état CE.SDK avant export PDF sans publier canvas_json. */
 async function syncSceneBeforePdfExport(instance) {
   const engine = instance.data.engine;
   if (!engine?.scene || typeof engine.scene.saveToString !== 'function') return;
   try {
-    await engine.scene.saveToString();
+    await saveSceneToPersistableString(engine, instance);
   } catch (err) {
     console.error('IMG.LY View: pre-PDF saveToString failed', err);
   }

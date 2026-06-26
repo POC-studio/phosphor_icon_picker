@@ -34,6 +34,10 @@ const FR_OVERRIDES: Record<string, string> = {
   'panel.imgly.teamImages.upload': 'Uploader une image',
   'panel.imgly.teamImages.empty': 'Aucun élément',
   'panel.imgly.teamImages.add': 'Ajouter au canvas',
+  'input.stroke': 'Tracé',
+  'property.strokeColor': 'Couleur',
+  'property.strokeWidth': 'Épaisseur',
+  'settings.feature.stroke': 'Tracé',
 };
 
 export function setupTranslations(cesdk: CreativeEditorSDK): void {

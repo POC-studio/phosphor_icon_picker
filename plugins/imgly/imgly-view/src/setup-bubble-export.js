@@ -1,6 +1,16 @@
 import { uploadFileToBubble } from './bubble-upload.js';
+import {
+  ensureSaveButtonStyles,
+  scheduleSaveButtonGroupTag,
+} from './save-button-styles.js';
 
 export const BUBBLE_SAVE_NAV_ID = 'imgly.bubble.save.navigationBar';
+
+function getEditorHost(instance) {
+  if (!instance?.canvas) return null;
+  if (typeof instance.canvas[0] !== 'undefined') return instance.canvas[0];
+  return instance.canvas;
+}
 
 /** Boutons d’export / téléchargement CE.SDK à retirer de la barre de navigation. */
 const EXPORT_NAV_IDS_TO_REMOVE = [
@@ -30,6 +40,9 @@ export function setupBubbleUpload(cesdk, instance) {
  */
 export function setupBubblePdfExport(cesdk, instance) {
   if (!cesdk?.ui || !instance?.data) return;
+
+  ensureSaveButtonStyles();
+  instance.data.hasUnsavedChanges = instance.data.hasUnsavedChanges === true;
 
   const runSaveDocument = async () => {
     if (typeof instance.data.triggerSaveDocument !== 'function') {
@@ -69,18 +82,32 @@ export function setupBubblePdfExport(cesdk, instance) {
 
   cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
     const loading = state('loading', false);
+    const unsavedRevision = state('unsavedRevision', 0);
+
+    instance.data.notifySaveUiState = () => {
+      unsavedRevision.setValue(unsavedRevision.value + 1);
+    };
+
+    const hasUnsavedChanges = () => {
+      void unsavedRevision.value;
+      return instance.data.hasUnsavedChanges === true;
+    };
+
+    const canSave = () => hasUnsavedChanges() && !loading.value;
 
     builder.ButtonGroup('save-button-group', {
       children: () => {
+        scheduleSaveButtonGroupTag(getEditorHost(instance));
+
         builder.Button('save-document', {
           color: 'accent',
           variant: 'regular',
           label: 'Enregistrer',
           icon: '@imgly/Save',
           isLoading: loading.value,
-          isDisabled: loading.value,
+          isDisabled: !canSave(),
           onClick: async () => {
-            if (loading.value) return;
+            if (!canSave()) return;
             loading.setValue(true);
             try {
               await runSaveDocument();

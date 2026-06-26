@@ -13,7 +13,8 @@ import {
 } from './exports.js';
 import { setMarginsWarning } from './margin-warning.js';
 import { applyBookmarksFromProperties } from './bookmarks.js';
-import { applyImagesFromProperties } from './team-images.js';
+import { applyImagesFromProperties, readImagesProperty } from './team-images.js';
+import { syncImageFetchApiSlug, setupBubbleUriResolver } from './bubble-image-fetch.js';
 import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
@@ -77,7 +78,8 @@ function applyPropertiesUpdate(instance, properties, context) {
   instance.data.bubbleContext = context || instance.data.bubbleContext || null;
 
   applyBookmarksFromProperties(instance, properties.bookmarks_json);
-  applyImagesFromProperties(instance, properties.images_json);
+  applyImagesFromProperties(instance, readImagesProperty(properties));
+  syncImageFetchApiSlug(instance, properties.image_fetch_api_slug);
 
   const nextTitle = typeof properties.document_title === 'string' ? properties.document_title : '';
   const titleChanged = nextTitle !== instance.data.documentTitle;
@@ -182,7 +184,13 @@ async function initImglyEditor(instance, context, properties) {
     instance.data._hydratedFromInitialJsonProperty = false;
     instance.data.bookmarksList = [];
     instance.data.teamImageUrls = [];
-    instance.data._lastAppliedImagesJson = '';
+    instance.data._lastAppliedTeamImages = '';
+    instance.data.bubbleImageDataUriCache = new Map();
+    instance.data.imageBlobByUrl = new Map();
+    instance.data.imageSourceByTransientUri = new Map();
+    instance.data.imageSourceByBlockId = new Map();
+    syncImageFetchApiSlug(instance, (pendingProps || properties)?.image_fetch_api_slug);
+    setupBubbleUriResolver(cesdk.engine, instance);
 
     instance.publishState('contribution_id', '');
     instance.publishState('pdf_url', '');
@@ -220,6 +228,7 @@ async function initImglyEditor(instance, context, properties) {
     const pending = instance.data._pendingProperties;
     applyPropertiesUpdate(instance, pending || properties || {}, context);
   } catch (err) {
+    if (err && typeof err === 'object' && err.message === 'not ready') throw err;
     console.error('IMG.LY View: init failed', err);
     const detail = err && err.message ? String(err.message) : '';
     showBootError(host, detail
@@ -231,5 +240,12 @@ async function initImglyEditor(instance, context, properties) {
 export default function initializeImglyView(instance, context) {
   instance.data.cesdkReady = false;
   instance.data._pendingProperties = null;
+  instance.data._lastAppliedTeamImages = '';
+  instance.data.teamImageUrls = [];
+
+  instance.data.applyTeamImagesFromProperties = (rawImages) => {
+    applyImagesFromProperties(instance, rawImages);
+  };
+
   void initImglyEditor(instance, context, null);
 }

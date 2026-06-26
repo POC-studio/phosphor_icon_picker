@@ -10,6 +10,7 @@ import {
   lockPageSelection,
 } from './export-lock.js';
 import { syncInnerSafetyMarginGuides } from './safety-margins.js';
+import { saveSceneToPersistableString } from './scene-save.js';
 
 function applyBookletPagePositions(engine, layout) {
   if (!engine?.block || !Array.isArray(layout) || layout.length === 0) return;
@@ -185,7 +186,7 @@ async function finalizeBookletScene(instance, layout) {
     await publishSceneJson(instance, { force: true, skipPreviews: true });
   } else if (typeof engine.scene.saveToString === 'function') {
     try {
-      const sceneString = await engine.scene.saveToString();
+      const sceneString = await saveSceneToPersistableString(engine, instance);
       if (typeof sceneString === 'string' && sceneString.length > 0) {
         instance.data._lastPublishedCanvasJson = sceneString;
       }

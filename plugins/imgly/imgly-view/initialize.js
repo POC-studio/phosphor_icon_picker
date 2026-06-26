@@ -1160,7 +1160,7 @@ var __pluginInit = (() => {
   }
   function uploadFileToBubble(instance, file, onProgress) {
     return __async(this, null, function* () {
-      var _a2, _b2, _c;
+      var _a2, _b2, _c, _d;
       const context = ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleContext) || null;
       const cesdk = ((_b2 = instance == null ? void 0 : instance.data) == null ? void 0 : _b2.cesdk) || null;
       if (!file) {
@@ -1186,6 +1186,12 @@ var __pluginInit = (() => {
           if (((_c = file.type) == null ? void 0 : _c.startsWith("image/")) && (instance == null ? void 0 : instance.publishState) && (instance == null ? void 0 : instance.triggerEvent)) {
             instance.publishState("image_uploaded_url", url);
             instance.triggerEvent("image_uploaded");
+          }
+          if ((instance == null ? void 0 : instance.data) && ((_d = file.type) == null ? void 0 : _d.startsWith("image/"))) {
+            if (!(instance.data.imageBlobByUrl instanceof Map)) {
+              instance.data.imageBlobByUrl = /* @__PURE__ */ new Map();
+            }
+            instance.data.imageBlobByUrl.set(url, file);
           }
           return {
             id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1515,6 +1521,89 @@ var __pluginInit = (() => {
     }
   });
 
+  // plugins/imgly/imgly-view/src/scene-save.js
+  function registerBubbleImagePersistence(instance, sourceUrl, loadableUri, blockId) {
+    if (!(instance == null ? void 0 : instance.data) || !sourceUrl) return;
+    const source = String(sourceUrl).trim();
+    const loadable = String(loadableUri || source).trim();
+    if (!source) return;
+    if (!(instance.data.imageSourceByTransientUri instanceof Map)) {
+      instance.data.imageSourceByTransientUri = /* @__PURE__ */ new Map();
+    }
+    if (loadable !== source) {
+      instance.data.imageSourceByTransientUri.set(loadable, source);
+    }
+    if (blockId != null && typeof blockId === "number") {
+      if (!(instance.data.imageSourceByBlockId instanceof Map)) {
+        instance.data.imageSourceByBlockId = /* @__PURE__ */ new Map();
+      }
+      instance.data.imageSourceByBlockId.set(blockId, source);
+    }
+  }
+  function resolvePersistentUrlForTransient(instance, transientUrl) {
+    if (!(instance == null ? void 0 : instance.data) || typeof transientUrl !== "string") return null;
+    const map = instance.data.imageSourceByTransientUri;
+    if (map instanceof Map && map.has(transientUrl)) {
+      return map.get(transientUrl);
+    }
+    return null;
+  }
+  function persistImageBlockSourceUri(engine, blockId, sourceUrl) {
+    var _a2, _b2;
+    if (!(engine == null ? void 0 : engine.block) || blockId == null || !sourceUrl) return;
+    const url = String(sourceUrl).trim();
+    if (!/^https?:\/\//i.test(url)) return;
+    const candidates = [
+      ["fill/image/imageFileURI", blockId],
+      ["fill/image/externalReference", blockId]
+    ];
+    for (const [prop, id] of candidates) {
+      try {
+        if (typeof engine.block.hasProperty === "function" && !engine.block.hasProperty(id, prop)) {
+          continue;
+        }
+        engine.block.setString(id, prop, url);
+        return;
+      } catch (e2) {
+      }
+    }
+    try {
+      const fillId = (_b2 = (_a2 = engine.block).getFill) == null ? void 0 : _b2.call(_a2, blockId);
+      if (fillId != null) {
+        engine.block.setString(fillId, "fill/image/imageFileURI", url);
+      }
+    } catch (e2) {
+    }
+  }
+  function saveSceneToPersistableString(engine, instance) {
+    return __async(this, null, function* () {
+      if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.saveToString !== "function") {
+        throw new Error("saveToString unavailable");
+      }
+      const allowedSchemes = ["http", "https"];
+      const onDisallowed = (url) => __async(null, null, function* () {
+        const persistent = resolvePersistentUrlForTransient(instance, url);
+        if (persistent) return persistent;
+        console.warn("IMG.LY View: ressource transitoire sans URL persistante", url.slice(0, 80));
+        return url;
+      });
+      if (engine.scene.saveToString.length >= 1) {
+        try {
+          return yield engine.scene.saveToString({
+            allowedResourceSchemes: allowedSchemes,
+            onDisallowedResourceScheme: onDisallowed
+          });
+        } catch (e2) {
+        }
+      }
+      return engine.scene.saveToString(allowedSchemes, onDisallowed);
+    });
+  }
+  var init_scene_save = __esm({
+    "plugins/imgly/imgly-view/src/scene-save.js"() {
+    }
+  });
+
   // plugins/imgly/imgly-view/src/scene.js
   function applyBookletPagePositions(engine, layout) {
     if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
@@ -1650,7 +1739,7 @@ var __pluginInit = (() => {
         yield publishSceneJson2(instance, { force: true, skipPreviews: true });
       } else if (typeof engine.scene.saveToString === "function") {
         try {
-          const sceneString = yield engine.scene.saveToString();
+          const sceneString = yield saveSceneToPersistableString(engine, instance);
           if (typeof sceneString === "string" && sceneString.length > 0) {
             instance.data._lastPublishedCanvasJson = sceneString;
           }
@@ -1761,6 +1850,7 @@ var __pluginInit = (() => {
       init_booklet_layout();
       init_export_lock();
       init_safety_margins();
+      init_scene_save();
     }
   });
 
@@ -1796,7 +1886,12 @@ var __pluginInit = (() => {
   }
   function setUnsavedChanges(instance, value) {
     if (!(instance == null ? void 0 : instance.publishState)) return;
-    instance.publishState("unsaved_changes", value === true);
+    const hasUnsaved = value === true;
+    instance.data.hasUnsavedChanges = hasUnsaved;
+    instance.publishState("unsaved_changes", hasUnsaved);
+    if (typeof instance.data.notifySaveUiState === "function") {
+      instance.data.notifySaveUiState();
+    }
   }
   function publishSceneJson(instance, options) {
     const engine = instance.data.engine;
@@ -1806,7 +1901,7 @@ var __pluginInit = (() => {
       return Promise.resolve(false);
     }
     if (!force && instance.data._suppressCanvasJsonPublish === true) return Promise.resolve(false);
-    return engine.scene.saveToString().then((sceneString) => {
+    return saveSceneToPersistableString(engine, instance).then((sceneString) => {
       if (typeof sceneString !== "string" || sceneString.length === 0) return false;
       if (!force && sceneString === instance.data._lastPublishedCanvasJson) return false;
       instance.data._lastPublishedCanvasJson = sceneString;
@@ -1914,7 +2009,7 @@ var __pluginInit = (() => {
       const engine = instance.data.engine;
       if (!(engine == null ? void 0 : engine.scene) || typeof engine.scene.saveToString !== "function") return;
       try {
-        yield engine.scene.saveToString();
+        yield saveSceneToPersistableString(engine, instance);
       } catch (err2) {
         console.error("IMG.LY View: pre-PDF saveToString failed", err2);
       }
@@ -2052,6 +2147,7 @@ var __pluginInit = (() => {
       init_pdf_imposition();
       init_margin_warning();
       init_scene();
+      init_scene_save();
     }
   });
 
@@ -3381,8 +3477,8 @@ var __pluginInit = (() => {
     "component.placeholder.settings": "Modifier les param\xE8tres de $t(common.placeholder)",
     "component.placeholder.shape": "Forme",
     "component.placeholder.shape.description": "Activer toutes les options de forme",
-    "component.placeholder.stroke": "Coup",
-    "component.placeholder.stroke.description": "Activer toutes les options de trait",
+    "component.placeholder.stroke": "Trac\xE9",
+    "component.placeholder.stroke.description": "Activer toutes les options de trac\xE9",
     "component.placeholder.text": "Texte",
     "component.placeholder.text.description": "Activer toutes les options de texte",
     "component.propertyPopover.header": "Propri\xE9t\xE9s",
@@ -3634,7 +3730,7 @@ var __pluginInit = (() => {
     "input.speed.duration.toggle.tooltip": "Afficher/masquer la dur\xE9e",
     "input.speed.duration.tooltip": "Ajuster la dur\xE9e. La vitesse s\u2019aligne automatiquement.",
     "input.speed.tooltip": "Ajuster la vitesse de lecture",
-    "input.stroke": "Coup",
+    "input.stroke": "Trac\xE9",
     "input.style": "Style",
     "input.text.advanced.description": "Hauteur, espacement, alignement et dimensionnement des lignes",
     "input.text.placeholder": "\xC9crire quelque chose",
@@ -4196,8 +4292,8 @@ var __pluginInit = (() => {
     "property.sides": "C\xF4t\xE9s",
     "property.speed": "Vitesse",
     "property.speed.duration": "Dur\xE9e",
-    "property.strokeColor": "Stroke",
-    "property.strokeColor.description": "Change stroke color",
+    "property.strokeColor": "Couleur",
+    "property.strokeColor.description": "Modifier la couleur du trac\xE9",
     "property.strokeCornerGeometry": "Join",
     "property.strokeCornerGeometry.bevel": "Bevel",
     "property.strokeCornerGeometry.description": "Change stroke join style",
@@ -4216,8 +4312,8 @@ var __pluginInit = (() => {
     "property.strokeStyle.longDashed": "Long Dashed",
     "property.strokeStyle.longDashedRound": "Long Dashed Round",
     "property.strokeStyle.solid": "Solid",
-    "property.strokeWidth": "Width",
-    "property.strokeWidth.description": "Change stroke width",
+    "property.strokeWidth": "\xC9paisseur",
+    "property.strokeWidth.description": "Modifier l'\xE9paisseur du trac\xE9",
     "property.textAlignment.horizontal": "Alignement horizontal",
     "property.textAlignment.horizontal.autoDetect": "Orientation de la langue de correspondance",
     "property.textAlignment.horizontal.center": "Aligner le texte au centre",
@@ -4350,7 +4446,7 @@ var __pluginInit = (() => {
     "settings.feature.group.scene": "Sc\xE8ne",
     "settings.feature.group.shadow": "Ombre",
     "settings.feature.group.shape": "Forme",
-    "settings.feature.group.stroke": "Coup",
+    "settings.feature.group.stroke": "Trac\xE9",
     "settings.feature.group.text": "Texte",
     "settings.feature.group.transform": "Transformer",
     "settings.feature.group.vectorEdit": "Modification vectorielle",
@@ -4420,8 +4516,8 @@ var __pluginInit = (() => {
     "settings.feature.placeholder.general.opacity": "Opacit\xE9",
     "settings.feature.placeholder.shape": "Forme",
     "settings.feature.placeholder.shape.change": "Changer la forme",
-    "settings.feature.placeholder.stroke": "Coup",
-    "settings.feature.placeholder.stroke.change": "Modifier le trait",
+    "settings.feature.placeholder.stroke": "Trac\xE9",
+    "settings.feature.placeholder.stroke.change": "Modifier le trac\xE9",
     "settings.feature.placeholder.text": "Texte",
     "settings.feature.placeholder.text.actAsPlaceholder": "Agir comme espace r\xE9serv\xE9",
     "settings.feature.placeholder.text.character": "Caract\xE8re",
@@ -4449,12 +4545,12 @@ var __pluginInit = (() => {
     "settings.feature.shape.options.lineWidth": "Largeur de ligne",
     "settings.feature.shape.options.points": "Points",
     "settings.feature.shape.options.sides": "C\xF4t\xE9s",
-    "settings.feature.stroke": "Coup",
-    "settings.feature.stroke.color": "Stroke Color",
-    "settings.feature.stroke.cornerGeometry": "Corner Geometry",
-    "settings.feature.stroke.position": "Position de course",
-    "settings.feature.stroke.style": "Stroke Style",
-    "settings.feature.stroke.width": "Stroke Width",
+    "settings.feature.stroke": "Trac\xE9",
+    "settings.feature.stroke.color": "Couleur",
+    "settings.feature.stroke.cornerGeometry": "Angle des jointures",
+    "settings.feature.stroke.position": "Position du trac\xE9",
+    "settings.feature.stroke.style": "Style",
+    "settings.feature.stroke.width": "\xC9paisseur",
     "settings.feature.text": "Texte",
     "settings.feature.text.advanced": "Avanc\xE9",
     "settings.feature.text.alignment": "Alignement",
@@ -4550,7 +4646,11 @@ var __pluginInit = (() => {
     "panel.imgly.team.images.label": "Images",
     "panel.imgly.teamImages.upload": "Uploader une image",
     "panel.imgly.teamImages.empty": "Aucun \xE9l\xE9ment",
-    "panel.imgly.teamImages.add": "Ajouter au canvas"
+    "panel.imgly.teamImages.add": "Ajouter au canvas",
+    "input.stroke": "Trac\xE9",
+    "property.strokeColor": "Couleur",
+    "property.strokeWidth": "\xC9paisseur",
+    "settings.feature.stroke": "Trac\xE9"
   };
   function setupTranslations(cesdk) {
     cesdk.i18n.setTranslations({
@@ -4906,7 +5006,136 @@ var __pluginInit = (() => {
   init_exports();
   init_margin_warning();
 
+  // plugins/imgly/imgly-view/src/bubble-image-fetch.js
+  init_scene_save();
+  var DEFAULT_API_SLUG = "get_image";
+  var globalDataUriCache = /* @__PURE__ */ new Map();
+  function isBubbleCdnImageUrl(url) {
+    if (typeof url !== "string" || !url.trim()) return false;
+    let normalized = url.trim();
+    if (/^\/\//.test(normalized)) normalized = `https:${normalized}`;
+    try {
+      const host = new URL(normalized).hostname.toLowerCase();
+      return host.endsWith(".cdn.bubble.io");
+    } catch (e2) {
+      return /\.cdn\.bubble\.io/i.test(normalized);
+    }
+  }
+  function isBubbleVersionTestPath() {
+    if (typeof window === "undefined" || !window.location) return false;
+    return window.location.pathname.includes("/version-test");
+  }
+  function buildGetImageWorkflowUrl(slug = DEFAULT_API_SLUG) {
+    const trimmedSlug = String(slug || DEFAULT_API_SLUG).trim().replace(/^\/+|\/+$/g, "");
+    const prefix = isBubbleVersionTestPath() ? "/version-test" : "";
+    const origin = typeof window !== "undefined" && window.location ? window.location.origin : "";
+    return `${origin}${prefix}/api/1.1/wf/${trimmedSlug}`;
+  }
+  function resolveImageFetchApiSlug(instance) {
+    var _a2;
+    const fromData = (_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.imageFetchApiSlug;
+    if (typeof fromData === "string" && fromData.trim()) return fromData.trim();
+    return DEFAULT_API_SLUG;
+  }
+  function parseFetchImageResponse(payload) {
+    if (!payload || typeof payload !== "object") return null;
+    const root = (
+      /** @type {Record<string, unknown>} */
+      payload
+    );
+    const body = root.response && typeof root.response === "object" ? (
+      /** @type {Record<string, unknown>} */
+      root.response
+    ) : root;
+    const base64 = typeof body.base64 === "string" ? body.base64.trim() : "";
+    const contentTypeRaw = typeof body.content_type === "string" ? body.content_type : typeof body.contentType === "string" ? body.contentType : "";
+    const contentType = contentTypeRaw.trim().split(";")[0] || "image/png";
+    if (!base64) return null;
+    return { base64, content_type: contentType };
+  }
+  function toDataUri(base64, contentType) {
+    return `data:${contentType};base64,${base64}`;
+  }
+  function fetchBubbleImageAsDataUri(instance, cdnUrl) {
+    return __async(this, null, function* () {
+      var _a2;
+      const url = String(cdnUrl || "").trim();
+      if (!url) throw new Error("Missing image URL");
+      const cacheKey = url;
+      const instanceCache = (_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleImageDataUriCache;
+      if (instanceCache instanceof Map && instanceCache.has(cacheKey)) {
+        return instanceCache.get(cacheKey);
+      }
+      if (globalDataUriCache.has(cacheKey)) {
+        return globalDataUriCache.get(cacheKey);
+      }
+      const slug = resolveImageFetchApiSlug(instance);
+      const endpoint = buildGetImageWorkflowUrl(slug);
+      const requestUrl = `${endpoint}?url=${encodeURIComponent(url)}`;
+      const response = yield fetch(requestUrl, {
+        method: "GET",
+        credentials: "same-origin"
+      });
+      if (!response.ok) {
+        throw new Error(`get_image HTTP ${response.status}`);
+      }
+      const json = yield response.json();
+      const parsed = parseFetchImageResponse(json);
+      if (!parsed) {
+        throw new Error("get_image: missing base64 in response");
+      }
+      const dataUri = toDataUri(parsed.base64, parsed.content_type);
+      if (instance == null ? void 0 : instance.data) {
+        if (!(instance.data.bubbleImageDataUriCache instanceof Map)) {
+          instance.data.bubbleImageDataUriCache = /* @__PURE__ */ new Map();
+        }
+        instance.data.bubbleImageDataUriCache.set(cacheKey, dataUri);
+      }
+      globalDataUriCache.set(cacheKey, dataUri);
+      return dataUri;
+    });
+  }
+  function resolveImageUriForEngine(imageUrl, instance) {
+    return __async(this, null, function* () {
+      var _a2;
+      const url = String(imageUrl || "").trim();
+      if (!url) return url;
+      if (url.startsWith("data:") || url.startsWith("blob:")) return url;
+      if (((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.imageBlobByUrl) instanceof Map) {
+        const file = instance.data.imageBlobByUrl.get(url);
+        if (file && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+          const blobUrl = URL.createObjectURL(file);
+          registerBubbleImagePersistence(instance, url, blobUrl);
+          return blobUrl;
+        }
+      }
+      if (isBubbleCdnImageUrl(url)) {
+        return fetchBubbleImageAsDataUri(instance, url);
+      }
+      return url;
+    });
+  }
+  function syncImageFetchApiSlug(instance, slug) {
+    if (!(instance == null ? void 0 : instance.data)) return;
+    const trimmed = typeof slug === "string" ? slug.trim() : "";
+    instance.data.imageFetchApiSlug = trimmed || DEFAULT_API_SLUG;
+  }
+  function setupBubbleUriResolver(engine, instance) {
+    if (!(engine == null ? void 0 : engine.editor) || typeof engine.editor.setURIResolverAsync !== "function") return;
+    engine.editor.setURIResolverAsync((uri, defaultResolver) => __async(null, null, function* () {
+      if (isBubbleCdnImageUrl(uri)) {
+        try {
+          return yield resolveImageUriForEngine(uri, instance);
+        } catch (err2) {
+          console.warn("IMG.LY View: r\xE9solution URI Bubble au chargement", uri, err2);
+        }
+      }
+      return defaultResolver(uri);
+    }));
+  }
+
   // plugins/imgly/imgly-view/src/page-insert.js
+  init_scene_save();
   function resolveTargetPageId(engine) {
     var _a2, _b2, _c;
     if (!(engine == null ? void 0 : engine.scene)) return null;
@@ -5033,7 +5262,7 @@ var __pluginInit = (() => {
       }
     });
   }
-  function insertImageOnCurrentPage(engine, imageUrl) {
+  function insertImageOnCurrentPage(engine, imageUrl, instance) {
     return __async(this, null, function* () {
       if (!engine || !imageUrl) return null;
       const pageId = resolveTargetPageId(engine);
@@ -5047,12 +5276,23 @@ var __pluginInit = (() => {
         }
       } catch (e2) {
       }
+      let loadableUri = imageUrl;
+      try {
+        loadableUri = yield resolveImageUriForEngine(imageUrl, instance);
+      } catch (err2) {
+        console.error("IMG.LY View: r\xE9solution image pour canvas", imageUrl, err2);
+        return null;
+      }
       let blockId;
       try {
-        blockId = yield engine.block.addImage(imageUrl);
+        blockId = yield engine.block.addImage(loadableUri);
       } catch (err2) {
-        console.error("IMG.LY View: addImage failed", imageUrl, err2);
+        console.error("IMG.LY View: addImage failed", loadableUri, err2);
         return null;
+      }
+      if (instance && isBubbleCdnImageUrl(imageUrl) && loadableUri !== imageUrl) {
+        registerBubbleImagePersistence(instance, imageUrl, loadableUri, blockId);
+        persistImageBlockSourceUri(engine, blockId, imageUrl);
       }
       try {
         fitBlockOnPage(engine, blockId, pageId);
@@ -5111,7 +5351,7 @@ var __pluginInit = (() => {
   function insertContributionImage(engine, cesdk, instance, item) {
     return __async(this, null, function* () {
       if (!engine || !item || !item.image_url) return;
-      const blockId = yield insertImageOnCurrentPage(engine, item.image_url);
+      const blockId = yield insertImageOnCurrentPage(engine, item.image_url, instance);
       if (blockId == null) return;
       const contributionId = typeof engine.block.getUUID === "function" ? String(engine.block.getUUID(blockId) || blockId) : String(blockId);
       instance.publishState("contribution_id", contributionId);
@@ -5134,44 +5374,236 @@ var __pluginInit = (() => {
   }
 
   // plugins/imgly/imgly-view/src/team-images.js
-  function parseImagesJson(raw) {
-    let urls = null;
-    if (Array.isArray(raw)) {
-      urls = raw;
-    } else if (raw && typeof raw === "object" && Array.isArray(raw.images)) {
-      urls = raw.images;
-    } else if (typeof raw === "string" && raw.trim().length > 0) {
+  init_bubble_upload();
+
+  // plugins/imgly/imgly-view/src/bubble-list.js
+  function isBubbleNotReady(err2) {
+    return err2 && typeof err2 === "object" && /** @type {{ message?: string }} */
+    err2.message === "not ready";
+  }
+  function isBubbleList(value) {
+    if (!value || typeof value !== "object" || typeof value.get !== "function") return false;
+    if (typeof value.listProperties === "function") return false;
+    if (value.list_api === false || value.single_api === true) return false;
+    return true;
+  }
+  function resolveBubbleListLength(list) {
+    if (!list || typeof list !== "object") return 0;
+    const raw = (
+      /** @type {{ length?: unknown }} */
+      list.length
+    );
+    if (typeof raw === "number") return Math.max(0, raw);
+    if (typeof raw === "function") {
       try {
-        const parsed = JSON.parse(raw.trim());
-        if (Array.isArray(parsed)) {
-          urls = parsed;
-        } else if (parsed && Array.isArray(parsed.images)) {
-          urls = parsed.images;
-        }
-      } catch (e2) {
-        return null;
+        const value = raw.call(list);
+        if (typeof value === "number") return Math.max(0, value);
+      } catch (err2) {
+        if (isBubbleNotReady(err2)) throw err2;
       }
     }
-    if (!urls) return null;
+    return 0;
+  }
+  function toArray(value) {
+    if (value == null) return [];
+    return Array.isArray(value) ? value : [value];
+  }
+  function materializeBubbleList(list) {
+    if (!isBubbleList(list)) return null;
+    const len = resolveBubbleListLength(list);
+    if (len > 0) {
+      let from = 0;
+      const entries = [];
+      while (from < len) {
+        const count = Math.min(100, len - from);
+        const batch = list.get(from, count);
+        const chunk = toArray(batch);
+        if (chunk.length === 0) break;
+        entries.push(...chunk);
+        from += chunk.length;
+        if (chunk.length < count) break;
+      }
+      return entries;
+    }
+    for (const count of [100, 99]) {
+      try {
+        const batch = list.get(0, count);
+        const chunk = toArray(batch);
+        if (chunk.length > 0) return chunk;
+      } catch (err2) {
+        if (isBubbleNotReady(err2)) throw err2;
+      }
+    }
+    return [];
+  }
+
+  // plugins/imgly/imgly-view/src/team-images.js
+  var IMAGE_FIELD_CANDIDATES = [
+    "saved_to_s3",
+    "saved_to_aws",
+    "image",
+    "Image",
+    "file",
+    "photo",
+    "picture",
+    "image_url",
+    "url",
+    "upload",
+    "fichier",
+    "value"
+  ];
+  function normalizeUrlString(value) {
+    if (value == null) return "";
+    let trimmed = String(value).trim();
+    if (!trimmed || trimmed === "[object Object]") return "";
+    trimmed = normalizeBubbleUploadUrl(null, trimmed) || trimmed;
+    if (/^\/\//.test(trimmed)) trimmed = `https:${trimmed}`;
+    if (!/^https?:\/\//i.test(trimmed) && /^[\w.-]+\.[\w.-]+/.test(trimmed)) {
+      trimmed = `https://${trimmed}`;
+    }
+    return trimmed;
+  }
+  function bubbleThingToImageUrl(thing) {
+    if (!thing || typeof thing !== "object" || typeof thing.get !== "function") return "";
+    if (typeof thing.listProperties !== "function") return "";
+    for (const name of IMAGE_FIELD_CANDIDATES) {
+      try {
+        const val = thing.get(name);
+        const url = entryToImageUrl(val);
+        if (url) return url;
+      } catch (err2) {
+        if (isBubbleNotReady(err2)) throw err2;
+      }
+    }
+    let props = null;
+    try {
+      props = thing.listProperties();
+    } catch (err2) {
+      if (isBubbleNotReady(err2)) throw err2;
+    }
+    if (Array.isArray(props)) {
+      for (const prop of props) {
+        if (typeof prop !== "string") continue;
+        try {
+          const val = thing.get(prop);
+          const url = entryToImageUrl(val);
+          if (url) return url;
+        } catch (err2) {
+          if (isBubbleNotReady(err2)) throw err2;
+        }
+      }
+    }
+    return "";
+  }
+  function entryToImageUrl(entry) {
+    if (entry == null) return "";
+    if (typeof entry === "string") {
+      return normalizeUrlString(entry);
+    }
+    if (typeof entry !== "object") {
+      return normalizeUrlString(entry);
+    }
+    if (typeof entry.listProperties === "function") {
+      const fromThing = bubbleThingToImageUrl(entry);
+      if (fromThing) return fromThing;
+    }
+    if (typeof entry.get === "function") {
+      for (const name of IMAGE_FIELD_CANDIDATES) {
+        try {
+          const val = entry.get(name);
+          const url = entryToImageUrl(val);
+          if (url) return url;
+        } catch (err2) {
+          if (isBubbleNotReady(err2)) throw err2;
+        }
+      }
+    }
+    const obj = (
+      /** @type {Record<string, unknown>} */
+      entry
+    );
+    for (const key of IMAGE_FIELD_CANDIDATES) {
+      if (typeof obj[key] === "string" && obj[key].trim()) {
+        return normalizeUrlString(obj[key]);
+      }
+    }
+    return "";
+  }
+  function dedupeImageUrls(urls) {
     const seen = /* @__PURE__ */ new Set();
-    return urls.map((entry) => entry != null ? String(entry).trim() : "").filter((url) => {
+    return urls.map((url) => normalizeUrlString(url)).filter((url) => {
       if (url.length === 0 || !/^https?:\/\//i.test(url)) return false;
       if (seen.has(url)) return false;
       seen.add(url);
       return true;
     });
   }
-  function applyImagesFromProperties(instance, rawImagesJson, clearIfEmpty = true) {
+  function readImagesProperty(properties) {
+    if (!properties || typeof properties !== "object") return null;
+    const p2 = (
+      /** @type {Record<string, unknown>} */
+      properties
+    );
+    if (p2.images != null && p2.images !== "") return p2.images;
+    if (p2.images_json != null && p2.images_json !== "") return p2.images_json;
+    return null;
+  }
+  function parseTeamImages(raw) {
+    if (raw == null || raw === "") return null;
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      if (/^https?:\/\//i.test(trimmed) || /^\/\//.test(trimmed)) {
+        const url = entryToImageUrl(trimmed);
+        return url ? dedupeImageUrls([url]) : null;
+      }
+      try {
+        return parseTeamImages(JSON.parse(trimmed));
+      } catch (e2) {
+        return null;
+      }
+    }
+    const listEntries = materializeBubbleList(raw);
+    if (listEntries != null) {
+      const urls = dedupeImageUrls(listEntries.map(entryToImageUrl));
+      return urls.length > 0 ? urls : null;
+    }
+    if (Array.isArray(raw)) {
+      const urls = dedupeImageUrls(raw.map(entryToImageUrl));
+      return urls.length > 0 ? urls : null;
+    }
+    if (typeof raw === "object") {
+      const obj = (
+        /** @type {Record<string, unknown>} */
+        raw
+      );
+      if (Array.isArray(obj.images)) {
+        const urls = dedupeImageUrls(obj.images.map(entryToImageUrl));
+        return urls.length > 0 ? urls : null;
+      }
+      const single = entryToImageUrl(raw);
+      if (single) return dedupeImageUrls([single]);
+    }
+    return null;
+  }
+  function isEmptyTeamImagesInput(raw) {
+    if (raw == null || raw === "") return true;
+    if (typeof raw === "string" && raw.trim() === "") return true;
+    if (Array.isArray(raw)) return raw.length === 0;
+    if (isBubbleList(raw)) return resolveBubbleListLength(raw) === 0;
+    return false;
+  }
+  function applyImagesFromProperties(instance, rawImages, clearIfEmpty = true) {
     if (!(instance == null ? void 0 : instance.data)) return;
-    const parsed = parseImagesJson(rawImagesJson);
+    const parsed = parseTeamImages(rawImages);
     const canonical = parsed ? JSON.stringify(parsed) : "";
-    if (parsed) {
-      if (canonical === instance.data._lastAppliedImagesJson) return;
-      instance.data._lastAppliedImagesJson = canonical;
+    if (parsed && parsed.length > 0) {
+      if (canonical === instance.data._lastAppliedTeamImages) return;
+      instance.data._lastAppliedTeamImages = canonical;
       instance.data.teamImageUrls = parsed;
-    } else if (clearIfEmpty && (rawImagesJson == null || rawImagesJson === "")) {
-      if (instance.data._lastAppliedImagesJson === "") return;
-      instance.data._lastAppliedImagesJson = "";
+    } else if (clearIfEmpty && isEmptyTeamImagesInput(rawImages)) {
+      if (instance.data._lastAppliedTeamImages === "") return;
+      instance.data._lastAppliedTeamImages = "";
       instance.data.teamImageUrls = [];
     } else {
       return;
@@ -5183,7 +5615,66 @@ var __pluginInit = (() => {
 
   // plugins/imgly/imgly-view/src/setup-bubble-export.js
   init_bubble_upload();
+
+  // plugins/imgly/imgly-view/src/save-button-styles.js
+  var STYLE_ID = "imgly-save-button-styles";
+  var SAVE_BUTTON_CSS = `
+  .imgly-save-button-group [class*="ubq-color_accent"]:not(:disabled) {
+    background: #111827 !important;
+    color: #ffffff !important;
+  }
+  .imgly-save-button-group [class*="ubq-color_accent"]:not(:disabled):hover:not(:active) {
+    background: #1f2937 !important;
+    color: #ffffff !important;
+  }
+  .imgly-save-button-group [class*="ubq-color_accent"]:not(:disabled):active {
+    background: #030712 !important;
+    color: #ffffff !important;
+  }
+  .imgly-save-button-group [class*="ubq-color_accent"]:disabled {
+    background: #e5e7eb !important;
+    color: #9ca3af !important;
+    cursor: not-allowed !important;
+  }
+`;
+  function tagSaveButtonGroup(root) {
+    if (typeof document === "undefined" || !root) return;
+    const groups = root.querySelectorAll('[class*="ButtonGroup"]');
+    for (const group of groups) {
+      const saveBtn = group.querySelector("button");
+      if (!saveBtn) continue;
+      const label = (saveBtn.textContent || "").trim();
+      if (!label.includes("Enregistrer")) continue;
+      group.classList.add("imgly-save-button-group");
+      return;
+    }
+  }
+  function ensureSaveButtonStyles() {
+    if (typeof document === "undefined") return;
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = SAVE_BUTTON_CSS;
+    document.head.appendChild(style);
+  }
+  function scheduleSaveButtonGroupTag(root) {
+    if (typeof requestAnimationFrame === "undefined") {
+      tagSaveButtonGroup(root);
+      return;
+    }
+    requestAnimationFrame(() => {
+      tagSaveButtonGroup(root);
+      requestAnimationFrame(() => tagSaveButtonGroup(root));
+    });
+  }
+
+  // plugins/imgly/imgly-view/src/setup-bubble-export.js
   var BUBBLE_SAVE_NAV_ID = "imgly.bubble.save.navigationBar";
+  function getEditorHost(instance) {
+    if (!(instance == null ? void 0 : instance.canvas)) return null;
+    if (typeof instance.canvas[0] !== "undefined") return instance.canvas[0];
+    return instance.canvas;
+  }
   var EXPORT_NAV_IDS_TO_REMOVE = [
     "ly.img.actions.navigationBar",
     "ly.img.save.navigationBar",
@@ -5205,6 +5696,8 @@ var __pluginInit = (() => {
   }
   function setupBubblePdfExport(cesdk, instance) {
     if (!(cesdk == null ? void 0 : cesdk.ui) || !(instance == null ? void 0 : instance.data)) return;
+    ensureSaveButtonStyles();
+    instance.data.hasUnsavedChanges = instance.data.hasUnsavedChanges === true;
     const runSaveDocument = () => __async(null, null, function* () {
       if (typeof instance.data.triggerSaveDocument !== "function") {
         console.error("IMG.LY View: enregistrement indisponible (\xE9diteur non pr\xEAt)");
@@ -5240,17 +5733,27 @@ var __pluginInit = (() => {
     });
     cesdk.ui.registerComponent(BUBBLE_SAVE_NAV_ID, ({ builder, state }) => {
       const loading = state("loading", false);
+      const unsavedRevision = state("unsavedRevision", 0);
+      instance.data.notifySaveUiState = () => {
+        unsavedRevision.setValue(unsavedRevision.value + 1);
+      };
+      const hasUnsavedChanges = () => {
+        void unsavedRevision.value;
+        return instance.data.hasUnsavedChanges === true;
+      };
+      const canSave = () => hasUnsavedChanges() && !loading.value;
       builder.ButtonGroup("save-button-group", {
         children: () => {
+          scheduleSaveButtonGroupTag(getEditorHost(instance));
           builder.Button("save-document", {
             color: "accent",
             variant: "regular",
             label: "Enregistrer",
             icon: "@imgly/Save",
             isLoading: loading.value,
-            isDisabled: loading.value,
+            isDisabled: !canSave(),
             onClick: () => __async(null, null, function* () {
-              if (loading.value) return;
+              if (!canSave()) return;
               loading.setValue(true);
               try {
                 yield runSaveDocument();
@@ -6066,7 +6569,7 @@ var __pluginInit = (() => {
                     tooltip: "panel.imgly.teamImages.add",
                     onClick: () => __async(null, null, function* () {
                       try {
-                        yield insertImageOnCurrentPage(engine, url);
+                        yield insertImageOnCurrentPage(engine, url, instance);
                         cesdk.ui.closePanel(TEAM_IMAGES_PANEL_ID);
                       } catch (err2) {
                         console.error("IMG.LY View: insertion image \xE9quipe", err2);
@@ -6150,7 +6653,8 @@ var __pluginInit = (() => {
     if (!properties) return;
     instance.data.bubbleContext = context || instance.data.bubbleContext || null;
     applyBookmarksFromProperties(instance, properties.bookmarks_json);
-    applyImagesFromProperties(instance, properties.images_json);
+    applyImagesFromProperties(instance, readImagesProperty(properties));
+    syncImageFetchApiSlug(instance, properties.image_fetch_api_slug);
     const nextTitle = typeof properties.document_title === "string" ? properties.document_title : "";
     const titleChanged = nextTitle !== instance.data.documentTitle;
     instance.data.documentTitle = nextTitle;
@@ -6194,6 +6698,7 @@ var __pluginInit = (() => {
   }
   function initImglyEditor(instance, context, properties) {
     return __async(this, null, function* () {
+      var _a2;
       const host = getHostElement(instance);
       if (!host) return;
       const sdk = yield waitForCreativeEditorSDK();
@@ -6243,7 +6748,13 @@ var __pluginInit = (() => {
         instance.data._hydratedFromInitialJsonProperty = false;
         instance.data.bookmarksList = [];
         instance.data.teamImageUrls = [];
-        instance.data._lastAppliedImagesJson = "";
+        instance.data._lastAppliedTeamImages = "";
+        instance.data.bubbleImageDataUriCache = /* @__PURE__ */ new Map();
+        instance.data.imageBlobByUrl = /* @__PURE__ */ new Map();
+        instance.data.imageSourceByTransientUri = /* @__PURE__ */ new Map();
+        instance.data.imageSourceByBlockId = /* @__PURE__ */ new Map();
+        syncImageFetchApiSlug(instance, (_a2 = pendingProps || properties) == null ? void 0 : _a2.image_fetch_api_slug);
+        setupBubbleUriResolver(cesdk.engine, instance);
         instance.publishState("contribution_id", "");
         instance.publishState("pdf_url", "");
         instance.publishState("trimed_pdf_url", "");
@@ -6277,6 +6788,7 @@ var __pluginInit = (() => {
         const pending = instance.data._pendingProperties;
         applyPropertiesUpdate(instance, pending || properties || {}, context);
       } catch (err2) {
+        if (err2 && typeof err2 === "object" && err2.message === "not ready") throw err2;
         console.error("IMG.LY View: init failed", err2);
         const detail = err2 && err2.message ? String(err2.message) : "";
         showBootError(host, detail ? "\xC9chec du chargement CE.SDK \u2014 " + detail : "\xC9chec du chargement CE.SDK \u2014 v\xE9rifiez la connexion r\xE9seau ou la licence.");
@@ -6286,6 +6798,11 @@ var __pluginInit = (() => {
   function initializeImglyView(instance, context) {
     instance.data.cesdkReady = false;
     instance.data._pendingProperties = null;
+    instance.data._lastAppliedTeamImages = "";
+    instance.data.teamImageUrls = [];
+    instance.data.applyTeamImagesFromProperties = (rawImages) => {
+      applyImagesFromProperties(instance, rawImages);
+    };
     void initImglyEditor(instance, context, null);
   }
 

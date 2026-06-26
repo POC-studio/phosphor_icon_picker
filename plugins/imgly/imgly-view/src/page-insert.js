@@ -1,3 +1,12 @@
+import {
+  isBubbleCdnImageUrl,
+  resolveImageUriForEngine,
+} from './bubble-image-fetch.js';
+import {
+  persistImageBlockSourceUri,
+  registerBubbleImagePersistence,
+} from './scene-save.js';
+
 /**
  * @param {import('@cesdk/engine').default} engine
  * @returns {number|null}
@@ -192,9 +201,10 @@ export async function insertVectorGraphicOnCurrentPage(engine, options) {
 /**
  * @param {import('@cesdk/engine').default} engine
  * @param {string} imageUrl
+ * @param {object} [instance]
  * @returns {Promise<number|null>}
  */
-export async function insertImageOnCurrentPage(engine, imageUrl) {
+export async function insertImageOnCurrentPage(engine, imageUrl, instance) {
   if (!engine || !imageUrl) return null;
 
   const pageId = resolveTargetPageId(engine);
@@ -211,12 +221,25 @@ export async function insertImageOnCurrentPage(engine, imageUrl) {
     /* ignore */
   }
 
+  let loadableUri = imageUrl;
+  try {
+    loadableUri = await resolveImageUriForEngine(imageUrl, instance);
+  } catch (err) {
+    console.error('IMG.LY View: résolution image pour canvas', imageUrl, err);
+    return null;
+  }
+
   let blockId;
   try {
-    blockId = await engine.block.addImage(imageUrl);
+    blockId = await engine.block.addImage(loadableUri);
   } catch (err) {
-    console.error('IMG.LY View: addImage failed', imageUrl, err);
+    console.error('IMG.LY View: addImage failed', loadableUri, err);
     return null;
+  }
+
+  if (instance && isBubbleCdnImageUrl(imageUrl) && loadableUri !== imageUrl) {
+    registerBubbleImagePersistence(instance, imageUrl, loadableUri, blockId);
+    persistImageBlockSourceUri(engine, blockId, imageUrl);
   }
 
   try {

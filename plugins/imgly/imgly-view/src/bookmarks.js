@@ -72,7 +72,7 @@ export function filterBookmarks(list, query) {
 export async function insertContributionImage(engine, cesdk, instance, item) {
   if (!engine || !item || !item.image_url) return;
 
-  const blockId = await insertImageOnCurrentPage(engine, item.image_url);
+  const blockId = await insertImageOnCurrentPage(engine, item.image_url, instance);
   if (blockId == null) return;
 
   const contributionId = typeof engine.block.getUUID === 'function'
