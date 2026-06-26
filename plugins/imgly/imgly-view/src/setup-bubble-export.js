@@ -1,7 +1,7 @@
 import { uploadFileToBubble } from './bubble-upload.js';
 import {
-  ensureSaveButtonStyles,
-  scheduleSaveButtonGroupTag,
+  ensureSaveButtonStyleWatcher,
+  scheduleSaveButtonPaint,
 } from './save-button-styles.js';
 
 export const BUBBLE_SAVE_NAV_ID = 'imgly.bubble.save.navigationBar';
@@ -41,7 +41,7 @@ export function setupBubbleUpload(cesdk, instance) {
 export function setupBubblePdfExport(cesdk, instance) {
   if (!cesdk?.ui || !instance?.data) return;
 
-  ensureSaveButtonStyles();
+  ensureSaveButtonStyleWatcher(instance);
   instance.data.hasUnsavedChanges = instance.data.hasUnsavedChanges === true;
 
   const runSaveDocument = async () => {
@@ -86,6 +86,9 @@ export function setupBubblePdfExport(cesdk, instance) {
 
     instance.data.notifySaveUiState = () => {
       unsavedRevision.setValue(unsavedRevision.value + 1);
+      if (typeof instance.data.repaintSaveButton === 'function') {
+        instance.data.repaintSaveButton();
+      }
     };
 
     const hasUnsavedChanges = () => {
@@ -97,7 +100,9 @@ export function setupBubblePdfExport(cesdk, instance) {
 
     builder.ButtonGroup('save-button-group', {
       children: () => {
-        scheduleSaveButtonGroupTag(getEditorHost(instance));
+        scheduleSaveButtonPaint(getEditorHost(instance), {
+          saveDisabled: !hasUnsavedChanges(),
+        });
 
         builder.Button('save-document', {
           color: 'accent',
