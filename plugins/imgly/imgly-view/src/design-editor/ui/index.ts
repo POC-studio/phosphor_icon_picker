@@ -9,6 +9,7 @@ import type CreativeEditorSDK from '@cesdk/cesdk-js';
 import { setupCanvas } from './canvas';
 import { setupComponents } from './components';
 import { setupDock } from './dock';
+import { setupInspectorAutoClose } from './inspector-auto-close';
 import { setupInspectorBar } from './inspectorBar';
 import { setupNavigationBar } from './navigationBar';
 import { setupPanels } from './panel';
@@ -20,6 +21,7 @@ import { setupPanels } from './panel';
  */
 export function setupUI(cesdk: CreativeEditorSDK): void {
   setupPanels(cesdk); // Panel positions first (affects layout)
+  setupInspectorAutoClose(cesdk);
   setupComponents(cesdk); // Custom components
   setupNavigationBar(cesdk); // Top bar
   setupCanvas(cesdk); // Canvas bar and context menu

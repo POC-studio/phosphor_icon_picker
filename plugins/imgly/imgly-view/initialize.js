@@ -4804,6 +4804,25 @@ var __pluginInit = (() => {
     ]);
   }
 
+  // plugins/imgly/imgly-view/src/design-editor/ui/inspector-auto-close.ts
+  var INSPECTOR_PANEL = "//ly.img.panel/inspector";
+  var PAGE_BLOCK_TYPE2 = "//ly.img.ubq/page";
+  function setupInspectorAutoClose(cesdk) {
+    const engine = cesdk.engine;
+    if (!(engine == null ? void 0 : engine.block) || typeof engine.block.onSelectionChanged !== "function") return;
+    const hasInspectableSelection = () => {
+      const selected = engine.block.findAllSelected();
+      if (!selected.length) return false;
+      return selected.some((id) => engine.block.getType(id) !== PAGE_BLOCK_TYPE2);
+    };
+    engine.block.onSelectionChanged(() => {
+      if (hasInspectableSelection()) return;
+      if (cesdk.ui.isPanelOpen(INSPECTOR_PANEL)) {
+        cesdk.ui.closePanel(INSPECTOR_PANEL);
+      }
+    });
+  }
+
   // plugins/imgly/imgly-view/src/design-editor/ui/inspectorBar.ts
   function setupInspectorBar(cesdk) {
     cesdk.ui.setComponentOrder(
@@ -4939,6 +4958,7 @@ var __pluginInit = (() => {
   // plugins/imgly/imgly-view/src/design-editor/ui/index.ts
   function setupUI(cesdk) {
     setupPanels(cesdk);
+    setupInspectorAutoClose(cesdk);
     setupComponents(cesdk);
     setupNavigationBar(cesdk);
     setupCanvas(cesdk);
