@@ -16,6 +16,7 @@ import { applyBookmarksFromProperties } from './bookmarks.js';
 import { applyImagesFromProperties, readImagesProperty } from './team-images.js';
 import { syncImageFetchApiSlug, setupBubbleUriResolver } from './bubble-image-fetch.js';
 import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
+import { setupGroupActions } from './setup-group-actions.js';
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
@@ -214,6 +215,7 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
     setupBubbleUpload(cesdk, instance);
     setupBubblePdfExport(cesdk, instance);
+    setupGroupActions(cesdk);
     setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);

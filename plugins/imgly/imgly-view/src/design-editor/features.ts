@@ -397,6 +397,7 @@ export function setupFeatures(cesdk: CreativeEditorSDK): void {
   // Livret : pas de menu Actions / exports CE.SDK (PDF imposé via setupBubblePdfExport).
   cesdk.feature.disable([
     'ly.img.navigation.actions',
+    'ly.img.preview',
     'ly.img.page.resize',
     'ly.img.page.settings',
     'ly.img.page.add',

@@ -20,10 +20,19 @@ function assetFilesExist(asset) {
   const uri = asset.meta?.uri;
   const thumbUri = asset.meta?.thumbUri;
   if (!uri || !thumbUri) return false;
-  return (
-    fs.existsSync(resolveAssetPath(uri))
-    && fs.existsSync(resolveAssetPath(thumbUri))
-  );
+
+  const imagePath = resolveAssetPath(uri);
+  const thumbPath = resolveAssetPath(thumbUri);
+  if (!fs.existsSync(imagePath) || !fs.existsSync(thumbPath)) return false;
+
+  // macOS peut résoudre des chemins en casse différente : vérifier le nom exact.
+  const imageDir = path.dirname(imagePath);
+  const thumbDir = path.dirname(thumbPath);
+  const imageName = path.basename(imagePath);
+  const thumbName = path.basename(thumbPath);
+  const imageMatch = fs.readdirSync(imageDir).includes(imageName);
+  const thumbMatch = fs.readdirSync(thumbDir).includes(thumbName);
+  return imageMatch && thumbMatch;
 }
 
 function slugifyFilename(filename) {

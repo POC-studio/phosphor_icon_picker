@@ -263,7 +263,7 @@ var __pluginInit = (() => {
   });
 
   // plugins/imgly/imgly-view/src/export-lock.js
-  function configureEditorRoleForHiddenExportToggle(engine) {
+  function configureEditorRoleAsAdopter(engine) {
     if (!(engine == null ? void 0 : engine.editor)) return;
     engine.editor.setRole("Adopter");
     if (typeof engine.editor.findAllScopes !== "function") return;
@@ -382,7 +382,7 @@ var __pluginInit = (() => {
     }
   }
   function setupExportLock(engine) {
-    configureEditorRoleForHiddenExportToggle(engine);
+    configureEditorRoleAsAdopter(engine);
     hideAllPageCanvasBorders(engine);
     ensureAllBlocksIncludedInExport(engine);
     lockPageDeletion(engine);
@@ -3003,6 +3003,7 @@ var __pluginInit = (() => {
     ]);
     cesdk.feature.disable([
       "ly.img.navigation.actions",
+      "ly.img.preview",
       "ly.img.page.resize",
       "ly.img.page.settings",
       "ly.img.page.add",
@@ -4843,8 +4844,8 @@ var __pluginInit = (() => {
         // ============================
         // Group Management
         // ============================
-        "ly.img.group.create.inspectorBar",
-        "ly.img.group.ungroup.inspectorBar",
+        "imgly.bubble.group.create.inspectorBar",
+        "imgly.bubble.group.ungroup.inspectorBar",
         "ly.img.audio.replace.inspectorBar",
         "ly.img.separator",
         // ============================
@@ -4942,7 +4943,6 @@ var __pluginInit = (() => {
       // Right Section - Actions
       // ============================
       "ly.img.zoom.navigationBar",
-      "ly.img.preview.navigationBar",
       "imgly.bubble.save.navigationBar"
     ]);
   }
@@ -5926,6 +5926,74 @@ var __pluginInit = (() => {
     }
   }
 
+  // plugins/imgly/imgly-view/src/setup-group-actions.js
+  var BUBBLE_GROUP_CREATE_ID = "imgly.bubble.group.create.inspectorBar";
+  var BUBBLE_GROUP_UNGROUP_ID = "imgly.bubble.group.ungroup.inspectorBar";
+  var GROUP_BLOCK_TYPE = "//ly.img.ubq/group";
+  function canCreateGroup(engine) {
+    const selected = engine.block.findAllSelected();
+    return selected.length >= 2 && engine.block.isGroupable(selected);
+  }
+  function canUngroup(engine) {
+    const [selected] = engine.block.findAllSelected();
+    return selected != null && engine.block.getType(selected) === GROUP_BLOCK_TYPE;
+  }
+  function ensureSelectionRevisionWatcher(engine, revision) {
+    if (engine._bubbleGroupSelectionWatcher) return;
+    engine._bubbleGroupSelectionWatcher = true;
+    if (typeof engine.block.onSelectionChanged !== "function") return;
+    engine.block.onSelectionChanged(() => {
+      revision.setValue(revision.value + 1);
+    });
+  }
+  function setupGroupActions(cesdk) {
+    if (!(cesdk == null ? void 0 : cesdk.ui) || !(cesdk == null ? void 0 : cesdk.engine)) return;
+    cesdk.ui.registerComponent(BUBBLE_GROUP_CREATE_ID, ({ builder, engine, state }) => {
+      const revision = state("selectionRevision", 0);
+      ensureSelectionRevisionWatcher(engine, revision);
+      void revision.value;
+      if (!canCreateGroup(engine)) return;
+      builder.Button("bubble-group-create", {
+        icon: "@imgly/Group",
+        label: "action.group",
+        variant: "plain",
+        onClick: () => {
+          const selected = engine.block.findAllSelected();
+          if (!canCreateGroup(engine)) return;
+          try {
+            engine.block.group(selected);
+          } catch (err2) {
+            console.error("IMG.LY View: \xE9chec du groupement", err2);
+          }
+        }
+      });
+    });
+    cesdk.ui.registerComponent(BUBBLE_GROUP_UNGROUP_ID, ({ builder, engine, state }) => {
+      const revision = state("selectionRevision", 0);
+      ensureSelectionRevisionWatcher(engine, revision);
+      void revision.value;
+      if (!canUngroup(engine)) return;
+      builder.Button("bubble-group-ungroup", {
+        icon: "@imgly/Ungroup",
+        label: "action.ungroup",
+        variant: "plain",
+        onClick: () => {
+          const [groupId] = engine.block.findAllSelected();
+          if (!canUngroup(engine) || groupId == null) return;
+          try {
+            const children = engine.block.getChildren(groupId);
+            engine.block.ungroup(groupId);
+            for (const childId of children) {
+              engine.block.setSelected(childId, true);
+            }
+          } catch (err2) {
+            console.error("IMG.LY View: \xE9chec de la dissociation", err2);
+          }
+        }
+      });
+    });
+  }
+
   // plugins/imgly/imgly-view/src/navigation-title.js
   var BUBBLE_DOCUMENT_TITLE_NAV_ID = "imgly.bubble.documentTitle.navigationBar";
   function readDocumentTitle(instance) {
@@ -6870,6 +6938,7 @@ var __pluginInit = (() => {
         instance.data.triggerSaveDocument = () => triggerSaveDocument(instance);
         setupBubbleUpload(cesdk, instance);
         setupBubblePdfExport(cesdk, instance);
+        setupGroupActions(cesdk);
         setupNavigationDocumentTitle(cesdk, instance);
         setupBookmarks(cesdk, instance);
         setupIcons(cesdk, instance);

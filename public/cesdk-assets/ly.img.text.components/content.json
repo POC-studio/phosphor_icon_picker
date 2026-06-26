@@ -5,7 +5,8 @@
     {
       "id": "ly.img.text.components.box",
       "label": {
-        "en": "Box"
+        "en": "Box",
+        "fr": "Encadré"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Box.blocks",
@@ -16,7 +17,8 @@
     {
       "id": "ly.img.text.components.breaking",
       "label": {
-        "en": "Breaking"
+        "en": "Breaking",
+        "fr": "Urgent"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Breaking.blocks",
@@ -27,7 +29,8 @@
     {
       "id": "ly.img.text.components.cinematic",
       "label": {
-        "en": "Cinematic"
+        "en": "Cinematic",
+        "fr": "Cinéma"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Cinematic.blocks",
@@ -38,7 +41,8 @@
     {
       "id": "ly.img.text.components.glow",
       "label": {
-        "en": "Glow"
+        "en": "Glow",
+        "fr": "Lueur"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Glow.blocks",
@@ -49,7 +53,8 @@
     {
       "id": "ly.img.text.components.greetings",
       "label": {
-        "en": "Greetings"
+        "en": "Greetings",
+        "fr": "Salutations"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Greetings.blocks",
@@ -60,7 +65,8 @@
     {
       "id": "ly.img.text.components.promo",
       "label": {
-        "en": "Promo"
+        "en": "Promo",
+        "fr": "Promo"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Promo.blocks",
@@ -71,7 +77,8 @@
     {
       "id": "ly.img.text.components.quote",
       "label": {
-        "en": "Quote"
+        "en": "Quote",
+        "fr": "Citation"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Quote.blocks",
@@ -82,7 +89,8 @@
     {
       "id": "ly.img.text.components.speech",
       "label": {
-        "en": "Speech"
+        "en": "Speech",
+        "fr": "Bulle"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Speech.blocks",
@@ -93,7 +101,8 @@
     {
       "id": "ly.img.text.components.sunny",
       "label": {
-        "en": "Sunny"
+        "en": "Sunny",
+        "fr": "Ensoleillé"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Sunny.blocks",
@@ -104,7 +113,8 @@
     {
       "id": "ly.img.text.components.thanks",
       "label": {
-        "en": "Thanks"
+        "en": "Thanks",
+        "fr": "Merci"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Thanks.blocks",
@@ -115,7 +125,8 @@
     {
       "id": "ly.img.text.components.thanksp",
       "label": {
-        "en": "Thanks Plus"
+        "en": "Thanks Plus",
+        "fr": "Merci +"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Thanksp.blocks",
@@ -126,7 +137,8 @@
     {
       "id": "ly.img.text.components.tilted",
       "label": {
-        "en": "Tilted"
+        "en": "Tilted",
+        "fr": "Incliné"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Tilted.blocks",
@@ -137,7 +149,8 @@
     {
       "id": "ly.img.text.components.travel",
       "label": {
-        "en": "Travel"
+        "en": "Travel",
+        "fr": "Voyage"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Travel.blocks",
@@ -148,7 +161,8 @@
     {
       "id": "ly.img.text.components.hugs",
       "label": {
-        "en": "Hugs"
+        "en": "Hugs",
+        "fr": "Câlins"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Hugs.blocks",
@@ -159,7 +173,8 @@
     {
       "id": "ly.img.text.components.nice",
       "label": {
-        "en": "Nice"
+        "en": "Nice",
+        "fr": "Sympa"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Nice.blocks",
@@ -170,7 +185,8 @@
     {
       "id": "ly.img.text.components.real",
       "label": {
-        "en": "Real"
+        "en": "Real",
+        "fr": "Authentique"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Real.blocks",
@@ -181,7 +197,8 @@
     {
       "id": "ly.img.text.components.serif",
       "label": {
-        "en": "Serif"
+        "en": "Serif",
+        "fr": "Serif"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Serif.blocks",
@@ -192,7 +209,8 @@
     {
       "id": "ly.img.text.components.thankyou",
       "label": {
-        "en": "Thank You"
+        "en": "Thank You",
+        "fr": "Merci à vous"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Thankyou.blocks",
@@ -203,7 +221,8 @@
     {
       "id": "ly.img.text.components.valentine",
       "label": {
-        "en": "Valentine"
+        "en": "Valentine",
+        "fr": "Saint-Valentin"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Valentine.blocks",
@@ -214,7 +233,8 @@
     {
       "id": "ly.img.text.components.handwriting",
       "label": {
-        "en": "Handwriting"
+        "en": "Handwriting",
+        "fr": "Manuscrit"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Handwriting.blocks",
@@ -225,7 +245,8 @@
     {
       "id": "ly.img.text.components.lines",
       "label": {
-        "en": "Lines"
+        "en": "Lines",
+        "fr": "Lignes"
       },
       "meta": {
         "uri": "{{base_url}}/ly.img.text.components/data/Lines.blocks",

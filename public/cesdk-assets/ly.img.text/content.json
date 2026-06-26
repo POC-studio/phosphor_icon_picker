@@ -6,7 +6,8 @@
       "id": "ly.img.text.title",
       "label": {
         "en": "Title",
-        "de": "Titel"
+        "de": "Titel",
+        "fr": "Titre"
       },
       "tags": {
         "en": [],
@@ -93,7 +94,8 @@
       "id": "ly.img.text.headline",
       "label": {
         "en": "Headline",
-        "de": "Überschrift"
+        "de": "Überschrift",
+        "fr": "Intertitre"
       },
       "tags": {
         "en": [],
@@ -180,7 +182,8 @@
       "id": "ly.img.text.paragraph",
       "label": {
         "en": "Paragraph",
-        "de": "Absatz"
+        "de": "Absatz",
+        "fr": "Paragraphe"
       },
       "tags": {
         "en": [],

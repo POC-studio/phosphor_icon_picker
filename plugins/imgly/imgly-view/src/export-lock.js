@@ -3,11 +3,10 @@ import { isSafetyMarginGuideBlock } from './safety-margins.js';
 const TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
 
 /**
- * Masque la section « Exporter / Afficher lors de l'exportation » via l’API rôles CE.SDK.
- * `ui/manageExportable` n’est disponible qu’en rôle Creator ; Adopter conserve l’édition
- * complète grâce aux scopes globaux Allow.
+ * Rôle Adopter : pas de section « Exporter » dans l’inspecteur.
+ * Scopes globaux Allow pour édition libre ; groupement via setup-group-actions.js.
  */
-export function configureEditorRoleForHiddenExportToggle(engine) {
+export function configureEditorRoleAsAdopter(engine) {
   if (!engine?.editor) return;
 
   engine.editor.setRole('Adopter');
@@ -156,7 +155,7 @@ export function lockPageSelection(engine) {
 }
 
 export function setupExportLock(engine) {
-  configureEditorRoleForHiddenExportToggle(engine);
+  configureEditorRoleAsAdopter(engine);
   hideAllPageCanvasBorders(engine);
   ensureAllBlocksIncludedInExport(engine);
   lockPageDeletion(engine);

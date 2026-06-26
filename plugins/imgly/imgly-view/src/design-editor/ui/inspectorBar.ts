@@ -105,8 +105,8 @@ export function setupInspectorBar(cesdk: CreativeEditorSDK): void {
       // ============================
       // Group Management
       // ============================
-      'ly.img.group.create.inspectorBar',
-      'ly.img.group.ungroup.inspectorBar',
+      'imgly.bubble.group.create.inspectorBar',
+      'imgly.bubble.group.ungroup.inspectorBar',
       'ly.img.audio.replace.inspectorBar',
       'ly.img.separator',
 
