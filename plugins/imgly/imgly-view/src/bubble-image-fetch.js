@@ -1,5 +1,3 @@
-import { registerBubbleImagePersistence } from './scene-save.js';
-
 const DEFAULT_API_SLUG = 'get_image';
 
 /** @type {Map<string, string>} */
@@ -142,15 +140,6 @@ export async function resolveImageUriForEngine(imageUrl, instance) {
   if (!url) return url;
 
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-
-  if (instance?.data?.imageBlobByUrl instanceof Map) {
-    const file = instance.data.imageBlobByUrl.get(url);
-    if (file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-      const blobUrl = URL.createObjectURL(file);
-      registerBubbleImagePersistence(instance, url, blobUrl);
-      return blobUrl;
-    }
-  }
 
   if (isBubbleCdnImageUrl(url)) {
     return fetchBubbleImageAsDataUri(instance, url);

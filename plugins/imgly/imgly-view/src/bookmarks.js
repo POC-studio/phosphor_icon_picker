@@ -4,7 +4,7 @@ export const BOOKMARKS_PANEL_ID = 'imgly.bookmarks.panel';
 
 /**
  * @param {unknown} raw
- * @returns {{ image_url: string, contributor: string }[] | null}
+ * @returns {{ contribution_id: string, image_url: string, contributor: string }[] | null}
  */
 export function parseBookmarksJson(raw) {
   let bookmarksItems = null;
@@ -28,16 +28,20 @@ export function parseBookmarksJson(raw) {
     .map((item) => {
       const url = item && item.image_url != null ? String(item.image_url).trim() : '';
       const contributor = item && item.contributor != null ? String(item.contributor).trim() : '';
-      return { image_url: url, contributor };
+      const contributionId = item && item.contribution_id != null
+        ? String(item.contribution_id).trim()
+        : '';
+      return { contribution_id: contributionId, image_url: url, contributor };
     })
     .filter((item) => item.image_url.length > 0);
 }
 
 /**
- * @param {{ image_url: string, contributor: string }} item
+ * @param {{ contribution_id?: string, image_url: string, contributor: string }} item
  * @returns {string}
  */
 function getBookmarkSearchHaystack(item) {
+  const contributionId = String(item && item.contribution_id != null ? item.contribution_id : '').trim().toLowerCase();
   const contributor = String(item && item.contributor != null ? item.contributor : '').trim().toLowerCase();
   const url = String(item && item.image_url ? item.image_url : '').trim();
   let fileName = '';
@@ -48,13 +52,13 @@ function getBookmarkSearchHaystack(item) {
   } catch (e) {
     fileName = '';
   }
-  return `${contributor} ${fileName} ${url.toLowerCase()}`.trim();
+  return `${contributionId} ${contributor} ${fileName} ${url.toLowerCase()}`.trim();
 }
 
 /**
- * @param {{ image_url: string, contributor: string }[]} list
+ * @param {{ contribution_id?: string, image_url: string, contributor: string }[]} list
  * @param {string} query
- * @returns {{ image_url: string, contributor: string }[]}
+ * @returns {{ contribution_id: string, image_url: string, contributor: string }[]}
  */
 export function filterBookmarks(list, query) {
   const items = Array.isArray(list) ? list : [];
@@ -67,7 +71,7 @@ export function filterBookmarks(list, query) {
  * @param {import('@cesdk/engine').default} engine
  * @param {import('@cesdk/cesdk-js').default} cesdk
  * @param {object} instance
- * @param {{ image_url: string, contributor: string }} item
+ * @param {{ contribution_id?: string, image_url: string, contributor: string }} item
  */
 export async function insertContributionImage(engine, cesdk, instance, item) {
   if (!engine || !item || !item.image_url) return;
@@ -75,9 +79,14 @@ export async function insertContributionImage(engine, cesdk, instance, item) {
   const blockId = await insertImageOnCurrentPage(engine, item.image_url, instance);
   if (blockId == null) return;
 
-  const contributionId = typeof engine.block.getUUID === 'function'
-    ? String(engine.block.getUUID(blockId) || blockId)
-    : String(blockId);
+  const bookmarkContributionId = item.contribution_id != null
+    ? String(item.contribution_id).trim()
+    : '';
+  const contributionId = bookmarkContributionId.length > 0
+    ? bookmarkContributionId
+    : (typeof engine.block.getUUID === 'function'
+      ? String(engine.block.getUUID(blockId) || blockId)
+      : String(blockId));
 
   instance.publishState('contribution_id', contributionId);
   instance.triggerEvent('contribution_added');

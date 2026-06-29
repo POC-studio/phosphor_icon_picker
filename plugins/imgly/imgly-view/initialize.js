@@ -1160,7 +1160,7 @@ var __pluginInit = (() => {
   }
   function uploadFileToBubble(instance, file, onProgress) {
     return __async(this, null, function* () {
-      var _a2, _b2, _c, _d;
+      var _a2, _b2, _c;
       const context = ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleContext) || null;
       const cesdk = ((_b2 = instance == null ? void 0 : instance.data) == null ? void 0 : _b2.cesdk) || null;
       if (!file) {
@@ -1186,12 +1186,6 @@ var __pluginInit = (() => {
           if (((_c = file.type) == null ? void 0 : _c.startsWith("image/")) && (instance == null ? void 0 : instance.publishState) && (instance == null ? void 0 : instance.triggerEvent)) {
             instance.publishState("image_uploaded_url", url);
             instance.triggerEvent("image_uploaded");
-          }
-          if ((instance == null ? void 0 : instance.data) && ((_d = file.type) == null ? void 0 : _d.startsWith("image/"))) {
-            if (!(instance.data.imageBlobByUrl instanceof Map)) {
-              instance.data.imageBlobByUrl = /* @__PURE__ */ new Map();
-            }
-            instance.data.imageBlobByUrl.set(url, file);
           }
           return {
             id: `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -5027,7 +5021,6 @@ var __pluginInit = (() => {
   init_margin_warning();
 
   // plugins/imgly/imgly-view/src/bubble-image-fetch.js
-  init_scene_save();
   var DEFAULT_API_SLUG = "get_image";
   var globalDataUriCache = /* @__PURE__ */ new Map();
   function isBubbleCdnImageUrl(url) {
@@ -5117,18 +5110,9 @@ var __pluginInit = (() => {
   }
   function resolveImageUriForEngine(imageUrl, instance) {
     return __async(this, null, function* () {
-      var _a2;
       const url = String(imageUrl || "").trim();
       if (!url) return url;
       if (url.startsWith("data:") || url.startsWith("blob:")) return url;
-      if (((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.imageBlobByUrl) instanceof Map) {
-        const file = instance.data.imageBlobByUrl.get(url);
-        if (file && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
-          const blobUrl = URL.createObjectURL(file);
-          registerBubbleImagePersistence(instance, url, blobUrl);
-          return blobUrl;
-        }
-      }
       if (isBubbleCdnImageUrl(url)) {
         return fetchBubbleImageAsDataUri(instance, url);
       }
@@ -5346,10 +5330,12 @@ var __pluginInit = (() => {
     return bookmarksItems.map((item) => {
       const url = item && item.image_url != null ? String(item.image_url).trim() : "";
       const contributor = item && item.contributor != null ? String(item.contributor).trim() : "";
-      return { image_url: url, contributor };
+      const contributionId = item && item.contribution_id != null ? String(item.contribution_id).trim() : "";
+      return { contribution_id: contributionId, image_url: url, contributor };
     }).filter((item) => item.image_url.length > 0);
   }
   function getBookmarkSearchHaystack(item) {
+    const contributionId = String(item && item.contribution_id != null ? item.contribution_id : "").trim().toLowerCase();
     const contributor = String(item && item.contributor != null ? item.contributor : "").trim().toLowerCase();
     const url = String(item && item.image_url ? item.image_url : "").trim();
     let fileName = "";
@@ -5360,7 +5346,7 @@ var __pluginInit = (() => {
     } catch (e2) {
       fileName = "";
     }
-    return `${contributor} ${fileName} ${url.toLowerCase()}`.trim();
+    return `${contributionId} ${contributor} ${fileName} ${url.toLowerCase()}`.trim();
   }
   function filterBookmarks(list, query) {
     const items = Array.isArray(list) ? list : [];
@@ -5373,7 +5359,8 @@ var __pluginInit = (() => {
       if (!engine || !item || !item.image_url) return;
       const blockId = yield insertImageOnCurrentPage(engine, item.image_url, instance);
       if (blockId == null) return;
-      const contributionId = typeof engine.block.getUUID === "function" ? String(engine.block.getUUID(blockId) || blockId) : String(blockId);
+      const bookmarkContributionId = item.contribution_id != null ? String(item.contribution_id).trim() : "";
+      const contributionId = bookmarkContributionId.length > 0 ? bookmarkContributionId : typeof engine.block.getUUID === "function" ? String(engine.block.getUUID(blockId) || blockId) : String(blockId);
       instance.publishState("contribution_id", contributionId);
       instance.triggerEvent("contribution_added");
       if (cesdk == null ? void 0 : cesdk.ui) {
@@ -6913,7 +6900,6 @@ var __pluginInit = (() => {
         instance.data.teamImageUrls = [];
         instance.data._lastAppliedTeamImages = "";
         instance.data.bubbleImageDataUriCache = /* @__PURE__ */ new Map();
-        instance.data.imageBlobByUrl = /* @__PURE__ */ new Map();
         instance.data.imageSourceByTransientUri = /* @__PURE__ */ new Map();
         instance.data.imageSourceByBlockId = /* @__PURE__ */ new Map();
         syncImageFetchApiSlug(instance, (_a2 = pendingProps || properties) == null ? void 0 : _a2.image_fetch_api_slug);

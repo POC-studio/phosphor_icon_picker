@@ -392,8 +392,14 @@ export function setupMenus(app) {
       row.addEventListener('click', async () => {
         bookmarkMenu.style.display = 'none';
         const imageId = await addRasterImageFromUrl(instance, fabricLib, item.image_url, {});
-        if (typeof imageId === 'string' && imageId.length > 0) {
-          instance.publishState('contribution_id', imageId);
+        const bookmarkContributionId = item.contribution_id != null
+          ? String(item.contribution_id).trim()
+          : '';
+        const contributionId = bookmarkContributionId.length > 0
+          ? bookmarkContributionId
+          : (typeof imageId === 'string' ? imageId : '');
+        if (contributionId.length > 0) {
+          instance.publishState('contribution_id', contributionId);
           instance.triggerEvent('contribution_added');
         }
       });

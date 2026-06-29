@@ -23,7 +23,8 @@ export default function(instance, properties, context) {
       .map(function(item) {
         var url = item && item.image_url != null ? String(item.image_url).trim() : '';
         var contributor = item && item.contributor != null ? String(item.contributor).trim() : '';
-        return { image_url: url, contributor: contributor };
+        var contributionId = item && item.contribution_id != null ? String(item.contribution_id).trim() : '';
+        return { contribution_id: contributionId, image_url: url, contributor: contributor };
       })
       .filter(function(item) {
         return item.image_url.length > 0;

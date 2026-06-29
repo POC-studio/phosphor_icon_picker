@@ -187,7 +187,6 @@ async function initImglyEditor(instance, context, properties) {
     instance.data.teamImageUrls = [];
     instance.data._lastAppliedTeamImages = '';
     instance.data.bubbleImageDataUriCache = new Map();
-    instance.data.imageBlobByUrl = new Map();
     instance.data.imageSourceByTransientUri = new Map();
     instance.data.imageSourceByBlockId = new Map();
     syncImageFetchApiSlug(instance, (pendingProps || properties)?.image_fetch_api_slug);
