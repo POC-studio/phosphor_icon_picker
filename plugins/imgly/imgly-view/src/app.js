@@ -17,6 +17,7 @@ import { applyImagesFromProperties, readImagesProperty } from './team-images.js'
 import { syncImageFetchApiSlug, setupBubbleUriResolver } from './bubble-image-fetch.js';
 import { setupBubblePdfExport, setupBubbleUpload } from './setup-bubble-export.js';
 import { setupGroupActions } from './setup-group-actions.js';
+import { setupCopyPasteMenu } from './setup-copy-paste-menu.js';
 import { setupNavigationDocumentTitle, syncNavigationDocumentTitle } from './navigation-title.js';
 import { setupBookmarks } from './setup-bookmarks.js';
 import { setupIcons } from './setup-icons.js';
@@ -215,6 +216,7 @@ async function initImglyEditor(instance, context, properties) {
     setupBubbleUpload(cesdk, instance);
     setupBubblePdfExport(cesdk, instance);
     setupGroupActions(cesdk);
+    setupCopyPasteMenu(cesdk);
     setupNavigationDocumentTitle(cesdk, instance);
     setupBookmarks(cesdk, instance);
     setupIcons(cesdk, instance);

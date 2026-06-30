@@ -3073,6 +3073,9 @@ var __pluginInit = (() => {
     "libraries.ly.img.templates.confirmation.abort": "$t(common.cancel)",
     "notification.redo": "$t(common.redo)",
     "notification.undo": "$t(common.undo)",
+    "notification.block.copy": "\xC9l\xE9ment copi\xE9",
+    "notification.block.paste": "\xC9l\xE9ment coll\xE9",
+    "notification.block.paste.empty": "Rien \xE0 coller",
     "property.crop.transform": "$t(block.image)",
     "property.fill.solid.color": "$t(property.fill)",
     "property.lutFilter.k1": "K1",
@@ -5981,6 +5984,77 @@ var __pluginInit = (() => {
     });
   }
 
+  // plugins/imgly/imgly-view/src/setup-copy-paste-menu.js
+  var clipboardHasData = false;
+  function showInfoNotification(cesdk, messageKey) {
+    cesdk.ui.showNotification({
+      type: "info",
+      message: messageKey,
+      duration: "short"
+    });
+  }
+  function wrapCopyPasteActions(cesdk) {
+    const originalCopy = cesdk.actions.get("copy");
+    const originalPaste = cesdk.actions.get("paste");
+    if (!originalCopy || !originalPaste) return;
+    cesdk.actions.register("copy", (...args) => {
+      const selected = cesdk.engine.block.findAllSelected();
+      if (selected.length === 0) return;
+      if (!cesdk.feature.isEnabled("ly.img.duplicate", { engine: cesdk.engine })) return;
+      originalCopy(...args);
+      clipboardHasData = true;
+      showInfoNotification(cesdk, "notification.block.copy");
+    });
+    cesdk.actions.register("paste", (...args) => __async(null, null, function* () {
+      if (!cesdk.feature.isEnabled("ly.img.duplicate", { engine: cesdk.engine })) return;
+      if (!clipboardHasData) {
+        showInfoNotification(cesdk, "notification.block.paste.empty");
+        return;
+      }
+      yield originalPaste(...args);
+      showInfoNotification(cesdk, "notification.block.paste");
+    }));
+  }
+  function registerCanvasMenuAction(cesdk, actionId, componentId, buttonId, icon, labelKey, shortcut) {
+    cesdk.ui.registerComponent(componentId, ({ cesdk: sdk, builder, engine, payload }) => {
+      if (!sdk.feature.isEnabled("ly.img.duplicate", { engine })) return;
+      const close = typeof (payload == null ? void 0 : payload.close) === "function" ? payload.close : () => {
+      };
+      builder.Button(buttonId, {
+        icon,
+        label: labelKey,
+        variant: "plain",
+        shortcut,
+        onClick: () => {
+          void sdk.actions.run(actionId).catch(() => {
+          }).finally(close);
+        }
+      });
+    });
+  }
+  function setupCopyPasteMenu(cesdk) {
+    if (!(cesdk == null ? void 0 : cesdk.ui) || !(cesdk == null ? void 0 : cesdk.engine) || !(cesdk == null ? void 0 : cesdk.actions)) return;
+    wrapCopyPasteActions(cesdk);
+    registerCanvasMenuAction(
+      cesdk,
+      "copy",
+      "ly.img.copy.canvasMenu",
+      "ly.img.copy.canvasMenu.button",
+      "@imgly/Copy",
+      "action.block.copy",
+      "Meta+C"
+    );
+    registerCanvasMenuAction(
+      cesdk,
+      "paste",
+      "ly.img.paste.canvasMenu",
+      "ly.img.paste.canvasMenu.button",
+      "@imgly/Paste",
+      "action.block.paste",
+      "Meta+V"
+    );
+  }
+
   // plugins/imgly/imgly-view/src/navigation-title.js
   var BUBBLE_DOCUMENT_TITLE_NAV_ID = "imgly.bubble.documentTitle.navigationBar";
   function readDocumentTitle(instance) {
@@ -6925,6 +6999,7 @@ var __pluginInit = (() => {
         setupBubbleUpload(cesdk, instance);
         setupBubblePdfExport(cesdk, instance);
         setupGroupActions(cesdk);
+        setupCopyPasteMenu(cesdk);
         setupNavigationDocumentTitle(cesdk, instance);
         setupBookmarks(cesdk, instance);
         setupIcons(cesdk, instance);
