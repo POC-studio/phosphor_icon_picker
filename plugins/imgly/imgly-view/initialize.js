@@ -1221,7 +1221,7 @@ var __pluginInit = (() => {
   });
 
   // plugins/imgly/imgly-view/src/shims/pdf-lib.js
-  var lib, PDFDocument, PageSizes, concatTransformationMatrix, popGraphicsState, pushGraphicsState;
+  var lib, PDFDocument, PageSizes, concatTransformationMatrix, popGraphicsState, pushGraphicsState, rgb;
   var init_pdf_lib = __esm({
     "plugins/imgly/imgly-view/src/shims/pdf-lib.js"() {
       lib = typeof PDFLib !== "undefined" ? PDFLib : {};
@@ -1230,6 +1230,7 @@ var __pluginInit = (() => {
       concatTransformationMatrix = lib.concatTransformationMatrix;
       popGraphicsState = lib.popGraphicsState;
       pushGraphicsState = lib.pushGraphicsState;
+      rgb = lib.rgb;
     }
   });
 
@@ -1280,7 +1281,20 @@ var __pluginInit = (() => {
       );
     }
   }
+  function drawWhiteA4Background(outPage) {
+    const a4W = mmToPt(A4_WIDTH_MM);
+    const a4H = mmToPt(A4_HEIGHT_MM);
+    outPage.drawRectangle({
+      x: 0,
+      y: 0,
+      width: a4W,
+      height: a4H,
+      color: rgb(1, 1, 1),
+      borderWidth: 0
+    });
+  }
   function drawImposedSpread(outPage, leftEmbedded, rightEmbedded, flip180) {
+    drawWhiteA4Background(outPage);
     const a4W = mmToPt(A4_WIDTH_MM);
     const a4H = mmToPt(A4_HEIGHT_MM);
     const halfW = mmToPt(HALF_A4_WIDTH_MM);
@@ -1365,6 +1379,14 @@ var __pluginInit = (() => {
         const srcDoc = yield PDFDocument.load(yield blobToArrayBuffer(bytes));
         const [embedded] = yield outputDoc.embedPdf(srcDoc);
         const page = outputDoc.addPage([embedded.width, embedded.height]);
+        page.drawRectangle({
+          x: 0,
+          y: 0,
+          width: embedded.width,
+          height: embedded.height,
+          color: rgb(1, 1, 1),
+          borderWidth: 0
+        });
         page.drawPage(embedded, { x: 0, y: 0 });
       }
       const outBytes = yield outputDoc.save();

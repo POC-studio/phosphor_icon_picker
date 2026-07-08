@@ -6,3 +6,4 @@ export const PageSizes = lib.PageSizes;
 export const concatTransformationMatrix = lib.concatTransformationMatrix;
 export const popGraphicsState = lib.popGraphicsState;
 export const pushGraphicsState = lib.pushGraphicsState;
+export const rgb = lib.rgb;

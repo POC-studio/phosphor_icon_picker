@@ -9,6 +9,7 @@ import {
   concatTransformationMatrix,
   popGraphicsState,
   pushGraphicsState,
+  rgb,
 } from 'pdf-lib';
 import {
   HALF_A4_WIDTH_MM,
@@ -69,11 +70,30 @@ function logUnexpectedPageSize(widthPt, heightPt) {
 
 /**
  * @param {import('pdf-lib').PDFPage} outPage
+ */
+function drawWhiteA4Background(outPage) {
+  const a4W = mmToPt(A4_WIDTH_MM);
+  const a4H = mmToPt(A4_HEIGHT_MM);
+
+  outPage.drawRectangle({
+    x: 0,
+    y: 0,
+    width: a4W,
+    height: a4H,
+    color: rgb(1, 1, 1),
+    borderWidth: 0,
+  });
+}
+
+/**
+ * @param {import('pdf-lib').PDFPage} outPage
  * @param {import('pdf-lib').PDFEmbeddedPage} leftEmbedded
  * @param {import('pdf-lib').PDFEmbeddedPage} rightEmbedded
  * @param {boolean} flip180
  */
 function drawImposedSpread(outPage, leftEmbedded, rightEmbedded, flip180) {
+  drawWhiteA4Background(outPage);
+
   const a4W = mmToPt(A4_WIDTH_MM);
   const a4H = mmToPt(A4_HEIGHT_MM);
   const halfW = mmToPt(HALF_A4_WIDTH_MM);
@@ -190,6 +210,14 @@ export async function buildSequentialPdf(engine, pageIds) {
     const srcDoc = await PDFDocument.load(await blobToArrayBuffer(bytes));
     const [embedded] = await outputDoc.embedPdf(srcDoc);
     const page = outputDoc.addPage([embedded.width, embedded.height]);
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: embedded.width,
+      height: embedded.height,
+      color: rgb(1, 1, 1),
+      borderWidth: 0,
+    });
     page.drawPage(embedded, { x: 0, y: 0 });
   }
 
