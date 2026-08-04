@@ -1,5 +1,6 @@
 const DEFAULT_API_SLUG = 'get_image';
 
+/** Cache global des URIs chargeables (blob URL ou data URI) par URL CDN. */
 /** @type {Map<string, string>} */
 const globalDataUriCache = new Map();
 
@@ -81,23 +82,33 @@ function toDataUri(base64, contentType) {
 }
 
 /**
- * @param {object} instance
- * @param {string} cdnUrl
+ * Fetch direct du CDN Bubble (CORS ouvert : access-control-allow-origin: *).
+ * Blob URL plutôt que data URI — évite des chaînes de plusieurs Mo en mémoire.
+ * @param {string} url
  * @returns {Promise<string>}
  */
-export async function fetchBubbleImageAsDataUri(instance, cdnUrl) {
-  const url = String(cdnUrl || '').trim();
-  if (!url) throw new Error('Missing image URL');
-
-  const cacheKey = url;
-  const instanceCache = instance?.data?.bubbleImageDataUriCache;
-  if (instanceCache instanceof Map && instanceCache.has(cacheKey)) {
-    return instanceCache.get(cacheKey);
+async function fetchCdnImageAsBlobUrl(url) {
+  // no-store : évite de relire l'entrée de cache « no-cors » créée par les
+  // vignettes <img> (sans en-têtes CORS), qui ferait échouer ce fetch cors.
+  const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`CDN fetch HTTP ${response.status}`);
   }
-  if (globalDataUriCache.has(cacheKey)) {
-    return globalDataUriCache.get(cacheKey);
+  const blob = await response.blob();
+  if (!blob || blob.size === 0) {
+    throw new Error('CDN fetch: empty blob');
   }
+  return URL.createObjectURL(blob);
+}
 
+/**
+ * Fallback : workflow Bubble get_image (fetch CDN → base64). Échoue en HTTP 500
+ * pour les images > ~5 Mo (limite de taille de réponse API Bubble).
+ * @param {object} instance
+ * @param {string} url
+ * @returns {Promise<string>}
+ */
+async function fetchViaGetImageWorkflow(instance, url) {
   const slug = resolveImageFetchApiSlug(instance);
   const endpoint = buildGetImageWorkflowUrl(slug);
   const requestUrl = `${endpoint}?url=${encodeURIComponent(url)}`;
@@ -117,17 +128,45 @@ export async function fetchBubbleImageAsDataUri(instance, cdnUrl) {
     throw new Error('get_image: missing base64 in response');
   }
 
-  const dataUri = toDataUri(parsed.base64, parsed.content_type);
+  return toDataUri(parsed.base64, parsed.content_type);
+}
+
+/**
+ * Résout une URL CDN Bubble en URI chargeable par CE.SDK (blob URL ou data URI).
+ * @param {object} instance
+ * @param {string} cdnUrl
+ * @returns {Promise<string>}
+ */
+export async function fetchBubbleImageAsDataUri(instance, cdnUrl) {
+  const url = String(cdnUrl || '').trim();
+  if (!url) throw new Error('Missing image URL');
+
+  const cacheKey = url;
+  const instanceCache = instance?.data?.bubbleImageDataUriCache;
+  if (instanceCache instanceof Map && instanceCache.has(cacheKey)) {
+    return instanceCache.get(cacheKey);
+  }
+  if (globalDataUriCache.has(cacheKey)) {
+    return globalDataUriCache.get(cacheKey);
+  }
+
+  let loadableUri;
+  try {
+    loadableUri = await fetchCdnImageAsBlobUrl(url);
+  } catch (directErr) {
+    console.warn('IMG.LY View: fetch direct CDN échoué, fallback get_image', url, directErr);
+    loadableUri = await fetchViaGetImageWorkflow(instance, url);
+  }
 
   if (instance?.data) {
     if (!(instance.data.bubbleImageDataUriCache instanceof Map)) {
       instance.data.bubbleImageDataUriCache = new Map();
     }
-    instance.data.bubbleImageDataUriCache.set(cacheKey, dataUri);
+    instance.data.bubbleImageDataUriCache.set(cacheKey, loadableUri);
   }
-  globalDataUriCache.set(cacheKey, dataUri);
+  globalDataUriCache.set(cacheKey, loadableUri);
 
-  return dataUri;
+  return loadableUri;
 }
 
 /**

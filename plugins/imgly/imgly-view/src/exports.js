@@ -11,6 +11,7 @@ import { buildFoldedA4Pdf, buildSequentialPdf, trimImposedPdfForPrinter } from '
 import { publishMarginsWarningFromScan } from './margin-warning.js';
 import { getPageIds } from './scene.js';
 import { saveSceneToPersistableString } from './scene-save.js';
+import { hideSaveOverlay, showSaveOverlay } from './save-overlay.js';
 
 function sanitizeFileBase(title) {
   const raw = typeof title === 'string' ? title.trim() : '';
@@ -178,6 +179,7 @@ export async function triggerSaveDocument(instance) {
   if (instance.data._saveInProgress === true) return false;
 
   instance.data._saveInProgress = true;
+  showSaveOverlay(instance);
   try {
     publishMarginsWarningFromScan(instance);
     await publishSceneJson(instance, { force: true, skipPreviews: true });
@@ -190,6 +192,7 @@ export async function triggerSaveDocument(instance) {
     console.error('IMG.LY View: enregistrement document', err);
     return false;
   } finally {
+    hideSaveOverlay(instance);
     instance.data._saveInProgress = false;
   }
 }

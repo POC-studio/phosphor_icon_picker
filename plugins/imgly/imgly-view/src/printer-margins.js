@@ -1,8 +1,8 @@
 export const PRINTER_MARGIN_MM = {
   top: 3,
   bottom: 5,
-  left: 3.5,
-  right: 3.5,
+  left: 3,
+  right: 3,
 };
 
 export const A4_WIDTH_MM = 210;

@@ -1101,6 +1101,115 @@ var __pluginInit = (() => {
     }
   });
 
+  // plugins/imgly/imgly-view/src/image-upload-prep.js
+  function decodeImage(file) {
+    return __async(this, null, function* () {
+      if (typeof createImageBitmap === "function") {
+        try {
+          return yield createImageBitmap(file, { imageOrientation: "from-image" });
+        } catch (e2) {
+        }
+      }
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const img = yield new Promise((resolve, reject) => {
+          const el = new Image();
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error("Image decode failed"));
+          el.src = objectUrl;
+        });
+        return yield createImageBitmap(img);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    });
+  }
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), type, quality);
+    });
+  }
+  function canvasHasTransparency(canvas) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return false;
+    const sample = document.createElement("canvas");
+    const sampleSize = 64;
+    sample.width = sampleSize;
+    sample.height = sampleSize;
+    const sampleCtx = sample.getContext("2d");
+    if (!sampleCtx) return false;
+    sampleCtx.drawImage(canvas, 0, 0, sampleSize, sampleSize);
+    const { data } = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
+    for (let i2 = 3; i2 < data.length; i2 += 4) {
+      if (data[i2] < 255) return true;
+    }
+    return false;
+  }
+  function replaceExtension(fileName, newExt) {
+    const base = String(fileName || "image").replace(/\.[^.]+$/, "");
+    return `${base}.${newExt}`;
+  }
+  function compressImageFile(file) {
+    return __async(this, null, function* () {
+      const bitmap = yield decodeImage(file);
+      try {
+        const scale = Math.min(1, MAX_DIMENSION_PX / Math.max(bitmap.width, bitmap.height));
+        const width = Math.max(1, Math.round(bitmap.width * scale));
+        const height = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D indisponible");
+        ctx.drawImage(bitmap, 0, 0, width, height);
+        const keepAlpha = file.type === "image/png" && canvasHasTransparency(canvas);
+        if (keepAlpha) {
+          const blob = yield canvasToBlob(canvas, "image/png");
+          if (blob && blob.size <= MAX_IMAGE_UPLOAD_BYTES) {
+            return new File([blob], replaceExtension(file.name, "png"), { type: "image/png" });
+          }
+          throw new Error(IMAGE_TOO_LARGE);
+        }
+        for (const quality of JPEG_QUALITY_STEPS) {
+          const blob = yield canvasToBlob(canvas, "image/jpeg", quality);
+          if (blob && blob.size <= MAX_IMAGE_UPLOAD_BYTES) {
+            return new File([blob], replaceExtension(file.name, "jpg"), { type: "image/jpeg" });
+          }
+        }
+        throw new Error(IMAGE_TOO_LARGE);
+      } finally {
+        if (typeof bitmap.close === "function") bitmap.close();
+      }
+    });
+  }
+  function prepareImageFileForUpload(file) {
+    return __async(this, null, function* () {
+      if (!file || typeof file.size !== "number") return { file, resized: false };
+      if (!file.type || !file.type.startsWith("image/")) return { file, resized: false };
+      if (file.size <= MAX_IMAGE_UPLOAD_BYTES) return { file, resized: false };
+      if (!COMPRESSIBLE_TYPES.has(file.type)) {
+        throw new Error(IMAGE_TOO_LARGE);
+      }
+      const compressed = yield compressImageFile(file);
+      return { file: compressed, resized: true };
+    });
+  }
+  var MAX_IMAGE_UPLOAD_BYTES, MAX_DIMENSION_PX, JPEG_QUALITY_STEPS, COMPRESSIBLE_TYPES, IMAGE_TOO_LARGE;
+  var init_image_upload_prep = __esm({
+    "plugins/imgly/imgly-view/src/image-upload-prep.js"() {
+      MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+      MAX_DIMENSION_PX = 2400;
+      JPEG_QUALITY_STEPS = [0.85, 0.7, 0.55, 0.4];
+      COMPRESSIBLE_TYPES = /* @__PURE__ */ new Set([
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/bmp"
+      ]);
+      IMAGE_TOO_LARGE = "IMAGE_TOO_LARGE";
+    }
+  });
+
   // plugins/imgly/imgly-view/src/bubble-upload.js
   function normalizeBubbleUploadUrl(err2, url) {
     if (err2) return "";
@@ -1160,7 +1269,7 @@ var __pluginInit = (() => {
   }
   function uploadFileToBubble(instance, file, onProgress) {
     return __async(this, null, function* () {
-      var _a2, _b2, _c;
+      var _a2, _b2, _c, _d, _e, _f, _g;
       const context = ((_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleContext) || null;
       const cesdk = ((_b2 = instance == null ? void 0 : instance.data) == null ? void 0 : _b2.cesdk) || null;
       if (!file) {
@@ -1172,9 +1281,32 @@ var __pluginInit = (() => {
         } catch (e2) {
         }
       }
-      const fileName = safeUploadFileName(file);
+      let uploadedFile = file;
+      try {
+        const prepared = yield prepareImageFileForUpload(file);
+        uploadedFile = prepared.file;
+        if (prepared.resized) {
+          (_d = (_c = cesdk == null ? void 0 : cesdk.ui) == null ? void 0 : _c.showNotification) == null ? void 0 : _d.call(_c, {
+            type: "info",
+            message: "notification.upload.imageResized",
+            duration: "short"
+          });
+        }
+      } catch (err2) {
+        if (err2 && err2.message === IMAGE_TOO_LARGE) {
+          (_f = (_e = cesdk == null ? void 0 : cesdk.ui) == null ? void 0 : _e.showNotification) == null ? void 0 : _f.call(_e, {
+            type: "error",
+            message: "notification.upload.imageTooLarge",
+            duration: "medium"
+          });
+          throw new Error("Image trop lourde pour l\u2019upload (max. 5 Mo)");
+        }
+        console.warn("IMG.LY View: pr\xE9paration image avant upload \xE9chou\xE9e \u2014 fichier original conserv\xE9", err2);
+        uploadedFile = file;
+      }
+      const fileName = safeUploadFileName(uploadedFile);
       if (context && typeof context.uploadContent === "function") {
-        const base64 = yield fileToBase64(file);
+        const base64 = yield fileToBase64(uploadedFile);
         const url = yield uploadBase64(context, fileName, base64);
         if (url) {
           if (typeof onProgress === "function") {
@@ -1183,7 +1315,7 @@ var __pluginInit = (() => {
             } catch (e2) {
             }
           }
-          if (((_c = file.type) == null ? void 0 : _c.startsWith("image/")) && (instance == null ? void 0 : instance.publishState) && (instance == null ? void 0 : instance.triggerEvent)) {
+          if (((_g = uploadedFile.type) == null ? void 0 : _g.startsWith("image/")) && (instance == null ? void 0 : instance.publishState) && (instance == null ? void 0 : instance.triggerEvent)) {
             instance.publishState("image_uploaded_url", url);
             instance.triggerEvent("image_uploaded");
           }
@@ -1192,7 +1324,7 @@ var __pluginInit = (() => {
             meta: {
               uri: url,
               thumbUri: url,
-              mimeType: file.type || "application/octet-stream"
+              mimeType: uploadedFile.type || "application/octet-stream"
             }
           };
         }
@@ -1200,13 +1332,14 @@ var __pluginInit = (() => {
       }
       if ((cesdk == null ? void 0 : cesdk.utils) && typeof cesdk.utils.localUpload === "function") {
         console.warn("IMG.LY View: repli localUpload (sandbox / pas de context Bubble)");
-        return cesdk.utils.localUpload(file, { context: { source: "user-upload" } });
+        return cesdk.utils.localUpload(uploadedFile, { context: { source: "user-upload" } });
       }
       throw new Error("Upload indisponible (context Bubble ou CE.SDK manquant)");
     });
   }
   var init_bubble_upload = __esm({
     "plugins/imgly/imgly-view/src/bubble-upload.js"() {
+      init_image_upload_prep();
     }
   });
 
@@ -1241,8 +1374,8 @@ var __pluginInit = (() => {
       PRINTER_MARGIN_MM = {
         top: 3,
         bottom: 5,
-        left: 3.5,
-        right: 3.5
+        left: 3,
+        right: 3
       };
       A4_WIDTH_MM = 210;
       A4_HEIGHT_MM = 297;
@@ -1870,6 +2003,108 @@ var __pluginInit = (() => {
     }
   });
 
+  // plugins/imgly/imgly-view/src/save-overlay.js
+  function injectStyles() {
+    if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = `
+    .${OVERLAY_CLASS} {
+      position: absolute;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      pointer-events: all;
+      cursor: wait;
+      opacity: 0;
+      transition: opacity 150ms ease;
+    }
+    .${OVERLAY_CLASS}.is-visible {
+      opacity: 1;
+    }
+    .${OVERLAY_CLASS} .imgly-save-overlay-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(17, 24, 39, 0.15);
+      border-top-color: #111827;
+      border-radius: 50%;
+      animation: imgly-save-overlay-spin 0.8s linear infinite;
+    }
+    .${OVERLAY_CLASS} .imgly-save-overlay-label {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: #111827;
+    }
+    @keyframes imgly-save-overlay-spin {
+      to { transform: rotate(360deg); }
+    }
+  `;
+    document.head.appendChild(style);
+  }
+  function getEditorHost(instance) {
+    if (!(instance == null ? void 0 : instance.canvas)) return null;
+    if (typeof instance.canvas[0] !== "undefined") return instance.canvas[0];
+    return instance.canvas;
+  }
+  function blockKeydown(event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  function showSaveOverlay(instance) {
+    if (typeof document === "undefined") return;
+    if (!(instance == null ? void 0 : instance.data)) return;
+    if (instance.data._saveOverlayEl) return;
+    const host = getEditorHost(instance);
+    if (!host || typeof host.appendChild !== "function") return;
+    injectStyles();
+    if (typeof getComputedStyle === "function" && getComputedStyle(host).position === "static") {
+      host.style.position = "relative";
+    }
+    const overlay = document.createElement("div");
+    overlay.className = OVERLAY_CLASS;
+    const spinner = document.createElement("div");
+    spinner.className = "imgly-save-overlay-spinner";
+    overlay.appendChild(spinner);
+    const label = document.createElement("div");
+    label.className = "imgly-save-overlay-label";
+    label.textContent = "Enregistrement\u2026";
+    overlay.appendChild(label);
+    host.appendChild(overlay);
+    void overlay.offsetHeight;
+    overlay.classList.add("is-visible");
+    window.addEventListener("keydown", blockKeydown, true);
+    instance.data._saveOverlayEl = overlay;
+  }
+  function hideSaveOverlay(instance) {
+    if (!(instance == null ? void 0 : instance.data)) return;
+    const overlay = instance.data._saveOverlayEl;
+    instance.data._saveOverlayEl = null;
+    if (typeof window !== "undefined") {
+      window.removeEventListener("keydown", blockKeydown, true);
+    }
+    if (overlay && overlay.parentNode) {
+      overlay.classList.remove("is-visible");
+      setTimeout(() => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }, 160);
+    }
+  }
+  var STYLE_ID, OVERLAY_CLASS;
+  var init_save_overlay = __esm({
+    "plugins/imgly/imgly-view/src/save-overlay.js"() {
+      STYLE_ID = "imgly-save-overlay-styles";
+      OVERLAY_CLASS = "imgly-save-overlay";
+    }
+  });
+
   // plugins/imgly/imgly-view/src/exports.js
   var exports_exports = {};
   __export(exports_exports, {
@@ -2036,6 +2271,7 @@ var __pluginInit = (() => {
       if (!instance || !instance.data) return false;
       if (instance.data._saveInProgress === true) return false;
       instance.data._saveInProgress = true;
+      showSaveOverlay(instance);
       try {
         publishMarginsWarningFromScan(instance);
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
@@ -2048,6 +2284,7 @@ var __pluginInit = (() => {
         console.error("IMG.LY View: enregistrement document", err2);
         return false;
       } finally {
+        hideSaveOverlay(instance);
         instance.data._saveInProgress = false;
       }
     });
@@ -2164,6 +2401,7 @@ var __pluginInit = (() => {
       init_margin_warning();
       init_scene();
       init_scene_save();
+      init_save_overlay();
     }
   });
 
@@ -3098,6 +3336,8 @@ var __pluginInit = (() => {
     "notification.block.copy": "\xC9l\xE9ment copi\xE9",
     "notification.block.paste": "\xC9l\xE9ment coll\xE9",
     "notification.block.paste.empty": "Rien \xE0 coller",
+    "notification.upload.imageResized": "Image redimensionn\xE9e pour l'upload",
+    "notification.upload.imageTooLarge": "Image trop lourde (max. 5 Mo)",
     "property.crop.transform": "$t(block.image)",
     "property.fill.solid.color": "$t(property.fill)",
     "property.lutFilter.k1": "K1",
@@ -5094,19 +5334,21 @@ var __pluginInit = (() => {
   function toDataUri(base64, contentType) {
     return `data:${contentType};base64,${base64}`;
   }
-  function fetchBubbleImageAsDataUri(instance, cdnUrl) {
+  function fetchCdnImageAsBlobUrl(url) {
     return __async(this, null, function* () {
-      var _a2;
-      const url = String(cdnUrl || "").trim();
-      if (!url) throw new Error("Missing image URL");
-      const cacheKey = url;
-      const instanceCache = (_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleImageDataUriCache;
-      if (instanceCache instanceof Map && instanceCache.has(cacheKey)) {
-        return instanceCache.get(cacheKey);
+      const response = yield fetch(url, { mode: "cors", cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`CDN fetch HTTP ${response.status}`);
       }
-      if (globalDataUriCache.has(cacheKey)) {
-        return globalDataUriCache.get(cacheKey);
+      const blob = yield response.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("CDN fetch: empty blob");
       }
+      return URL.createObjectURL(blob);
+    });
+  }
+  function fetchViaGetImageWorkflow(instance, url) {
+    return __async(this, null, function* () {
       const slug = resolveImageFetchApiSlug(instance);
       const endpoint = buildGetImageWorkflowUrl(slug);
       const requestUrl = `${endpoint}?url=${encodeURIComponent(url)}`;
@@ -5122,15 +5364,37 @@ var __pluginInit = (() => {
       if (!parsed) {
         throw new Error("get_image: missing base64 in response");
       }
-      const dataUri = toDataUri(parsed.base64, parsed.content_type);
+      return toDataUri(parsed.base64, parsed.content_type);
+    });
+  }
+  function fetchBubbleImageAsDataUri(instance, cdnUrl) {
+    return __async(this, null, function* () {
+      var _a2;
+      const url = String(cdnUrl || "").trim();
+      if (!url) throw new Error("Missing image URL");
+      const cacheKey = url;
+      const instanceCache = (_a2 = instance == null ? void 0 : instance.data) == null ? void 0 : _a2.bubbleImageDataUriCache;
+      if (instanceCache instanceof Map && instanceCache.has(cacheKey)) {
+        return instanceCache.get(cacheKey);
+      }
+      if (globalDataUriCache.has(cacheKey)) {
+        return globalDataUriCache.get(cacheKey);
+      }
+      let loadableUri;
+      try {
+        loadableUri = yield fetchCdnImageAsBlobUrl(url);
+      } catch (directErr) {
+        console.warn("IMG.LY View: fetch direct CDN \xE9chou\xE9, fallback get_image", url, directErr);
+        loadableUri = yield fetchViaGetImageWorkflow(instance, url);
+      }
       if (instance == null ? void 0 : instance.data) {
         if (!(instance.data.bubbleImageDataUriCache instanceof Map)) {
           instance.data.bubbleImageDataUriCache = /* @__PURE__ */ new Map();
         }
-        instance.data.bubbleImageDataUriCache.set(cacheKey, dataUri);
+        instance.data.bubbleImageDataUriCache.set(cacheKey, loadableUri);
       }
-      globalDataUriCache.set(cacheKey, dataUri);
-      return dataUri;
+      globalDataUriCache.set(cacheKey, loadableUri);
+      return loadableUri;
     });
   }
   function resolveImageUriForEngine(imageUrl, instance) {
@@ -5649,7 +5913,7 @@ var __pluginInit = (() => {
   init_bubble_upload();
 
   // plugins/imgly/imgly-view/src/save-button-styles.js
-  var STYLE_ID = "imgly-save-button-styles";
+  var STYLE_ID2 = "imgly-save-button-styles";
   var COLORS = {
     activeBg: "#111827",
     activeFg: "#ffffff",
@@ -5720,9 +5984,9 @@ var __pluginInit = (() => {
     return true;
   }
   function injectGlobalFallbackStyles() {
-    if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+    if (typeof document === "undefined" || document.getElementById(STYLE_ID2)) return;
     const style = document.createElement("style");
-    style.id = STYLE_ID;
+    style.id = STYLE_ID2;
     style.textContent = `
     .imgly-save-button-group button:not(:disabled) {
       background: ${COLORS.activeBg} !important;
@@ -5772,7 +6036,7 @@ var __pluginInit = (() => {
 
   // plugins/imgly/imgly-view/src/setup-bubble-export.js
   var BUBBLE_SAVE_NAV_ID = "imgly.bubble.save.navigationBar";
-  function getEditorHost(instance) {
+  function getEditorHost2(instance) {
     if (!(instance == null ? void 0 : instance.canvas)) return null;
     if (typeof instance.canvas[0] !== "undefined") return instance.canvas[0];
     return instance.canvas;
@@ -5849,7 +6113,7 @@ var __pluginInit = (() => {
       const canSave = () => hasUnsavedChanges() && !loading.value;
       builder.ButtonGroup("save-button-group", {
         children: () => {
-          scheduleSaveButtonPaint(getEditorHost(instance), {
+          scheduleSaveButtonPaint(getEditorHost2(instance), {
             saveDisabled: !hasUnsavedChanges()
           });
           builder.Button("save-document", {

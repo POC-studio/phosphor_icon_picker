@@ -2,6 +2,8 @@
  * Upload vers Bubble (context.uploadContent) + normalisation des URLs renvoyées.
  */
 
+import { IMAGE_TOO_LARGE, prepareImageFileForUpload } from './image-upload-prep.js';
+
 export function normalizeBubbleUploadUrl(err, url) {
   if (err) return '';
   if (typeof url !== 'string') return '';
@@ -85,16 +87,40 @@ export async function uploadFileToBubble(instance, file, onProgress) {
     try { onProgress(0); } catch (e) { /* ignore */ }
   }
 
-  const fileName = safeUploadFileName(file);
+  let uploadedFile = file;
+  try {
+    const prepared = await prepareImageFileForUpload(file);
+    uploadedFile = prepared.file;
+    if (prepared.resized) {
+      cesdk?.ui?.showNotification?.({
+        type: 'info',
+        message: 'notification.upload.imageResized',
+        duration: 'short',
+      });
+    }
+  } catch (err) {
+    if (err && err.message === IMAGE_TOO_LARGE) {
+      cesdk?.ui?.showNotification?.({
+        type: 'error',
+        message: 'notification.upload.imageTooLarge',
+        duration: 'medium',
+      });
+      throw new Error('Image trop lourde pour l’upload (max. 5 Mo)');
+    }
+    console.warn('IMG.LY View: préparation image avant upload échouée — fichier original conservé', err);
+    uploadedFile = file;
+  }
+
+  const fileName = safeUploadFileName(uploadedFile);
 
   if (context && typeof context.uploadContent === 'function') {
-    const base64 = await fileToBase64(file);
+    const base64 = await fileToBase64(uploadedFile);
     const url = await uploadBase64(context, fileName, base64);
     if (url) {
       if (typeof onProgress === 'function') {
         try { onProgress(1); } catch (e) { /* ignore */ }
       }
-      if (file.type?.startsWith('image/') && instance?.publishState && instance?.triggerEvent) {
+      if (uploadedFile.type?.startsWith('image/') && instance?.publishState && instance?.triggerEvent) {
         instance.publishState('image_uploaded_url', url);
         instance.triggerEvent('image_uploaded');
       }
@@ -103,7 +129,7 @@ export async function uploadFileToBubble(instance, file, onProgress) {
         meta: {
           uri: url,
           thumbUri: url,
-          mimeType: file.type || 'application/octet-stream',
+          mimeType: uploadedFile.type || 'application/octet-stream',
         },
       };
     }
@@ -112,7 +138,7 @@ export async function uploadFileToBubble(instance, file, onProgress) {
 
   if (cesdk?.utils && typeof cesdk.utils.localUpload === 'function') {
     console.warn('IMG.LY View: repli localUpload (sandbox / pas de context Bubble)');
-    return cesdk.utils.localUpload(file, { context: { source: 'user-upload' } });
+    return cesdk.utils.localUpload(uploadedFile, { context: { source: 'user-upload' } });
   }
 
   throw new Error('Upload indisponible (context Bubble ou CE.SDK manquant)');

@@ -54,6 +54,8 @@
   "notification.block.copy": "Élément copié",
   "notification.block.paste": "Élément collé",
   "notification.block.paste.empty": "Rien à coller",
+  "notification.upload.imageResized": "Image redimensionnée pour l'upload",
+  "notification.upload.imageTooLarge": "Image trop lourde (max. 5 Mo)",
   "property.crop.transform": "$t(block.image)",
   "property.fill.solid.color": "$t(property.fill)",
   "property.lutFilter.k1": "K1",
