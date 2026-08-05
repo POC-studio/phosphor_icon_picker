@@ -3,6 +3,7 @@ import {
   PAGE_HEIGHT_MM,
   getSafetyMarginsForPageNumber,
 } from './booklet-layout.js';
+import { isPrinterMarkerGuideBlock } from './printer-marker-guide.js';
 import { isSafetyMarginGuideBlock } from './safety-margins.js';
 
 const BOUNDS_EPSILON_MM = 0.05;
@@ -86,6 +87,7 @@ function pageHasMarginViolation(engine, pageId, safe) {
   /** @param {number} blockId */
   function walk(blockId) {
     if (isSafetyMarginGuideBlock(engine, blockId)) return false;
+    if (isPrinterMarkerGuideBlock(engine, blockId)) return false;
     if (shouldSkipBlockType(engine, blockId)) return false;
 
     const bounds = readGlobalBounds(engine, blockId);

@@ -9,6 +9,7 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
+import { syncPrinterMarkerGuides } from './printer-marker-guide.js';
 import { syncInnerSafetyMarginGuides } from './safety-margins.js';
 import { saveSceneToPersistableString } from './scene-save.js';
 
@@ -60,6 +61,7 @@ function ensureBookletGuides(engine, layout) {
   });
 
   syncInnerSafetyMarginGuides(engine, layout);
+  syncPrinterMarkerGuides(engine, layout);
 }
 
 export function getPageIds(engine) {

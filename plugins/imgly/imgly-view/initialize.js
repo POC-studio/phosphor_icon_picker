@@ -147,6 +147,94 @@ var __pluginInit = (() => {
     }
   });
 
+  // plugins/imgly/imgly-view/src/printer-marker-guide.js
+  function getMarkerImageUrl() {
+    if (typeof window !== "undefined") {
+      const { hostname, origin } = window.location;
+      if (hostname === "localhost" || hostname === "127.0.0.1") {
+        return `${origin}/qr.png`;
+      }
+    }
+    return PRODUCTION_MARKER_IMAGE_URL;
+  }
+  function isPrinterMarkerGuideBlock(engine, blockId) {
+    if (!(engine == null ? void 0 : engine.block) || blockId == null) return false;
+    try {
+      const value = engine.block.getMetadata(blockId, PRINTER_MARKER_GUIDE_METADATA_KEY);
+      return typeof value === "string" && value.length > 0;
+    } catch (e2) {
+      return false;
+    }
+  }
+  function pageNeedsPrinterMarker(pageNumber, totalPages) {
+    return pageNumber % 2 === 1 && pageNumber < totalPages / 2;
+  }
+  function removePrinterMarkerGuidesFromPage(engine, pageId) {
+    if (!(engine == null ? void 0 : engine.block) || pageId == null) return;
+    let children = [];
+    try {
+      children = engine.block.getChildren(pageId) || [];
+    } catch (e2) {
+      return;
+    }
+    for (const childId of children) {
+      if (!isPrinterMarkerGuideBlock(engine, childId)) continue;
+      try {
+        engine.block.destroy(childId);
+      } catch (e2) {
+      }
+    }
+  }
+  function createPrinterMarkerGuide(engine, pageId) {
+    const pageW = engine.block.getWidth(pageId) || HALF_A4_WIDTH_MM;
+    const pageH = engine.block.getHeight(pageId) || PAGE_HEIGHT_MM;
+    const block = engine.block.create("graphic");
+    const shape = engine.block.createShape("rect");
+    engine.block.setShape(block, shape);
+    const fill = engine.block.createFill("image");
+    engine.block.setString(fill, "fill/image/imageFileURI", getMarkerImageUrl());
+    engine.block.setFill(block, fill);
+    engine.block.setWidthMode(block, "Absolute");
+    engine.block.setHeightMode(block, "Absolute");
+    engine.block.setPositionXMode(block, "Absolute");
+    engine.block.setPositionYMode(block, "Absolute");
+    engine.block.setWidth(block, MARKER_WIDTH_MM);
+    engine.block.setHeight(block, MARKER_HEIGHT_MM);
+    engine.block.setPositionX(block, pageW - MARKER_WIDTH_MM - MARKER_OFFSET_FROM_RIGHT_MM);
+    engine.block.setPositionY(block, pageH - MARKER_HEIGHT_MM);
+    engine.block.appendChild(pageId, block);
+    engine.block.setBool(block, "alwaysOnTop", true);
+    engine.block.setBool(block, "selectionEnabled", false);
+    engine.block.setBool(block, "transformLocked", true);
+    engine.block.setIncludedInExport(block, false);
+    engine.block.setMetadata(block, PRINTER_MARKER_GUIDE_METADATA_KEY, "printer-marker");
+  }
+  function syncPrinterMarkerGuides(engine, layout) {
+    if (!(engine == null ? void 0 : engine.block) || !Array.isArray(layout) || layout.length === 0) return;
+    const pageIds = engine.block.findByType("page") || [];
+    if (pageIds.length !== layout.length) return;
+    const totalPages = pageIds.length;
+    pageIds.forEach((pageId, index) => {
+      removePrinterMarkerGuidesFromPage(engine, pageId);
+      if (!pageNeedsPrinterMarker(index + 1, totalPages)) return;
+      try {
+        createPrinterMarkerGuide(engine, pageId);
+      } catch (e2) {
+      }
+    });
+  }
+  var PRINTER_MARKER_GUIDE_METADATA_KEY, MARKER_WIDTH_MM, MARKER_HEIGHT_MM, MARKER_OFFSET_FROM_RIGHT_MM, PRODUCTION_MARKER_IMAGE_URL;
+  var init_printer_marker_guide = __esm({
+    "plugins/imgly/imgly-view/src/printer-marker-guide.js"() {
+      init_booklet_layout();
+      PRINTER_MARKER_GUIDE_METADATA_KEY = "imgly.printerMarkerGuide";
+      MARKER_WIDTH_MM = 13;
+      MARKER_HEIGHT_MM = 25;
+      MARKER_OFFSET_FROM_RIGHT_MM = 3.5;
+      PRODUCTION_MARKER_IMAGE_URL = "https://poc-studio.github.io/phosphor_icon_picker/public/qr.png";
+    }
+  });
+
   // plugins/imgly/imgly-view/src/safety-margins.js
   function isSafetyMarginGuideBlock(engine, blockId) {
     if (!(engine == null ? void 0 : engine.block) || blockId == null) return false;
@@ -279,6 +367,7 @@ var __pluginInit = (() => {
     for (const blockId of engine.block.findAll()) {
       try {
         if (isSafetyMarginGuideBlock(engine, blockId)) continue;
+        if (isPrinterMarkerGuideBlock(engine, blockId)) continue;
         if (typeof engine.block.isIncludedInExport === "function" && engine.block.isIncludedInExport(blockId)) {
           continue;
         }
@@ -391,6 +480,7 @@ var __pluginInit = (() => {
   var TRANSPARENT_COLOR;
   var init_export_lock = __esm({
     "plugins/imgly/imgly-view/src/export-lock.js"() {
+      init_printer_marker_guide();
       init_safety_margins();
       TRANSPARENT_COLOR = { r: 0, g: 0, b: 0, a: 0 };
     }
@@ -1600,6 +1690,7 @@ var __pluginInit = (() => {
   function pageHasMarginViolation(engine, pageId, safe) {
     function walk(blockId) {
       if (isSafetyMarginGuideBlock(engine, blockId)) return false;
+      if (isPrinterMarkerGuideBlock(engine, blockId)) return false;
       if (shouldSkipBlockType(engine, blockId)) return false;
       const bounds = readGlobalBounds(engine, blockId);
       if (bounds && boundsViolateSafeZone(bounds, safe)) {
@@ -1664,6 +1755,7 @@ var __pluginInit = (() => {
   var init_margin_warning = __esm({
     "plugins/imgly/imgly-view/src/margin-warning.js"() {
       init_booklet_layout();
+      init_printer_marker_guide();
       init_safety_margins();
       BOUNDS_EPSILON_MM = 0.05;
       MIN_CONTENT_SIZE_MM = 0.01;
@@ -1793,6 +1885,7 @@ var __pluginInit = (() => {
       }
     });
     syncInnerSafetyMarginGuides(engine, layout);
+    syncPrinterMarkerGuides(engine, layout);
   }
   function getPageIds(engine) {
     if (!engine || !engine.block || typeof engine.block.findByType !== "function") return [];
@@ -1998,6 +2091,7 @@ var __pluginInit = (() => {
     "plugins/imgly/imgly-view/src/scene.js"() {
       init_booklet_layout();
       init_export_lock();
+      init_printer_marker_guide();
       init_safety_margins();
       init_scene_save();
     }
