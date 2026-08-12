@@ -1463,7 +1463,7 @@ var __pluginInit = (() => {
     "plugins/imgly/imgly-view/src/printer-margins.js"() {
       PRINTER_MARGIN_MM = {
         top: 3,
-        bottom: 5,
+        bottom: 3,
         left: 3,
         right: 3
       };
