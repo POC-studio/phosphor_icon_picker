@@ -142,7 +142,7 @@ var __pluginInit = (() => {
       BOOKLET_ROW_GAP_MM = 28;
       MAX_SHEET_COUNT = 20;
       BOOKLET_SCENE_LAYOUT = "Free";
-      SAFETY_MARGIN_MM = 5;
+      SAFETY_MARGIN_MM = 3;
       ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
     }
   });

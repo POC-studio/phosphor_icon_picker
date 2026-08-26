@@ -22,7 +22,7 @@ export const MAX_SHEET_COUNT = 20;
 export const BOOKLET_SCENE_LAYOUT = 'Free';
 
 /** Marge de sécurité impression (mm) — bord extérieur alterné selon parité de page. */
-export const SAFETY_MARGIN_MM = 5;
+export const SAFETY_MARGIN_MM = 3;
 
 const ROW_STEP_MM = PAGE_HEIGHT_MM + BOOKLET_ROW_GAP_MM;
 
