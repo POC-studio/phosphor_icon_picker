@@ -1473,6 +1473,31 @@ var __pluginInit = (() => {
   });
 
   // plugins/imgly/imgly-view/src/pdf-imposition.js
+  function withExportDpi(engine, fn) {
+    return __async(this, null, function* () {
+      var _a2, _b2;
+      const sceneId = (_b2 = (_a2 = engine.scene) == null ? void 0 : _a2.get) == null ? void 0 : _b2.call(_a2);
+      let previousDpi = null;
+      if (sceneId != null) {
+        try {
+          previousDpi = engine.block.getFloat(sceneId, "scene/dpi");
+          engine.block.setFloat(sceneId, "scene/dpi", EXPORT_PDF_DPI);
+        } catch (e2) {
+          previousDpi = null;
+        }
+      }
+      try {
+        return yield fn();
+      } finally {
+        if (sceneId != null && previousDpi != null) {
+          try {
+            engine.block.setFloat(sceneId, "scene/dpi", previousDpi);
+          } catch (e2) {
+          }
+        }
+      }
+    });
+  }
   function buildImpositionPairs(totalPages) {
     if (totalPages % 4 !== 0) {
       throw new Error(`Nombre de pages invalide pour imposition: ${totalPages}`);
@@ -1580,7 +1605,10 @@ var __pluginInit = (() => {
       if (totalPages % 4 !== 0) {
         throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
       }
-      const pagePdfBytes = yield Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+      const pagePdfBytes = yield withExportDpi(
+        engine,
+        () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id)))
+      );
       if (pagePdfBytes.some((bytes) => !bytes)) {
         throw new Error("Export PDF CE.SDK incomplet (page manquante)");
       }
@@ -1593,7 +1621,10 @@ var __pluginInit = (() => {
       if (!pageIds.length) {
         throw new Error("Export PDF s\xE9quentiel : aucune page");
       }
-      const pagePdfBytes = yield Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+      const pagePdfBytes = yield withExportDpi(
+        engine,
+        () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id)))
+      );
       if (pagePdfBytes.some((bytes) => !bytes)) {
         throw new Error("Export PDF CE.SDK incomplet (page manquante)");
       }
@@ -1632,7 +1663,7 @@ var __pluginInit = (() => {
       return new Blob([bytes], { type: "application/pdf" });
     });
   }
-  var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE;
+  var PDF_ROTATE_CLOCKWISE, PDF_DUPLEX_FLIP_INSIDE_PAGE, EXPORT_PDF_DPI;
   var init_pdf_imposition = __esm({
     "plugins/imgly/imgly-view/src/pdf-imposition.js"() {
       init_pdf_lib();
@@ -1641,6 +1672,7 @@ var __pluginInit = (() => {
       init_printer_margins();
       PDF_ROTATE_CLOCKWISE = false;
       PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
+      EXPORT_PDF_DPI = 200;
     }
   });
 
@@ -2360,6 +2392,15 @@ var __pluginInit = (() => {
       }
     });
   }
+  function waitForPaint() {
+    return new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== "function") {
+        setTimeout(resolve, 0);
+        return;
+      }
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
   function triggerSaveDocument(instance) {
     return __async(this, null, function* () {
       if (!instance || !instance.data) return false;
@@ -2367,6 +2408,7 @@ var __pluginInit = (() => {
       instance.data._saveInProgress = true;
       showSaveOverlay(instance);
       try {
+        yield waitForPaint();
         publishMarginsWarningFromScan(instance);
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
         yield createPagePreviews(instance);

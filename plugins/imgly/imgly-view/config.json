@@ -57,12 +57,7 @@
       "default": 1
     },
     "initial_json": {
-      "label": "Initial canvas JSON (sandbox — ignoré si canvas_json est défini)",
-      "type": "long_text",
-      "default": ""
-    },
-    "canvas_json": {
-      "label": "Canvas JSON (persistance — lier au champ Bubble sauvegardé)",
+      "label": "Initial canvas JSON (scène chargée au démarrage)",
       "type": "long_text",
       "default": ""
     },

@@ -432,7 +432,7 @@ function setupInputEmulator(config, pluginName, elementName) {
       input.style.padding = '6px';
       input.style.border = '1px solid #ccc';
       input.style.borderRadius = '4px';
-    } else if (propConfig.type === 'integer') {
+    } else if (propConfig.type === 'integer' || propConfig.type === 'number') {
       input = document.createElement('input');
       input.type = 'number';
       input.value = propConfig.default !== undefined ? propConfig.default : '';

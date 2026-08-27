@@ -25,6 +25,47 @@ import {
 const PDF_ROTATE_CLOCKWISE = false;
 const PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
 
+/**
+ * DPI de rasterisation des images à l'export PDF (highCompatibility ré-encode
+ * chaque image en lossless à `scene/dpi` sur sa taille d'affichage — 200 DPI
+ * divise le poids par ~2,3 vs 300, en restant très propre à l'impression).
+ * Le texte n'est pas concerné (il reste vectoriel).
+ */
+const EXPORT_PDF_DPI = 200;
+
+/**
+ * Applique temporairement `scene/dpi` = EXPORT_PDF_DPI pendant `fn`,
+ * puis restaure la valeur d'origine (300 par défaut, utilisée par les
+ * previews PNG et le rendu éditeur).
+ * @param {import('@cesdk/engine').default} engine
+ * @param {() => Promise<T>} fn
+ * @returns {Promise<T>}
+ * @template T
+ */
+async function withExportDpi(engine, fn) {
+  const sceneId = engine.scene?.get?.();
+  let previousDpi = null;
+  if (sceneId != null) {
+    try {
+      previousDpi = engine.block.getFloat(sceneId, 'scene/dpi');
+      engine.block.setFloat(sceneId, 'scene/dpi', EXPORT_PDF_DPI);
+    } catch {
+      previousDpi = null;
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    if (sceneId != null && previousDpi != null) {
+      try {
+        engine.block.setFloat(sceneId, 'scene/dpi', previousDpi);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
 /** Paires 1-indexées [gauche, droite] pour saddle-stitch. */
 export function buildImpositionPairs(totalPages) {
   if (totalPages % 4 !== 0) {
@@ -180,7 +221,10 @@ export async function buildFoldedA4Pdf(engine, pageIds) {
     throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
   }
 
-  const pagePdfBytes = await Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+  const pagePdfBytes = await withExportDpi(
+    engine,
+    () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id))),
+  );
   if (pagePdfBytes.some((bytes) => !bytes)) {
     throw new Error('Export PDF CE.SDK incomplet (page manquante)');
   }
@@ -200,7 +244,10 @@ export async function buildSequentialPdf(engine, pageIds) {
     throw new Error('Export PDF séquentiel : aucune page');
   }
 
-  const pagePdfBytes = await Promise.all(pageIds.map((id) => exportPagePdf(engine, id)));
+  const pagePdfBytes = await withExportDpi(
+    engine,
+    () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id))),
+  );
   if (pagePdfBytes.some((bytes) => !bytes)) {
     throw new Error('Export PDF CE.SDK incomplet (page manquante)');
   }

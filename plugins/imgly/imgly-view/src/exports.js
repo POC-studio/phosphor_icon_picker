@@ -174,6 +174,21 @@ async function syncSceneBeforePdfExport(instance) {
   }
 }
 
+/**
+ * Attend qu'une frame complète ait été peinte (double rAF) : garantit que
+ * l'overlay est visible avant que le travail lourd (WASM, exports) ne
+ * monopolise le thread principal et n'empêche tout paint.
+ */
+function waitForPaint() {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 0);
+      return;
+    }
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
 export async function triggerSaveDocument(instance) {
   if (!instance || !instance.data) return false;
   if (instance.data._saveInProgress === true) return false;
@@ -181,6 +196,7 @@ export async function triggerSaveDocument(instance) {
   instance.data._saveInProgress = true;
   showSaveOverlay(instance);
   try {
+    await waitForPaint();
     publishMarginsWarningFromScan(instance);
     await publishSceneJson(instance, { force: true, skipPreviews: true });
     await createPagePreviews(instance);
