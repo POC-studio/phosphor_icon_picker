@@ -35,8 +35,7 @@ const EXPORT_PDF_DPI = 200;
 
 /**
  * Applique temporairement `scene/dpi` = EXPORT_PDF_DPI pendant `fn`,
- * puis restaure la valeur d'origine (300 par défaut, utilisée par les
- * previews PNG et le rendu éditeur).
+ * puis restaure la valeur d'origine (300 par défaut, rendu éditeur).
  * @param {import('@cesdk/engine').default} engine
  * @param {() => Promise<T>} fn
  * @returns {Promise<T>}
@@ -209,6 +208,20 @@ export async function exportPagePdf(engine, pageId) {
   return blobToArrayBuffer(blob);
 }
 
+export async function exportAllPagePdfs(engine, pageIds) {
+  if (!pageIds.length) {
+    throw new Error('Export PDF : aucune page');
+  }
+  const pagePdfBytes = await withExportDpi(
+    engine,
+    () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id))),
+  );
+  if (pagePdfBytes.some((bytes) => !bytes)) {
+    throw new Error('Export PDF CE.SDK incomplet (page manquante)');
+  }
+  return pagePdfBytes;
+}
+
 /**
  * Construit un PDF A4 portrait imposé à partir des pages CE.SDK (PDF natif).
  * @param {import('@cesdk/engine').default} engine
@@ -220,40 +233,17 @@ export async function buildFoldedA4Pdf(engine, pageIds) {
   if (totalPages % 4 !== 0) {
     throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
   }
-
-  const pagePdfBytes = await withExportDpi(
-    engine,
-    () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id))),
-  );
-  if (pagePdfBytes.some((bytes) => !bytes)) {
-    throw new Error('Export PDF CE.SDK incomplet (page manquante)');
-  }
-
-  const pairs = buildImpositionPairs(totalPages);
-  return composeImposedPdf(pagePdfBytes, pairs);
+  const pagePdfBytes = await exportAllPagePdfs(engine, pageIds);
+  return composeImposedPdf(pagePdfBytes, buildImpositionPairs(totalPages));
 }
 
 /**
- * PDF standard : toutes les demi-pages à la suite, dans l’ordre éditeur.
- * @param {import('@cesdk/engine').default} engine
- * @param {number[]} pageIds
+ * @param {Uint8Array[]|ArrayBuffer[]} pagePdfBytesList
  * @returns {Promise<Blob>}
  */
-export async function buildSequentialPdf(engine, pageIds) {
-  if (!pageIds.length) {
-    throw new Error('Export PDF séquentiel : aucune page');
-  }
-
-  const pagePdfBytes = await withExportDpi(
-    engine,
-    () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id))),
-  );
-  if (pagePdfBytes.some((bytes) => !bytes)) {
-    throw new Error('Export PDF CE.SDK incomplet (page manquante)');
-  }
-
+export async function composeSequentialPdf(pagePdfBytesList) {
   const outputDoc = await PDFDocument.create();
-  for (const bytes of pagePdfBytes) {
+  for (const bytes of pagePdfBytesList) {
     const srcDoc = await PDFDocument.load(await blobToArrayBuffer(bytes));
     const [embedded] = await outputDoc.embedPdf(srcDoc);
     const page = outputDoc.addPage([embedded.width, embedded.height]);
@@ -267,9 +257,19 @@ export async function buildSequentialPdf(engine, pageIds) {
     });
     page.drawPage(embedded, { x: 0, y: 0 });
   }
-
   const outBytes = await outputDoc.save();
   return new Blob([outBytes], { type: 'application/pdf' });
+}
+
+/**
+ * PDF standard : toutes les demi-pages à la suite, dans l’ordre éditeur.
+ * @param {import('@cesdk/engine').default} engine
+ * @param {number[]} pageIds
+ * @returns {Promise<Blob>}
+ */
+export async function buildSequentialPdf(engine, pageIds) {
+  const pagePdfBytes = await exportAllPagePdfs(engine, pageIds);
+  return composeSequentialPdf(pagePdfBytes);
 }
 
 /**

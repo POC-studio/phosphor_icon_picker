@@ -191,6 +191,11 @@ export async function insertVectorGraphicOnCurrentPage(engine, options) {
     if (typeof engine.block.select === 'function') {
       engine.block.select(blockId);
     }
+    try {
+      engine.editor.addUndoStep();
+    } catch {
+      /* ignore */
+    }
     return blockId;
   } catch (err) {
     console.error('IMG.LY View: insertion vectorielle échouée', err);
@@ -249,6 +254,15 @@ export async function insertImageOnCurrentPage(engine, imageUrl, instance) {
     }
   } catch (err) {
     console.warn('IMG.LY View: redimensionnement image', err);
+  }
+
+  // L'insertion programmatique ne crée pas d'étape d'historique : sans ça,
+  // onHistoryUpdated ne tire pas et le bouton Enregistrer ne s'active pas
+  // (et l'ajout ne serait pas annulable).
+  try {
+    engine.editor.addUndoStep();
+  } catch {
+    /* ignore */
   }
 
   return blockId;

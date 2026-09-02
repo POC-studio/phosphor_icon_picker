@@ -1599,27 +1599,10 @@ var __pluginInit = (() => {
       return blobToArrayBuffer(blob);
     });
   }
-  function buildFoldedA4Pdf(engine, pageIds) {
-    return __async(this, null, function* () {
-      const totalPages = pageIds.length;
-      if (totalPages % 4 !== 0) {
-        throw new Error(`Imposition: ${totalPages} pages (attendu multiple de 4)`);
-      }
-      const pagePdfBytes = yield withExportDpi(
-        engine,
-        () => Promise.all(pageIds.map((id) => exportPagePdf(engine, id)))
-      );
-      if (pagePdfBytes.some((bytes) => !bytes)) {
-        throw new Error("Export PDF CE.SDK incomplet (page manquante)");
-      }
-      const pairs = buildImpositionPairs(totalPages);
-      return composeImposedPdf(pagePdfBytes, pairs);
-    });
-  }
-  function buildSequentialPdf(engine, pageIds) {
+  function exportAllPagePdfs(engine, pageIds) {
     return __async(this, null, function* () {
       if (!pageIds.length) {
-        throw new Error("Export PDF s\xE9quentiel : aucune page");
+        throw new Error("Export PDF : aucune page");
       }
       const pagePdfBytes = yield withExportDpi(
         engine,
@@ -1628,8 +1611,13 @@ var __pluginInit = (() => {
       if (pagePdfBytes.some((bytes) => !bytes)) {
         throw new Error("Export PDF CE.SDK incomplet (page manquante)");
       }
+      return pagePdfBytes;
+    });
+  }
+  function composeSequentialPdf(pagePdfBytesList) {
+    return __async(this, null, function* () {
       const outputDoc = yield PDFDocument.create();
-      for (const bytes of pagePdfBytes) {
+      for (const bytes of pagePdfBytesList) {
         const srcDoc = yield PDFDocument.load(yield blobToArrayBuffer(bytes));
         const [embedded] = yield outputDoc.embedPdf(srcDoc);
         const page = outputDoc.addPage([embedded.width, embedded.height]);
@@ -1673,6 +1661,92 @@ var __pluginInit = (() => {
       PDF_ROTATE_CLOCKWISE = false;
       PDF_DUPLEX_FLIP_INSIDE_PAGE = true;
       EXPORT_PDF_DPI = 200;
+    }
+  });
+
+  // plugins/imgly/imgly-view/src/pdf-page-previews.js
+  function getPdfjsLib() {
+    const lib2 = typeof globalThis.pdfjsLib !== "undefined" ? globalThis.pdfjsLib : null;
+    if (!lib2 || typeof lib2.getDocument !== "function") {
+      throw new Error("pdf.js non charg\xE9");
+    }
+    if (lib2.GlobalWorkerOptions && !lib2.GlobalWorkerOptions.workerSrc) {
+      lib2.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
+    }
+    return lib2;
+  }
+  function waitForPdfjs(timeoutMs = 15e3) {
+    return __async(this, null, function* () {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        try {
+          return getPdfjsLib();
+        } catch (e2) {
+          yield new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      }
+      throw new Error("pdf.js non charg\xE9");
+    });
+  }
+  function toUint8Array(bytes) {
+    if (bytes instanceof Uint8Array) return bytes;
+    if (bytes instanceof ArrayBuffer) return new Uint8Array(bytes);
+    if ((bytes == null ? void 0 : bytes.buffer) instanceof ArrayBuffer) {
+      return new Uint8Array(bytes.buffer, bytes.byteOffset || 0, bytes.byteLength);
+    }
+    return null;
+  }
+  function rasterizePagePdfToPng(pagePdfBytes) {
+    return __async(this, null, function* () {
+      const data = toUint8Array(pagePdfBytes);
+      if (!data || data.length === 0) return null;
+      const pdfjs = yield waitForPdfjs();
+      const doc = yield pdfjs.getDocument({ data }).promise;
+      try {
+        const page = yield doc.getPage(1);
+        const viewport = page.getViewport({ scale: PREVIEW_SCALE });
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(viewport.width));
+        canvas.height = Math.max(1, Math.round(viewport.height));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        yield page.render({ canvasContext: ctx, viewport }).promise;
+        const blob = yield new Promise((resolve) => {
+          canvas.toBlob((next) => resolve(next), "image/png");
+        });
+        return blob;
+      } finally {
+        if (typeof doc.destroy === "function") {
+          yield doc.destroy();
+        }
+      }
+    });
+  }
+  function rasterizePagePdfsToPreviewItems(pagePdfBytesList, base) {
+    return __async(this, null, function* () {
+      const items = [];
+      const safeBase = base || "document";
+      for (let index = 0; index < pagePdfBytesList.length; index += 1) {
+        try {
+          const blob = yield rasterizePagePdfToPng(pagePdfBytesList[index]);
+          if (!blob) continue;
+          const safeName = `${safeBase}-preview-${String(index + 1).padStart(2, "0")}.png`.replace(/[^\w.-]/g, "_");
+          items.push({ name: safeName, blob });
+        } catch (err2) {
+          console.error("IMG.LY View: raster preview PDF failed", index + 1, err2);
+        }
+      }
+      return items;
+    });
+  }
+  var PDFJS_VERSION, PDFJS_WORKER_SRC, PREVIEW_SCALE;
+  var init_pdf_page_previews = __esm({
+    "plugins/imgly/imgly-view/src/pdf-page-previews.js"() {
+      PDFJS_VERSION = "3.11.174";
+      PDFJS_WORKER_SRC = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
+      PREVIEW_SCALE = 1;
     }
   });
 
@@ -2329,43 +2403,16 @@ var __pluginInit = (() => {
     }
     return pageIds;
   }
-  function exportAllPagePreviewPngs(engine, pageIds, base) {
+  function uploadPreviewItems(instance, items) {
     return __async(this, null, function* () {
-      ensureAllBlocksIncludedInExport(engine);
-      hideAllPageCanvasBorders(engine);
-      const exports = [];
-      for (let index = 0; index < pageIds.length; index += 1) {
-        try {
-          const blob = yield engine.block.export(pageIds[index], {
-            mimeType: "image/png",
-            targetWidth: 500
-          });
-          const safeName = `${base}-preview-${String(index + 1).padStart(2, "0")}.png`.replace(/[^\w.-]/g, "_");
-          exports.push({ name: safeName, blob });
-        } catch (err2) {
-          console.error("IMG.LY View: page preview export failed", err2);
-        }
-      }
-      return exports;
-    });
-  }
-  function createPagePreviews(instance) {
-    const engine = instance.data.engine;
-    const context = instance.data.bubbleContext || null;
-    if (!engine || !engine.block) return Promise.resolve([]);
-    const pageIds = resolveExportPageIds(instance);
-    if (!pageIds.length) return Promise.resolve([]);
-    const base = sanitizeFileBase(instance.data.documentTitle);
-    const runId = (instance.data._pagePreviewsRunId || 0) + 1;
-    instance.data._pagePreviewsRunId = runId;
-    instance.data._lastPagePreviewsAt = Date.now();
-    return exportAllPagePreviewPngs(engine, pageIds, base).then((items) => {
-      const exportOne = (item) => uploadBlob(context, item.name, item.blob).catch((err2) => {
+      const context = instance.data.bubbleContext || null;
+      const runId = (instance.data._pagePreviewsRunId || 0) + 1;
+      instance.data._pagePreviewsRunId = runId;
+      instance.data._lastPagePreviewsAt = Date.now();
+      const uploaded = yield Promise.all(items.map((item) => uploadBlob(context, item.name, item.blob).catch((err2) => {
         console.error("IMG.LY View: page preview upload failed", err2);
         return "";
-      });
-      return Promise.all(items.map(exportOne));
-    }).then((uploaded) => {
+      })));
       if (instance.data._pagePreviewsRunId !== runId) return uploaded;
       instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || "";
       const urls = uploaded.filter((u2) => typeof u2 === "string" && u2.length > 0);
@@ -2376,9 +2423,34 @@ var __pluginInit = (() => {
         console.warn("IMG.LY View: previews upload\xE9es sans URL exploitable \u2014 page_previews_ready non d\xE9clench\xE9");
       }
       return urls;
-    }).catch((err2) => {
-      console.error("IMG.LY View: create_page_previews", err2);
-      return [];
+    });
+  }
+  function createPagePreviews(instance, pagePdfBytes) {
+    return __async(this, null, function* () {
+      const engine = instance.data.engine;
+      if (!engine || !engine.block) return [];
+      const base = sanitizeFileBase(instance.data.documentTitle);
+      let pdfs = Array.isArray(pagePdfBytes) && pagePdfBytes.length > 0 ? pagePdfBytes : null;
+      if (!pdfs || !pdfs.length) {
+        const pageIds = resolveExportPageIds(instance);
+        if (!pageIds.length) return [];
+        ensureAllBlocksIncludedInExport(engine);
+        hideAllPageCanvasBorders(engine);
+        try {
+          pdfs = yield exportAllPagePdfs(engine, pageIds);
+        } catch (err2) {
+          console.error("IMG.LY View: export PDF pages pour previews", err2);
+          return [];
+        }
+      }
+      try {
+        const items = yield rasterizePagePdfsToPreviewItems(pdfs, base);
+        if (!items.length) return [];
+        return yield uploadPreviewItems(instance, items);
+      } catch (err2) {
+        console.error("IMG.LY View: create_page_previews", err2);
+        return [];
+      }
     });
   }
   function syncSceneBeforePdfExport(instance) {
@@ -2394,11 +2466,16 @@ var __pluginInit = (() => {
   }
   function waitForPaint() {
     return new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== "function") {
-        setTimeout(resolve, 0);
-        return;
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      setTimeout(finish, 100);
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => requestAnimationFrame(finish));
       }
-      requestAnimationFrame(() => requestAnimationFrame(resolve));
     });
   }
   function triggerSaveDocument(instance) {
@@ -2411,8 +2488,8 @@ var __pluginInit = (() => {
         yield waitForPaint();
         publishMarginsWarningFromScan(instance);
         yield publishSceneJson(instance, { force: true, skipPreviews: true });
-        yield createPagePreviews(instance);
         yield triggerPdfExport(instance, { download: false, generateTrimmed: true });
+        yield createPagePreviews(instance, instance.data._lastExportedPagePdfs);
         setUnsavedChanges(instance, false);
         instance.triggerEvent("document_saved");
         return true;
@@ -2434,7 +2511,10 @@ var __pluginInit = (() => {
       const base = sanitizeFileBase(instance.data.documentTitle);
       const safeZipName = `${base}-previews.zip`.replace(/[^\w.-]/g, "_") || "previews.zip";
       try {
-        const items = yield exportAllPagePreviewPngs(engine, pageIds, base);
+        const items = yield rasterizePagePdfsToPreviewItems(
+          yield exportAllPagePdfs(engine, pageIds),
+          base
+        );
         if (!items.length) return "";
         const zipEntries = {};
         for (const item of items) {
@@ -2479,7 +2559,9 @@ var __pluginInit = (() => {
       const base = sanitizeFileBase(instance.data.documentTitle);
       const safePdfName = (base + (mode === "sequential" ? ".pdf" : "-impression.pdf")).replace(/[^\w.-]/g, "_") || "document.pdf";
       try {
-        const blob = mode === "sequential" ? yield buildSequentialPdf(engine, pageIds) : yield buildFoldedA4Pdf(engine, pageIds);
+        const pagePdfBytes = yield exportAllPagePdfs(engine, pageIds);
+        instance.data._lastExportedPagePdfs = pagePdfBytes;
+        const blob = mode === "sequential" ? yield composeSequentialPdf(pagePdfBytes) : yield composeImposedPdf(pagePdfBytes, buildImpositionPairs(pageIds.length));
         const url = yield uploadBlob(context, safePdfName, blob);
         if (mode === "imposed" && typeof url === "string" && url.length > 0) {
           instance.publishState("pdf_url", url);
@@ -2534,6 +2616,7 @@ var __pluginInit = (() => {
       init_constants();
       init_export_lock();
       init_pdf_imposition();
+      init_pdf_page_previews();
       init_margin_warning();
       init_scene();
       init_scene_save();
@@ -5684,6 +5767,10 @@ var __pluginInit = (() => {
         if (typeof engine.block.select === "function") {
           engine.block.select(blockId);
         }
+        try {
+          engine.editor.addUndoStep();
+        } catch (e2) {
+        }
         return blockId;
       } catch (err2) {
         console.error("IMG.LY View: insertion vectorielle \xE9chou\xE9e", err2);
@@ -5730,6 +5817,10 @@ var __pluginInit = (() => {
         }
       } catch (err2) {
         console.warn("IMG.LY View: redimensionnement image", err2);
+      }
+      try {
+        engine.editor.addUndoStep();
+      } catch (e2) {
       }
       return blockId;
     });

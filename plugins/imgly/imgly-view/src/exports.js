@@ -7,7 +7,8 @@ import {
   lockPageDeletion,
   lockPageSelection,
 } from './export-lock.js';
-import { buildFoldedA4Pdf, buildSequentialPdf, trimImposedPdfForPrinter } from './pdf-imposition.js';
+import { buildImpositionPairs, composeImposedPdf, composeSequentialPdf, exportAllPagePdfs, trimImposedPdfForPrinter } from './pdf-imposition.js';
+import { rasterizePagePdfsToPreviewItems } from './pdf-page-previews.js';
 import { publishMarginsWarningFromScan } from './margin-warning.js';
 import { getPageIds } from './scene.js';
 import { saveSceneToPersistableString } from './scene-save.js';
@@ -108,60 +109,65 @@ function resolveExportPageIds(instance) {
   return pageIds;
 }
 
-async function exportAllPagePreviewPngs(engine, pageIds, base) {
-  ensureAllBlocksIncludedInExport(engine);
-  hideAllPageCanvasBorders(engine);
-
-  const exports = [];
-  for (let index = 0; index < pageIds.length; index += 1) {
-    try {
-      const blob = await engine.block.export(pageIds[index], {
-        mimeType: 'image/png',
-        targetWidth: 500,
-      });
-      const safeName = `${base}-preview-${String(index + 1).padStart(2, '0')}.png`.replace(/[^\w.-]/g, '_');
-      exports.push({ name: safeName, blob });
-    } catch (err) {
-      console.error('IMG.LY View: page preview export failed', err);
-    }
-  }
-  return exports;
-}
-
-export function createPagePreviews(instance) {
-  const engine = instance.data.engine;
+async function uploadPreviewItems(instance, items) {
   const context = instance.data.bubbleContext || null;
-  if (!engine || !engine.block) return Promise.resolve([]);
-
-  const pageIds = resolveExportPageIds(instance);
-  if (!pageIds.length) return Promise.resolve([]);
-
-  const base = sanitizeFileBase(instance.data.documentTitle);
   const runId = (instance.data._pagePreviewsRunId || 0) + 1;
   instance.data._pagePreviewsRunId = runId;
   instance.data._lastPagePreviewsAt = Date.now();
 
-  return exportAllPagePreviewPngs(engine, pageIds, base).then((items) => {
-    const exportOne = (item) => uploadBlob(context, item.name, item.blob).catch((err) => {
+  const uploaded = await Promise.all(items.map((item) => (
+    uploadBlob(context, item.name, item.blob).catch((err) => {
       console.error('IMG.LY View: page preview upload failed', err);
       return '';
-    });
-    return Promise.all(items.map(exportOne));
-  }).then((uploaded) => {
-    if (instance.data._pagePreviewsRunId !== runId) return uploaded;
-    instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || '';
-    const urls = uploaded.filter((u) => typeof u === 'string' && u.length > 0);
-    instance.publishState('page_previews', urls);
-    if (urls.length > 0) {
-      instance.triggerEvent('page_previews_ready');
-    } else {
-      console.warn('IMG.LY View: previews uploadées sans URL exploitable — page_previews_ready non déclenché');
+    })
+  )));
+
+  if (instance.data._pagePreviewsRunId !== runId) return uploaded;
+  instance.data._lastPreviewedSceneKey = instance.data._lastPublishedCanvasJson || '';
+  const urls = uploaded.filter((u) => typeof u === 'string' && u.length > 0);
+  instance.publishState('page_previews', urls);
+  if (urls.length > 0) {
+    instance.triggerEvent('page_previews_ready');
+  } else {
+    console.warn('IMG.LY View: previews uploadées sans URL exploitable — page_previews_ready non déclenché');
+  }
+  return urls;
+}
+
+/**
+ * @param {object} instance
+ * @param {Array<Uint8Array|ArrayBuffer>} [pagePdfBytes]
+ */
+export async function createPagePreviews(instance, pagePdfBytes) {
+  const engine = instance.data.engine;
+  if (!engine || !engine.block) return [];
+
+  const base = sanitizeFileBase(instance.data.documentTitle);
+  let pdfs = Array.isArray(pagePdfBytes) && pagePdfBytes.length > 0
+    ? pagePdfBytes
+    : null;
+
+  if (!pdfs || !pdfs.length) {
+    const pageIds = resolveExportPageIds(instance);
+    if (!pageIds.length) return [];
+    ensureAllBlocksIncludedInExport(engine);
+    hideAllPageCanvasBorders(engine);
+    try {
+      pdfs = await exportAllPagePdfs(engine, pageIds);
+    } catch (err) {
+      console.error('IMG.LY View: export PDF pages pour previews', err);
+      return [];
     }
-    return urls;
-  }).catch((err) => {
+  }
+
+  try {
+    const items = await rasterizePagePdfsToPreviewItems(pdfs, base);
+    if (!items.length) return [];
+    return await uploadPreviewItems(instance, items);
+  } catch (err) {
     console.error('IMG.LY View: create_page_previews', err);
     return [];
-  });
+  }
 }
 
 async function syncSceneBeforePdfExport(instance) {
@@ -181,11 +187,18 @@ async function syncSceneBeforePdfExport(instance) {
  */
 function waitForPaint() {
   return new Promise((resolve) => {
-    if (typeof requestAnimationFrame !== 'function') {
-      setTimeout(resolve, 0);
-      return;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    // Filet de sécurité : rAF ne tire jamais quand l'onglet est masqué —
+    // sans ce timeout, l'enregistrement resterait suspendu indéfiniment.
+    setTimeout(finish, 100);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(finish));
     }
-    requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
 }
 
@@ -199,8 +212,8 @@ export async function triggerSaveDocument(instance) {
     await waitForPaint();
     publishMarginsWarningFromScan(instance);
     await publishSceneJson(instance, { force: true, skipPreviews: true });
-    await createPagePreviews(instance);
     await triggerPdfExport(instance, { download: false, generateTrimmed: true });
+    await createPagePreviews(instance, instance.data._lastExportedPagePdfs);
     setUnsavedChanges(instance, false);
     instance.triggerEvent('document_saved');
     return true;
@@ -224,7 +237,10 @@ export async function triggerPreviewsZipDownload(instance) {
   const safeZipName = `${base}-previews.zip`.replace(/[^\w.-]/g, '_') || 'previews.zip';
 
   try {
-    const items = await exportAllPagePreviewPngs(engine, pageIds, base);
+    const items = await rasterizePagePdfsToPreviewItems(
+      await exportAllPagePdfs(engine, pageIds),
+      base,
+    );
     if (!items.length) return '';
 
     const zipEntries = {};
@@ -276,9 +292,11 @@ export async function triggerPdfExport(instance, options) {
   const safePdfName = (base + (mode === 'sequential' ? '.pdf' : '-impression.pdf')).replace(/[^\w.-]/g, '_') || 'document.pdf';
 
   try {
+    const pagePdfBytes = await exportAllPagePdfs(engine, pageIds);
+    instance.data._lastExportedPagePdfs = pagePdfBytes;
     const blob = mode === 'sequential'
-      ? await buildSequentialPdf(engine, pageIds)
-      : await buildFoldedA4Pdf(engine, pageIds);
+      ? await composeSequentialPdf(pagePdfBytes)
+      : await composeImposedPdf(pagePdfBytes, buildImpositionPairs(pageIds.length));
     const url = await uploadBlob(context, safePdfName, blob);
     if (mode === 'imposed' && typeof url === 'string' && url.length > 0) {
       instance.publishState('pdf_url', url);
