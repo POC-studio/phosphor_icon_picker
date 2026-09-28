@@ -1,0 +1,12 @@
+<!-- Three.js via import() classique (pas type=module : Bubble l’ignore / le casse). -->
+<script>
+(function () {
+  if (globalThis.THREE) return;
+  import('https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js').then(function (mod) {
+    globalThis.THREE = mod;
+    globalThis.dispatchEvent(new Event('three-ready'));
+  }).catch(function (err) {
+    console.error('Flipbook: impossible de charger Three.js', err);
+  });
+})();
+</script>

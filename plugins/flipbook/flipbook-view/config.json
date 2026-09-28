@@ -1,0 +1,49 @@
+{
+  "name": "Flipbook View",
+  "use_bubble_size": true,
+  "events": ["page_changed"],
+  "states": {
+    "current_page": {
+      "type": "number",
+      "label": "Page courante (1-indexée, face visible à droite)"
+    },
+    "total_pages": {
+      "type": "number",
+      "label": "Nombre total de faces"
+    }
+  },
+  "properties": {
+    "pages": {
+      "label": "Pages",
+      "type": "image",
+      "is_list": true,
+      "default": "[\n  \"https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&h=1131&fit=crop&q=80\",\n  \"https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800&h=1131&fit=crop&q=80\",\n  \"https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=800&h=1131&fit=crop&q=80\",\n  \"https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=1131&fit=crop&q=80\",\n  \"https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=1131&fit=crop&q=80\",\n  \"https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800&h=1131&fit=crop&q=80\"\n]"
+    }
+  },
+  "actions": [
+    {
+      "id": "next_page",
+      "label": "Page suivante",
+      "type": "run_script",
+      "file": "actions/next-page.js"
+    },
+    {
+      "id": "previous_page",
+      "label": "Page précédente",
+      "type": "run_script",
+      "file": "actions/previous-page.js"
+    },
+    {
+      "id": "go_to_page",
+      "label": "Aller à la page",
+      "type": "run_script",
+      "file": "actions/go-to-page.js",
+      "fields": {
+        "page": {
+          "type": "number",
+          "label": "Page (1-indexée)"
+        }
+      }
+    }
+  ]
+}

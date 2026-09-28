@@ -197,6 +197,12 @@ async function initSandbox() {
       elementSelector.innerHTML = `
         <option value="slider-button-view">Slider Button</option>
       `;
+    } else if (pluginSelector.value === 'flipbook') {
+      elementSelector.innerHTML = `
+        <option value="flipbook-view">Flipbook View</option>
+      `;
+      if (widthInput) widthInput.value = '720';
+      if (heightInput) heightInput.value = '480';
     }
   }
 
@@ -417,7 +423,7 @@ function setupInputEmulator(config, pluginName, elementName) {
     wrapper.style.marginBottom = '10px';
     
     const label = document.createElement('label');
-    label.textContent = key;
+    label.textContent = propConfig.label || key;
     label.style.display = 'block';
     label.style.fontSize = '12px';
     label.style.marginBottom = '4px';
@@ -435,11 +441,40 @@ function setupInputEmulator(config, pluginName, elementName) {
     } else if (propConfig.type === 'integer' || propConfig.type === 'number') {
       input = document.createElement('input');
       input.type = 'number';
+      if (propConfig.step != null) input.step = String(propConfig.step);
+      else if (propConfig.type === 'number') input.step = 'any';
+      if (propConfig.min != null) input.min = String(propConfig.min);
+      if (propConfig.max != null) input.max = String(propConfig.max);
       input.value = propConfig.default !== undefined ? propConfig.default : '';
       input.style.width = '100%';
       input.style.padding = '6px';
       input.style.border = '1px solid #ccc';
       input.style.borderRadius = '4px';
+    } else if (propConfig.type === 'boolean' || propConfig.type === 'checkbox') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.checked = propConfig.default !== false;
+      input.style.margin = '4px 0';
+    } else if (propConfig.type === 'color') {
+      input = document.createElement('input');
+      input.type = 'color';
+      input.value = propConfig.default || '#000000';
+      input.style.width = '100%';
+      input.style.height = '32px';
+      input.style.padding = '2px';
+      input.style.border = '1px solid #ccc';
+      input.style.borderRadius = '4px';
+    } else if (propConfig.type === 'image' && propConfig.is_list) {
+      input = document.createElement('textarea');
+      input.value = typeof propConfig.default === 'string' ? propConfig.default : '';
+      input.style.width = '100%';
+      input.style.padding = '6px';
+      input.style.border = '1px solid #ccc';
+      input.style.borderRadius = '4px';
+      input.style.resize = 'vertical';
+      input.style.minHeight = '90px';
+      input.style.fontFamily = 'ui-monospace, Menlo, monospace';
+      input.style.fontSize = '11px';
     } else if (propConfig.type === 'dropdown') {
       input = document.createElement('select');
       input.style.width = '100%';
@@ -489,7 +524,8 @@ function setupInputEmulator(config, pluginName, elementName) {
     }
 
     // Ecouteur pour relancer 'update' du plugin
-    input.addEventListener('input', async (e) => {
+    const changeEvent = input.type === 'checkbox' ? 'change' : 'input';
+    input.addEventListener(changeEvent, async (e) => {
       if (currentInstance) {
         const properties = getMockProperties(config);
         
@@ -635,6 +671,16 @@ function setupElementActions(elementConfig, pluginName, elementName) {
         const actionModule = await import(/* @vite-ignore */ `./plugins/${pluginName}/${elementName}/${action.file}`);
         const run = actionModule.default;
         const properties = getMockProperties(elementConfig);
+        if (action.fields && action.fields.page) {
+          const raw = window.prompt('Page number (1-indexed)', '1');
+          if (raw == null) {
+            btn.disabled = false;
+            btn.textContent = action.label;
+            btn.style.backgroundColor = '#7c3aed';
+            return;
+          }
+          properties.page = parseInt(raw, 10);
+        }
 
         let context = currentContext;
         if (action.id === 'export_png') {
@@ -704,6 +750,18 @@ function getMockProperties(config) {
       if (input) {
         if (propConfig.type === 'integer') {
           properties[key] = parseInt(input.value, 10);
+        } else if (propConfig.type === 'number') {
+          properties[key] = parseFloat(input.value);
+        } else if (propConfig.type === 'boolean' || propConfig.type === 'checkbox') {
+          properties[key] = !!input.checked;
+        } else if (propConfig.type === 'image' && propConfig.is_list) {
+          const raw = input.value;
+          try {
+            const parsed = JSON.parse(raw);
+            properties[key] = parsed;
+          } catch {
+            properties[key] = raw;
+          }
         } else {
           properties[key] = input.value;
         }

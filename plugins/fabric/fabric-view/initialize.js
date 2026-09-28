@@ -1,5 +1,6 @@
 /* GENERATED FILE - ne pas éditer. Source : fabric-view/src/ (npm run build:plugins) */
 export default function(instance, context) {
+
 var __pluginInit = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;

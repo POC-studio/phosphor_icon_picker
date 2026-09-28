@@ -5,10 +5,14 @@ function loadScriptNode(node) {
       script.setAttribute(attr.name, attr.value);
     }
     script.text = node.textContent || '';
-    script.addEventListener('load', () => resolve(), { once: true });
-    script.addEventListener('error', () => reject(new Error(`Script failed: ${script.src || 'inline'}`)), { once: true });
+    const isModule = script.type === 'module';
+    const hasSrc = Boolean(script.src);
+    if (hasSrc || isModule) {
+      script.addEventListener('load', () => resolve(), { once: true });
+      script.addEventListener('error', () => reject(new Error(`Script failed: ${script.src || 'inline module'}`)), { once: true });
+    }
     document.head.appendChild(script);
-    if (!script.src) resolve();
+    if (!hasSrc && !isModule) resolve();
   });
 }
 
@@ -38,6 +42,7 @@ const SHARED_FRAGMENTS = [
   './plugins/fabric/shared.html',
   './plugins/imgly/shared.html',
   './plugins/slider-button/shared.html',
+  './plugins/flipbook/shared.html',
 ];
 
 export const sharedScriptsReady = Promise.all(

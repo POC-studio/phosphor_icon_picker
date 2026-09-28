@@ -52,6 +52,9 @@ export function loadBundleTargets() {
         entryRel: bundle.entry,
         alias: bundle.alias,
         target: bundle.target,
+        globals: bundle.globals && typeof bundle.globals === 'object' ? bundle.globals : undefined,
+        waitForGlobal: typeof bundle.waitForGlobal === 'string' ? bundle.waitForGlobal : undefined,
+        globalCdn: typeof bundle.globalCdn === 'string' ? bundle.globalCdn : undefined,
       });
     }
   }
@@ -96,11 +99,60 @@ function exactAliasPlugin(aliasMap, pluginDir) {
   };
 }
 
+/** Résout un import npm vers un global navigateur (ex. three → window.THREE). */
+function globalExternalsPlugin(globals) {
+  const names = Object.keys(globals || {});
+  if (!names.length) return null;
+  const filter = new RegExp(
+    `^(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`,
+  );
+  return {
+    name: 'global-externals',
+    setup(build) {
+      build.onResolve({ filter }, (args) => ({
+        path: args.path,
+        namespace: 'global-externals',
+      }));
+      build.onLoad({ filter: /.*/, namespace: 'global-externals' }, (args) => {
+        const ident = globals[args.path];
+        return {
+          contents: [
+            `const g = globalThis[${JSON.stringify(ident)}];`,
+            `if (!g) throw new Error(${JSON.stringify(`${ident} n’est pas chargé. Ajoute le script dans shared.html.`)});`,
+            'module.exports = g;',
+          ].join('\n'),
+          loader: 'js',
+        };
+      });
+    },
+  };
+}
+
 function esbuildOptions(target, hooks) {
   const srcDirRel = path.dirname(target.entryRel);
   const aliasEntries = target.alias && typeof target.alias === 'object'
     ? Object.entries(target.alias)
     : [];
+  const globalPlugin = globalExternalsPlugin(target.globals);
+  const waitFor = target.waitForGlobal;
+  const cdn = target.globalCdn;
+  const bannerJs = waitFor
+    ? `/* GENERATED FILE - ne pas éditer. Source : ${srcDirRel}/ (npm run build:plugins) */\nexport default function(instance, context) {\nfunction __bootPlugin() {\n`
+    : `/* GENERATED FILE - ne pas éditer. Source : ${srcDirRel}/ (npm run build:plugins) */\nexport default function(instance, context) {\n`;
+  const footerJs = waitFor
+    ? [
+        `return ${GLOBAL_NAME}.default(instance, context);`,
+        `}`,
+        `function __startPlugin() {`,
+        `  if (globalThis[${JSON.stringify(waitFor)}]) return __bootPlugin();`,
+        cdn
+          ? `  return import(${JSON.stringify(cdn)}).then(function (mod) { globalThis[${JSON.stringify(waitFor)}] = mod; return __bootPlugin(); });`
+          : `  window.addEventListener(${JSON.stringify(`${waitFor.toLowerCase()}-ready`)}, function() { __bootPlugin(); }, { once: true });`,
+        `}`,
+        `return __startPlugin();`,
+        `}`,
+      ].join('\n')
+    : `return ${GLOBAL_NAME}.default(instance, context);\n}`;
   return {
     entryPoints: [target.entry],
     outfile: target.output,
@@ -113,14 +165,15 @@ function esbuildOptions(target, hooks) {
     sourcemap: false,
     legalComments: 'none',
     banner: {
-      js: `/* GENERATED FILE - ne pas éditer. Source : ${srcDirRel}/ (npm run build:plugins) */\nexport default function(instance, context) {`,
+      js: bannerJs,
     },
     footer: {
-      js: `return ${GLOBAL_NAME}.default(instance, context);\n}`,
+      js: footerJs,
     },
     plugins: [
       notifyPlugin(target, hooks),
       ...(aliasEntries.length ? [exactAliasPlugin(target.alias, target.pluginDir)] : []),
+      ...(globalPlugin ? [globalPlugin] : []),
     ],
   };
 }
