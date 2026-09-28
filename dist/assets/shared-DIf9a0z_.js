@@ -1,4 +1,0 @@
-const s=`<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"><\/script>
-
-
-`;export{s as default};

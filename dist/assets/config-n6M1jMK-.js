@@ -1,1 +1,0 @@
-const e="Avatar",t="A circular avatar that displays either a user image (cover) or the first letter of the username, with configurable style and colors.",a={name:e,description:t};export{a as default,t as description,e as name};
