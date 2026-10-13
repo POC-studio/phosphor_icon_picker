@@ -38,6 +38,7 @@ async function injectSharedFragment(path) {
 const SHARED_FRAGMENTS = [
   './plugins/phosphor-icon-picker/shared.html',
   './plugins/lucide-icon-picker/shared.html',
+  './plugins/pixicons/shared.html',
   './plugins/word-cloud/shared.html',
   './plugins/fabric/shared.html',
   './plugins/imgly/shared.html',

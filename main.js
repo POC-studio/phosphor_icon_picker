@@ -173,6 +173,10 @@ async function initSandbox() {
         <option value="icon-picker">Icon Picker</option>
         <option value="icon-viewer">Icon Viewer</option>
       `;
+    } else if (pluginSelector.value === 'pixicons') {
+      elementSelector.innerHTML = `
+        <option value="icon-viewer">Icon Viewer</option>
+      `;
     } else if (pluginSelector.value === 'emoji-picker') {
       elementSelector.innerHTML = `
         <option value="picker">Emoji Picker</option>

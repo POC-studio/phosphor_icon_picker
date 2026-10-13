@@ -1,0 +1,25 @@
+{
+  "name": "Pixicons Icon Viewer",
+  "use_bubble_size": true,
+  "events": ["is_clicked"],
+  "properties": {
+    "initial_icon": {
+      "type": "text",
+      "default": "face-smile"
+    },
+    "variant": {
+      "type": "dropdown",
+      "options": ["regular", "fill"],
+      "default": "regular"
+    },
+    "style": {
+      "type": "dropdown",
+      "options": ["pixel", "rounded", "blob", "liquid", "liquid-blob", "retro", "stitch", "knit", "dots"],
+      "default": "pixel"
+    },
+    "icon_color": {
+      "type": "color",
+      "default": "#333333"
+    }
+  }
+}
